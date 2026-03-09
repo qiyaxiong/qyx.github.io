@@ -32,11 +32,30 @@ import config from './src/site.config.ts'
 const platform = process.env.DEPLOYMENT_PLATFORM || 'vercel'
 const isCloudflare = platform === 'cloudflare'
 const isGithubPages = platform === 'github'
+const envSiteUrl =
+  process.env.SITE_URL ||
+  process.env.PUBLIC_VERCEL_PROJECT_PRODUCTION_URL ||
+  process.env.VERCEL_PROJECT_PRODUCTION_URL
+
+/**
+ * @param {string | undefined} url
+ */
+function normalizeSiteUrl(url) {
+  if (!url) return undefined
+  const withProtocol = /^https?:\/\//.test(url) ? url : `https://${url}`
+  return new URL(withProtocol).toString()
+}
+
+const fallbackSiteUrl = isGithubPages
+  ? `https://${config.personal?.domains?.githubPages || 'example.github.io'}/`
+  : isCloudflare
+    ? `https://${config.personal?.domains?.cloudflare || 'example.pages.dev'}/`
+    : `https://${config.personal?.domains?.main || 'example.com'}/`
 
 // https://astro.build/config
 export default defineConfig({
   // Top-Level Options
-  site: isGithubPages ? `https://${config.personal?.domains?.githubPages || 'example.github.io'}/` : (isCloudflare ? `https://${config.personal?.domains?.cloudflare || 'example.pages.dev'}/` : `https://${config.personal?.domains?.main || 'example.com'}/`),
+  site: normalizeSiteUrl(envSiteUrl) || fallbackSiteUrl,
   // base: '/docs',
   trailingSlash: 'never',
 

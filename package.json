@@ -6,10 +6,10 @@
     "dev": "astro dev",
     "dev:check": "astro check --watch & astro dev",
     "build:base": "astro check && astro build",
-    "build": "npm run build:base",
-    "build:vercel": "npm run build:base",
-    "build:cloudflare": "npm run build:base",
-    "build:github": "npm run build:base",
+    "build": "astro check && astro build",
+    "build:vercel": "astro check && astro build",
+    "build:cloudflare": "astro check && astro build",
+    "build:github": "astro check && astro build",
     "preview": "astro preview",
     "sync": "astro sync",
     "check": "astro check",
@@ -18,10 +18,10 @@
     "lint": "eslint --fix 'src/**/*.{js,ts,jsx,tsx,astro}'",
     "lint:check": "eslint 'src/**/*.{js,ts,jsx,tsx,astro}'",
     "type:check": "astro check",
-    "quality": "npm run lint && npm run sync && npm run type:check && npm run format",
-    "yijiansilian": "npm run quality",
+    "quality": "pnpm run lint && pnpm run sync && pnpm run type:check && pnpm run format",
+    "yijiansilian": "pnpm run quality",
     "clean": "rm -rf .astro .vercel dist .wrangler",
-    "clean:all": "npm run clean && rm -rf node_modules"
+    "clean:all": "pnpm run clean && rm -rf node_modules"
   },
   "dependencies": {
     "@astrojs/check": "^0.9.6",
