@@ -1,0 +1,171 @@
+---
+import type { MarkdownHeading } from 'astro'
+import type { Root } from 'mdast'
+import remarkGfm from 'remark-gfm'
+import remarkMath from 'remark-math'
+import remarkParse from 'remark-parse'
+import remarkRehype from 'remark-rehype'
+import rehypeKatex from 'rehype-katex'
+import rehypeStringify from 'rehype-stringify'
+import { unified } from 'unified'
+import { visit } from 'unist-util-visit'
+
+import PostLayout from '@/layouts/BlogPost.astro'
+import mdastToString from '@/utils/mdast-util-to-string'
+import getReadingTime from '@/utils/reading-time'
+import { getNotionPageContent, getNotionPosts, type NotionPost } from '../../../lib/notion'
+
+export const prerender = true
+
+interface RenderedPostData {
+  title: string
+  description: string
+  publishDate: Date
+  updatedDate?: Date
+  heroImage?: {
+    src: string
+    alt?: string
+    width?: number
+    height?: number
+    color?: string
+  }
+  tags: string[]
+  category?: string
+  language: 'zh' | 'en'
+  draft: boolean
+  comment: boolean
+  pixivLink?: string
+}
+
+interface RenderedPost {
+  id: string
+  data: RenderedPostData
+}
+
+function slugifyHeading(text: string): string {
+  return text
+    .trim()
+    .toLowerCase()
+    .replace(/[`~!@#$%^&*()+=[\]{}|\\:;"'<>,.?/]/g, '')
+    .replace(/\s+/g, '-')
+}
+
+function getDescriptionFromMarkdown(markdown: string, fallback: string): string {
+  const normalized = markdown
+    .replace(/!\[[^\]]*]\([^)]+\)/g, '')
+    .replace(/\[([^\]]+)]\([^)]+\)/g, '$1')
+    .replace(/[#>*_`~-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  return normalized.slice(0, 160) || fallback
+}
+
+async function renderNotionMarkdown(markdown: string): Promise<{
+  html: string
+  headings: MarkdownHeading[]
+  remarkPluginFrontmatter: Record<string, unknown>
+}> {
+  const headings: MarkdownHeading[] = []
+  let minutesRead = '1 min read'
+  let words = 0
+
+  const processor = unified()
+    .use(remarkParse)
+    .use(remarkGfm)
+    .use(remarkMath)
+    .use(() => {
+      return (tree: Root) => {
+        const plainText = mdastToString(tree)
+        const readingTime = getReadingTime(plainText)
+        minutesRead = readingTime.text
+        words = readingTime.words
+
+        visit(tree, 'heading', (node) => {
+          const text = mdastToString(node, { includeHtml: false }).trim()
+          if (!text) return
+
+          const slug = slugifyHeading(text)
+          node.data = {
+            ...(node.data || {}),
+            hProperties: {
+              ...((node.data && node.data.hProperties) || {}),
+              id: slug
+            }
+          }
+
+          headings.push({
+            depth: node.depth,
+            slug,
+            text
+          })
+        })
+      }
+    })
+    .use(remarkRehype)
+    .use(rehypeKatex)
+    .use(rehypeStringify)
+
+  const file = await processor.process(markdown)
+
+  return {
+    html: String(file),
+    headings,
+    remarkPluginFrontmatter: {
+      minutesRead,
+      words
+    }
+  }
+}
+
+function toRenderedPost(post: NotionPost, description: string): RenderedPost {
+  return {
+    id: post.slug,
+    data: {
+      title: post.title,
+      description,
+      publishDate: post.date,
+      tags: post.tags,
+      category: post.category,
+      language: post.lang,
+      draft: false,
+      comment: true
+    }
+  }
+}
+
+export async function getStaticPaths() {
+  const posts = (await getNotionPosts())
+    .filter((post) => post.lang === 'en')
+    .sort((a, b) => b.date.valueOf() - a.date.valueOf())
+
+  return posts.map((post) => ({
+    params: { id: post.slug },
+    props: { post, posts }
+  }))
+}
+
+type Props = {
+  post: NotionPost
+  posts: NotionPost[]
+}
+
+const { post, posts } = Astro.props as Props
+const markdown = await getNotionPageContent(post.sourcePageId)
+const { html, headings, remarkPluginFrontmatter } = await renderNotionMarkdown(markdown)
+const description = getDescriptionFromMarkdown(markdown, post.title)
+
+const renderedPost = toRenderedPost(post, description)
+const renderedPosts = posts.map((item) =>
+  item.slug === post.slug ? renderedPost : toRenderedPost(item, item.title)
+)
+---
+
+<PostLayout
+  post={renderedPost as any}
+  posts={renderedPosts as any}
+  {headings}
+  {remarkPluginFrontmatter}
+>
+  <Fragment set:html={html} />
+</PostLayout>

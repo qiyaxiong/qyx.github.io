@@ -1,0 +1,164 @@
+---
+import type { MarkdownHeading } from 'astro'
+
+import { Icon } from '@/components/user'
+import { TOC } from '@/components/pages'
+import ContentLayout from '@/layouts/ContentLayout.astro'
+import type { FlatNoteTreeNode, NoteTreeNode } from '@/utils/server'
+
+interface BreadcrumbItem {
+  title: string
+  href: string
+}
+
+interface Props {
+  title: string
+  description: string
+  basePath: string
+  currentPath: string
+  rootTitle: string
+  flatTree: FlatNoteTreeNode[]
+  breadcrumbs: BreadcrumbItem[]
+  childNodes: NoteTreeNode[]
+  headings?: MarkdownHeading[]
+  html?: string
+}
+
+const {
+  title,
+  description,
+  basePath,
+  currentPath,
+  rootTitle,
+  flatTree,
+  breadcrumbs,
+  childNodes,
+  headings = [],
+  html
+} = Astro.props
+
+function getNodeHref(path: string) {
+  return path ? `${basePath}/${path}` : basePath
+}
+
+function countDescendants(node: NoteTreeNode): number {
+  return node.children.reduce((count, child) => count + 1 + countDescendants(child), 0)
+}
+---
+
+<ContentLayout meta={{ title, description }} back={basePath}>
+  <Fragment slot='sidebar'>
+    <div class='space-y-8'>
+      <section>
+        <h2 class='text-xs font-semibold tracking-[0.22em] text-muted-foreground'>{rootTitle}</h2>
+        {
+          flatTree.length > 0 ? (
+            <ul class='mt-4 flex flex-col gap-1 text-sm'>
+              {flatTree.map((node) => {
+                const isActive = node.path === currentPath
+
+                return (
+                  <li style={`padding-left:${Math.max(node.depth - 1, 0) * 0.9}rem`}>
+                    <a
+                      href={getNodeHref(node.path)}
+                      class:list={[
+                        'flex items-center gap-2 rounded-lg px-3 py-2 transition-colors',
+                        isActive
+                          ? 'bg-muted text-foreground'
+                          : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground'
+                      ]}
+                    >
+                      <span
+                        class:list={[
+                          'inline-block size-1.5 rounded-full',
+                          isActive ? 'bg-primary' : 'bg-border'
+                        ]}
+                      />
+                      <span class='min-w-0 truncate'>{node.title}</span>
+                      {node.hasChildren && (
+                        <span class='ms-auto text-[10px] uppercase tracking-[0.18em] text-muted-foreground'>
+                          Dir
+                        </span>
+                      )}
+                    </a>
+                  </li>
+                )
+              })}
+            </ul>
+          ) : (
+            <p class='mt-4 text-sm text-muted-foreground'>No notes yet.</p>
+          )
+        }
+      </section>
+
+      {!!headings.length && <TOC {headings} />}
+    </div>
+  </Fragment>
+
+  <Fragment slot='header'>
+    <div class='flex flex-wrap items-center gap-2 text-sm text-muted-foreground'>
+      {breadcrumbs.map((item, index) => (
+        <>
+          {index > 0 && <Icon name='chevron-down' class='size-4 -rotate-90' />}
+          {index === breadcrumbs.length - 1 ? (
+            <span>{item.title}</span>
+          ) : (
+            <a href={item.href} class='transition-colors hover:text-foreground'>
+              {item.title}
+            </a>
+          )}
+        </>
+      ))}
+    </div>
+    <h1 class='mt-4 text-2xl font-medium sm:text-3xl'>{title}</h1>
+    <p class='mt-3 text-sm text-muted-foreground sm:text-base'>{description}</p>
+  </Fragment>
+
+  {!html && (
+    <div class='not-prose rounded-2xl border border-dashed border-border bg-card/70 px-5 py-6 text-sm text-muted-foreground'>
+      This is a note directory. Pick a subnote below to continue reading.
+    </div>
+  )}
+
+  {html && <Fragment set:html={html} />}
+
+  {!!childNodes.length && (
+    <section class='not-prose mt-10'>
+      <div class='mb-4 flex items-center justify-between gap-3'>
+        <h2 class='text-lg font-semibold text-foreground'>Subnotes</h2>
+        <span class='text-sm text-muted-foreground'>{childNodes.length} items</span>
+      </div>
+
+      <div class='grid gap-3 sm:grid-cols-2'>
+        {childNodes.map((node) => {
+          const descendants = countDescendants(node)
+          const subtitle = node.page
+            ? descendants > 0
+              ? `${descendants} nested notes`
+              : 'Read note'
+            : `${node.children.length} direct subnotes`
+
+          return (
+            <a
+              href={getNodeHref(node.path)}
+              class='group rounded-xl border border-border bg-card p-4 transition-all hover:border-primary/40 hover:bg-muted/50 hover:shadow-sm'
+            >
+              <div class='flex items-start justify-between gap-4'>
+                <div class='min-w-0'>
+                  <h3 class='truncate text-base font-semibold text-foreground transition-colors group-hover:text-primary'>
+                    {node.page?.title || node.title}
+                  </h3>
+                  <p class='mt-1 text-sm text-muted-foreground'>{subtitle}</p>
+                </div>
+                <Icon
+                  name='chevron-down'
+                  class='mt-0.5 size-4 shrink-0 -rotate-90 text-muted-foreground transition-colors group-hover:text-primary'
+                />
+              </div>
+            </a>
+          )
+        })}
+      </div>
+    </section>
+  )}
+</ContentLayout>

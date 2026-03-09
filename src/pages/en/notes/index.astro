@@ -1,0 +1,42 @@
+---
+import type { MarkdownHeading } from 'astro'
+
+import { getNotionPageContent } from '@/lib/notion'
+import NotesView from '@/components/pages/NotesView.astro'
+import { buildNoteTree, flattenNoteTree, getNotesCollectionEn } from '@/server'
+import { getDescriptionFromMarkdown, renderNotionMarkdown } from '@/utils/notion-markdown'
+
+export const prerender = true
+
+const notes = await getNotesCollectionEn()
+const root = buildNoteTree(notes, 'Notes')
+const flatTree = flattenNoteTree(root)
+
+let html: string | undefined
+let headings: MarkdownHeading[] = []
+let description = 'Browse all notes and nested notebooks.'
+
+if (root.page) {
+  const markdown = await getNotionPageContent(root.page.sourcePageId)
+  const rendered = await renderNotionMarkdown(markdown)
+  html = rendered.html
+  headings = rendered.headings
+  description = getDescriptionFromMarkdown(markdown, root.page.title)
+}
+
+const title = root.page?.title || 'Notes'
+const breadcrumbs = [{ title, href: '/en/notes' }]
+---
+
+<NotesView
+  title={title}
+  {description}
+  basePath='/en/notes'
+  currentPath=''
+  rootTitle='NOTEBOOK'
+  {flatTree}
+  {breadcrumbs}
+  childNodes={root.children}
+  {headings}
+  {html}
+/>

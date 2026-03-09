@@ -1,0 +1,47 @@
+---
+import { PostPreview } from '@/components/pages'
+import { Button } from '@/components/user'
+import {
+  getBlogCollectionEn,
+  getUniqueCategoriesWithCount,
+  sortMDByDate
+} from '@/server'
+import PageLayout from '@/layouts/BaseLayout.astro'
+
+export const prerender = true
+
+const allPosts = sortMDByDate(await getBlogCollectionEn())
+const categories = getUniqueCategoriesWithCount(allPosts).sort((a, b) => a[0].localeCompare(b[0]))
+
+const meta = {
+  description: 'Browse all blog posts',
+  title: 'Blog'
+}
+---
+
+<PageLayout {meta}>
+  <Button title='Back' href='/en' style='back' />
+
+  <main class='mt-6 lg:mt-10'>
+    <div id='content-header' class='animate'>
+      <h1 class='mb-4 text-3xl font-medium'>Blog</h1>
+      {!!categories.length && (
+        <ul class='mb-6 flex flex-wrap gap-2'>
+          {categories.map(([category, count]) => (
+            <li>
+              <Button title={`${category} (${count})`} href={`/en/blog/${category}`} style='pill' />
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+
+    {allPosts.length === 0 && <p>No posts yet.</p>}
+
+    <section id='content' class='animate' aria-label='All blog post list'>
+      <ul class='flex flex-col gap-y-3 text-start'>
+        {allPosts.map((post) => <PostPreview as='h2' {post} detailed />)}
+      </ul>
+    </section>
+  </main>
+</PageLayout>

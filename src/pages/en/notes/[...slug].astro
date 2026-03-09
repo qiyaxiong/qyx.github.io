@@ -1,0 +1,69 @@
+---
+import type { MarkdownHeading } from 'astro'
+
+import { getNotionPageContent } from '@/lib/notion'
+import NotesView from '@/components/pages/NotesView.astro'
+import {
+  buildNoteTree,
+  flattenNoteTree,
+  getNoteAncestors,
+  getNoteNode,
+  getNotesCollectionEn
+} from '@/server'
+import { getDescriptionFromMarkdown, renderNotionMarkdown } from '@/utils/notion-markdown'
+
+export const prerender = true
+
+export async function getStaticPaths() {
+  const notes = await getNotesCollectionEn()
+  const root = buildNoteTree(notes, 'Notes')
+
+  return flattenNoteTree(root).map((node) => ({
+    params: { slug: node.path }
+  }))
+}
+
+const slugParam = Astro.params.slug
+const currentPath = Array.isArray(slugParam) ? slugParam.join('/') : slugParam || ''
+
+const notes = await getNotesCollectionEn()
+const root = buildNoteTree(notes, 'Notes')
+const currentNode = getNoteNode(root, currentPath)
+
+if (!currentNode) {
+  throw new Error(`Missing note node for path: ${currentPath}`)
+}
+
+const flatTree = flattenNoteTree(root)
+const breadcrumbs = getNoteAncestors(root, currentPath).map((node, index) => ({
+  title: node.page?.title || node.title,
+  href: index === 0 ? '/en/notes' : `/en/notes/${node.path}`
+}))
+
+let html: string | undefined
+let headings: MarkdownHeading[] = []
+let description = `Browse notes inside ${currentNode.page?.title || currentNode.title}.`
+
+if (currentNode.page) {
+  const markdown = await getNotionPageContent(currentNode.page.sourcePageId)
+  const rendered = await renderNotionMarkdown(markdown)
+  html = rendered.html
+  headings = rendered.headings
+  description = getDescriptionFromMarkdown(markdown, currentNode.page.title)
+}
+
+const title = currentNode.page?.title || currentNode.title
+---
+
+<NotesView
+  {title}
+  {description}
+  basePath='/en/notes'
+  {currentPath}
+  rootTitle='NOTEBOOK'
+  {flatTree}
+  {breadcrumbs}
+  childNodes={currentNode.children}
+  {headings}
+  {html}
+/>
