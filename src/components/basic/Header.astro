@@ -6,7 +6,7 @@ import { getRelativeLocaleUrl } from 'astro:i18n'
 import { getBlogCollection, getBlogCollectionEn, getUniqueCategories } from '@/server'
 
 const isEnglish = Astro.currentLocale === 'en'
-const brandTitle = isEnglish ? config.author_en || 'KBWS' : config.title
+const brandTitle = isEnglish ? config.author_en || 'Your Name' : config.title
 const allCollections = isEnglish ? await getBlogCollectionEn() : await getBlogCollection()
 const categories = getUniqueCategories(allCollections)
   .sort((a, b) => a.localeCompare(b))

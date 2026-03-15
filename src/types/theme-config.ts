@@ -176,6 +176,12 @@ export const ThemeConfigSchema = () =>
       /** Your location */
       location: z.string().optional().describe('Your location'),
 
+      /** Short personal bio (default language) */
+      bio: z.string().optional().describe('Short personal bio (default language)'),
+
+      /** Short personal bio (English) */
+      bio_en: z.string().optional().describe('Short personal bio (English)'),
+
       /** Your GitHub username */
       githubUsername: z.string().optional().describe('Your GitHub username'),
 

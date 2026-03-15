@@ -346,7 +346,18 @@ export async function queryNotionDB(type: string): Promise<PageObjectResponse[]>
   }
 
   const request = (async () => {
-    const dataSourceId = await getDataSourceId(cacheKey as NotionRegistryType)
+    let dataSourceId: string
+    try {
+      dataSourceId = await getDataSourceId(cacheKey as NotionRegistryType)
+    } catch (error) {
+      // Allow progressive setup: if a data source is not configured yet, return empty results.
+      if (error instanceof Error && error.message.includes('No data source matched')) {
+        console.warn(`[notion] ${error.message}. Returning empty list for "${cacheKey}".`)
+        return []
+      }
+      throw error
+    }
+
     const results: PageObjectResponse[] = []
     let cursor: string | undefined
 

@@ -47,9 +47,9 @@ const shares = {
         </mask>
       </defs>
 
-      <text x="12" y="58" class="signature-text signature-text-base">kbws</text>
+      <text x="12" y="58" class="signature-text signature-text-base">{config.author_en || config.author}</text>
       <text x="12" y="58" class="signature-text signature-text-draw" mask="url(#signature-reveal-mask)">
-        kbws
+        {config.author_en || config.author}
       </text>
     </svg>
   </div>

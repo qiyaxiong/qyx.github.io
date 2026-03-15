@@ -3,7 +3,8 @@ import PageLayout from '@/layouts/CommonPage.astro'
 import AlgorithmShowcase from '@/components/about/AlgorithmShowcase.astro'
 import ToolSection from '@/components/about/ToolSection.astro'
 import { Comment } from '@/components/advanced'
-import { Button, DistributionSection, Spoiler } from '@/components/user'
+import { Spoiler } from '@/components/user'
+import config from '@/site-config'
 
 const headings = [
   { depth: 2, slug: 'distribution', text: 'Distribution' },
@@ -12,24 +13,13 @@ const headings = [
   { depth: 2, slug: 'theme', text: 'Theme' }
 ]
 
-const distributions = [
-  {
-    title: 'Mirror 1',
-    url: 'example.com',
-    platform: 'Vercel'
-  },
-  {
-    title: 'Mirror 2',
-    url: 'blog.example.com',
-    platform: 'Vultr'
-  }
-]
 ---
 
 <PageLayout title='About' {headings} info='/about'>
   <p>Empty Stack Engineer / <Spoiler>Some fun facts about you</Spoiler></p>
   <p>
-    I am kbws, a person who enjoys writing code, developing systems, and gradually organizing thoughts into words. This website not only records completed outcomes but also documents ongoing learning, thinking, and construction. Here, you can find articles, notes, projects, as well as the technical perspective and methodology that I am gradually forming.
+    {config.personal?.bio_en ||
+      `I am ${config.author_en || config.author}, a person who enjoys writing code, developing systems, and gradually organizing thoughts into words. This website not only records completed outcomes but also documents ongoing learning, thinking, and construction. Here, you can find articles, notes, projects, as well as the technical perspective and methodology that I am gradually forming.`}
   </p>
   <h2 id='tools'>Tools<a class='anchor' href='#tools'>#</a></h2>
   <ToolSection

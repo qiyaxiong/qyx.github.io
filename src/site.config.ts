@@ -3,13 +3,13 @@ import type { CardListData, Config, IntegrationUserConfig, ThemeUserConfig } fro
 export const theme: ThemeUserConfig = {
   // === Basic configuration ===
   /** Title for your website. Will be used in metadata and as browser tab title. */
-  title: '空白无上',
+  title: '戚柒',
   /** Will be used in index page & copyright declaration */
-  author: '空白无上',
-  author_en: 'KBWS',
+  author: '戚柒',
+  author_en: 'Qi Qi',
   /** Description metadata for your website. Can be used in page metadata. */
-  description: '空白无上',
-  description_en: 'KBWS',
+  description: '戚柒的个人网站，记录学习、项目与思考。',
+  description_en: 'Qi Qi personal website for learning notes, projects, and thoughts.',
   /** The default favicon for your site which should be a path to an image in the `public/` directory. */
   favicon: '/favicon/favicon.svg',
   /** Specify the default language for this site. */
@@ -26,7 +26,7 @@ export const theme: ThemeUserConfig = {
   },
   /** Set a logo image to show in the homepage. */
   logo: {
-    src: 'src/assets/avatar.png',
+    src: 'src/assets/avatar.jpg',
     alt: 'Avatar'
   },
 
@@ -61,7 +61,7 @@ export const theme: ThemeUserConfig = {
     /** Enable displaying a "Astro & Axi theme powered" link in your site's footer. */
     credits: true,
     /** Optional details about the social media accounts for this site. */
-    social: { github: 'https://github.com/Axi404/Axi-Theme' }
+    social: { github: 'https://github.com/qiyaxiong' }
   },
 
   content: {
@@ -77,17 +77,22 @@ export const theme: ThemeUserConfig = {
   personal: {
     /** Your location */
     location: 'China',
+    /** Short personal bio (default language) */
+    bio: '你好，我是戚柒，这里记录我的学习、项目与思考。',
+    /** Short personal bio (English) */
+    bio_en:
+      'Hi, I am Qi Qi. I use this site to share my learning notes, projects, and thoughts.',
     /** Your GitHub username */
-    githubUsername: 'kbws13',
+    githubUsername: 'qiyaxiong',
     /** Your email address */
-    email: 'kbws13@163.com',
+    email: 'a1926437851@gmail.com',
     /** Your Google Scholar profile URL */
-    googleScholar: 'https://scholar.google.com/citations?user=W9mT0rcAAAAJ&hl=zh-CN',
+    googleScholar: '',
     /** Blog start date for statistics */
-    blogStartDate: '2024-06-15',
+    blogStartDate: '2026-03-15',
     /** Domain configuration */
     domains: {
-      main: 'theme.axi404.top',
+      main: 'qiqi7777777.github.io',
       // githubPages: '',
       // cloudflare: '',
       // friendCircle: '',

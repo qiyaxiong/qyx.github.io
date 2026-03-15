@@ -3,7 +3,8 @@ import PageLayout from '@/layouts/CommonPage.astro'
 import AlgorithmShowcase from '@/components/about/AlgorithmShowcase.astro'
 import ToolSection from '@/components/about/ToolSection.astro'
 import { Comment } from '@/components/advanced'
-import { Button, DistributionSection, Spoiler } from '@/components/user'
+import { Spoiler } from '@/components/user'
+import config from '@/site-config'
 
 const headings = [
   { depth: 2, slug: 'distribution', text: 'Distribution' },
@@ -12,24 +13,13 @@ const headings = [
   { depth: 2, slug: 'theme', text: 'Theme' }
 ]
 
-const distributions = [
-  {
-    title: '镜像站 1',
-    url: 'example.com',
-    platform: 'Vercel'
-  },
-  {
-    title: '镜像站 2',
-    url: 'blog.example.com',
-    platform: 'Vultr'
-  }
-]
 ---
 
 <PageLayout title='About' {headings} info='/about'>
   <p>空栈工程师 / <Spoiler>关于你的一些冷知识</Spoiler></p>
   <p>
-    我是空白无上，一个喜欢写代码、做系统，也喜欢把想法慢慢整理成文字的人。这个网站记录的，不只是完成的结果，也包括仍在继续的学习、思考与构建。这里有文章，有笔记，有项目，也有我正在慢慢形成的技术观和方法论。
+    {config.personal?.bio ||
+      `我是${config.author}，一个喜欢写代码、做系统，也喜欢把想法慢慢整理成文字的人。这个网站记录的，不只是完成的结果，也包括仍在继续的学习、思考与构建。这里有文章，有笔记，有项目，也有我正在慢慢形成的技术观和方法论。`}
   </p>
   <h2 id='tools'>工具<a class='anchor' href='#tools'>#</a></h2>
   <ToolSection

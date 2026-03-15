@@ -5,7 +5,7 @@ import GitHubActivityCalendar from '@/components/home/GitHubActivityCalendar.ast
 import PageLayout from '@/layouts/BaseLayout.astro'
 import Section from '@/components/home/Section.astro'
 import BlogStats from '@/components/home/BlogStats.astro'
-import avatar from '@/assets/avatar.png'
+import avatar from '@/assets/avatar.jpg'
 import config from '@/site-config'
 ---
 
@@ -53,7 +53,9 @@ import config from '@/site-config'
 
     <div id='content' class='animate flex flex-col gap-y-10 md:w-4/5 lg:w-5/6'>
       <Section title='About'>
-        <p class='text-muted-foreground'>我是空白无上，一个喜欢写代码、做系统，也喜欢把想法慢慢整理成文字的人。这个网站记录的，不只是完成的结果，也包括仍在继续的学习、思考与构建。这里有文章，有笔记，有项目，也有我正在慢慢形成的技术观和方法论。
+        <p class='text-muted-foreground'>
+          {config.personal?.bio ||
+            '我是你的名字，一个喜欢写代码、做系统，也喜欢把想法慢慢整理成文字的人。这个网站记录的，不只是完成的结果，也包括仍在继续的学习、思考与构建。这里有文章，有笔记，有项目，也有我正在慢慢形成的技术观和方法论。'}
         </p>
         <Button title='More about me' class='w-fit self-end' href='/about' style='ahead' />
       </Section>
