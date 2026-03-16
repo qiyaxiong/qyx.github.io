@@ -12,17 +12,6 @@ import {
 } from '@/server'
 import { getDescriptionFromMarkdown, renderNotionMarkdown } from '@/utils/notion-markdown'
 
-export const prerender = true
-
-export async function getStaticPaths() {
-  const notes = await getNotesCollection()
-  const root = buildNoteTree(notes, 'Notes')
-
-  return flattenNoteTree(root).map((node) => ({
-    params: { slug: node.path }
-  }))
-}
-
 const slugParam = Astro.params.slug
 const currentPath = Array.isArray(slugParam) ? slugParam.join('/') : slugParam || ''
 

@@ -6,8 +6,6 @@ import NotesView from '@/components/pages/NotesView.astro'
 import { buildNoteTree, flattenNoteTree, getNotesCollection } from '@/server'
 import { getDescriptionFromMarkdown, renderNotionMarkdown } from '@/utils/notion-markdown'
 
-export const prerender = true
-
 const notes = await getNotesCollection()
 const root = buildNoteTree(notes, 'Notes')
 const flatTree = flattenNoteTree(root)
