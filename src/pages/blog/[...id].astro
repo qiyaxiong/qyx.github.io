@@ -132,29 +132,24 @@ function toRenderedPost(post: NotionPost, description: string): RenderedPost {
   }
 }
 
-export async function getStaticPaths() {
-  const posts = (await getNotionPosts())
-    .filter((post) => post.lang === 'zh')
-    .sort((a, b) => b.date.valueOf() - a.date.valueOf())
+const { id } = Astro.params
 
-  return posts.map((post) => ({
-    params: { id: post.slug },
-    props: { post, posts }
-  }))
+const allPosts = (await getNotionPosts())
+  .filter((post) => post.lang === 'zh')
+  .sort((a, b) => b.date.valueOf() - a.date.valueOf())
+
+const post = allPosts.find((item) => item.slug === id)
+
+if (!post) {
+  return Astro.redirect('/404')
 }
 
-type Props = {
-  post: NotionPost
-  posts: NotionPost[]
-}
-
-const { post, posts } = Astro.props as Props
 const markdown = await getNotionPageContent(post.sourcePageId)
 const { html, headings, remarkPluginFrontmatter } = await renderNotionMarkdown(markdown)
 const description = getDescriptionFromMarkdown(markdown, post.title)
 
 const renderedPost = toRenderedPost(post, description)
-const renderedPosts = posts.map((item) =>
+const renderedPosts = allPosts.map((item) =>
   item.slug === post.slug ? renderedPost : toRenderedPost(item, item.title)
 )
 ---

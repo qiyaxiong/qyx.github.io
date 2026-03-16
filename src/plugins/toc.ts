@@ -30,6 +30,12 @@ export function generateToc(headings: readonly MarkdownHeading[]) {
     if (heading.depth === 2) {
       toc.push(heading)
     } else {
+      // 如果还没有任何 h2，就把第一个更深层级的标题当作顶层，避免空数组访问错误
+      if (!toc.length) {
+        toc.push(heading)
+        return
+      }
+
       const lastItemInToc = toc[toc.length - 1]!
       if (heading.depth < lastItemInToc.depth) {
         throw new Error(`Orphan heading found: ${heading.text}.`)
