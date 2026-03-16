@@ -3,7 +3,7 @@
 import { rehypeHeadingIds } from '@astrojs/markdown-remark'
 // Adapters
 import cloudflare from '@astrojs/cloudflare'
-import vercel from '@astrojs/vercel/server'
+import vercel from '@astrojs/vercel/serverless'
 // Integrations
 import AstroAxiIntegration from './src/axi-integration.ts'
 import { defineConfig } from 'astro/config'
@@ -69,7 +69,7 @@ export default defineConfig({
     }
   },
 
-  adapter: isCloudflare ? cloudflare() : vercel(),
+  adapter: isCloudflare ? cloudflare() : vercel({}),
   output: 'server',
 
   image: {
