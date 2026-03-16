@@ -69,7 +69,7 @@ export default defineConfig({
   },
 
   adapter: isCloudflare ? cloudflare() : undefined,
-  output: 'static',
+  output: 'server',
 
   image: {
     service: {
