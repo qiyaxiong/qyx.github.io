@@ -73,7 +73,7 @@ function toBlogPostEntry(post: NotionPost): BlogPostEntry {
     sourcePageId: post.sourcePageId,
     data: {
       title: post.title,
-      description: post.title,
+      description: post.description || post.title,
       publishDate: post.date,
       tags: post.tags,
       category: post.category,

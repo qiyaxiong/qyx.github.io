@@ -1,0 +1,46 @@
+---
+import PageLayout from '@/layouts/BaseLayout.astro'
+import { Button } from '@/components/user'
+import { getNotionPages } from '@/lib/notion'
+
+export const prerender = true
+
+const pages = (await getNotionPages())
+  .filter((page) => page.lang === 'zh')
+  .sort((a, b) => a.title.localeCompare(b.title, 'zh'))
+
+const meta = {
+  title: 'Pages',
+  description: 'Browse Notion pages'
+}
+---
+
+<PageLayout {meta}>
+  <Button title='Back' href='/' style='back' />
+
+  <main class='mt-6 lg:mt-10'>
+    <div id='content-header' class='animate'>
+      <h1 class='mb-4 text-3xl font-medium'>Pages</h1>
+    </div>
+
+    {pages.length === 0 && <p class='text-muted-foreground'>No pages yet.</p>}
+
+    <section id='content' class='animate' aria-label='Notion page list'>
+      <ul class='grid gap-3 sm:grid-cols-2 lg:grid-cols-3'>
+        {
+          pages.map((page) => (
+            <li>
+              <a
+                href={`/pages/${page.slug}`}
+                class='block rounded-lg border border-border bg-background p-4 no-underline transition-colors hover:bg-muted'
+              >
+                <h2 class='my-0 text-base font-medium'>{page.title}</h2>
+                <p class='mb-0 mt-2 text-sm text-muted-foreground'>{page.slug}</p>
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </section>
+  </main>
+</PageLayout>

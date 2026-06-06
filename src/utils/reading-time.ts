@@ -1,13 +1,13 @@
 // CJK character ranges
 const CJK_RANGES = [
-  [0x4e00, 0x9fff],    // CJK Unified Ideographs
-  [0x3400, 0x4dbf],    // CJK Extension A
-  [0x20000, 0x2a6df],  // CJK Extension B
-  [0x2a700, 0x2b73f],  // CJK Extension C
-  [0x2b740, 0x2b81f],  // CJK Extension D
-  [0x2b820, 0x2ceaf],  // CJK Extension E
-  [0xf900, 0xfaff],    // CJK Compatibility Ideographs
-  [0x2f800, 0x2fa1f]   // CJK Compatibility Ideographs Supplement
+  [0x4e00, 0x9fff], // CJK Unified Ideographs
+  [0x3400, 0x4dbf], // CJK Extension A
+  [0x20000, 0x2a6df], // CJK Extension B
+  [0x2a700, 0x2b73f], // CJK Extension C
+  [0x2b740, 0x2b81f], // CJK Extension D
+  [0x2b820, 0x2ceaf], // CJK Extension E
+  [0xf900, 0xfaff], // CJK Compatibility Ideographs
+  [0x2f800, 0x2fa1f] // CJK Compatibility Ideographs Supplement
 ]
 
 // CJK punctuation ranges
@@ -25,13 +25,13 @@ function isCJK(char: string): boolean {
   return CJK_RANGES.some(([start, end]) => code >= start && code <= end)
 }
 
-function countWords(text: string): number {
+function countWords(text: string = ''): number {
   let words = 0
   let inWord = false
 
   for (let i = 0; i < text.length; i++) {
     const char = text[i]
-    
+
     if (isCJK(char)) {
       // Each CJK character counts as a word
       words++
@@ -58,8 +58,11 @@ function countWords(text: string): number {
   return words
 }
 
-export function getReadingTime(text: string, wordsPerMinute: number = 200): ReadingTimeResult {
-  const words = countWords(text)
+export function getReadingTime(
+  text: string | null | undefined,
+  wordsPerMinute: number = 200
+): ReadingTimeResult {
+  const words = countWords(text ?? '')
   const minutes = words / wordsPerMinute
   const time = Math.round(minutes * 60 * 1000)
   const displayed = Math.ceil(minutes)

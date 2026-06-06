@@ -1,11 +1,11 @@
-import { Client } from '@notionhq/client'
-import { NotionToMarkdown } from 'notion-to-md'
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { Client } from '@notionhq/client'
 import type {
   PageObjectResponse,
   QueryDataSourceResponse
 } from '@notionhq/client/build/src/api-endpoints'
+import { NotionToMarkdown } from 'notion-to-md'
 
 export type NotionRegistryType = 'Post' | 'Page' | 'Link' | 'Project' | 'Note'
 export type NotionLang = 'zh' | 'en'
@@ -13,6 +13,7 @@ export type NotionLang = 'zh' | 'en'
 export interface NotionPost {
   notionId: string
   title: string
+  description?: string
   type: 'Post'
   lang: NotionLang
   slug: string
@@ -73,6 +74,9 @@ const notion = new Client({ auth: NOTION_API_KEY })
 const dataSourceIdCache = new Map<NotionRegistryType, Promise<string | null>>()
 const queryCache = new Map<string, Promise<PageObjectResponse[]>>()
 const markdownCache = new Map<string, Promise<string>>()
+const invalidPageWarnings = new Set<string>()
+
+type NotionMapper<T> = (page: PageObjectResponse) => T | undefined
 
 function loadEnvFile(): Record<string, string> {
   if (envFileCache) {
@@ -140,9 +144,7 @@ function normalizeId(value: string): string {
 }
 
 export function extractPageId(url: string): string {
-  const match = url.match(
-    /[0-9a-fA-F]{32}|[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}/
-  )
+  const match = url.match(/[0-9a-fA-F]{32}|[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}/)
 
   if (!match) {
     throw new Error(`Unable to extract Notion page ID from URL: ${url}`)
@@ -151,7 +153,9 @@ export function extractPageId(url: string): string {
   return normalizeId(match[0])
 }
 
-function isFullPage(result: QueryDataSourceResponse['results'][number]): result is PageObjectResponse {
+function isFullPage(
+  result: QueryDataSourceResponse['results'][number]
+): result is PageObjectResponse {
   return result.object === 'page' && 'properties' in result
 }
 
@@ -170,48 +174,95 @@ function getProperty(page: PageObjectResponse, names: string | string[]) {
 function getTitleValue(page: PageObjectResponse, names: string | string[]): string {
   const property = getProperty(page, names)
   if (property.type !== 'title') {
-    throw new Error(`Property "${Array.isArray(names) ? names.join('" or "') : names}" on Notion page ${page.id} is not a title field`)
+    throw new Error(
+      `Property "${Array.isArray(names) ? names.join('" or "') : names}" on Notion page ${page.id} is not a title field`
+    )
   }
-  return property.title.map((item) => item.plain_text).join('').trim()
+  return property.title
+    .map((item) => item.plain_text)
+    .join('')
+    .trim()
+}
+
+function getRequiredTitleValue(page: PageObjectResponse, names: string | string[]): string {
+  const value = getTitleValue(page, names)
+  if (!value) {
+    throw new Error(
+      `Property "${Array.isArray(names) ? names.join('" or "') : names}" on Notion page ${page.id} is empty`
+    )
+  }
+  return value
 }
 
 function getRichTextValue(page: PageObjectResponse, names: string | string[]): string {
   const property = getProperty(page, names)
   if (property.type !== 'rich_text') {
-    throw new Error(`Property "${Array.isArray(names) ? names.join('" or "') : names}" on Notion page ${page.id} is not a rich_text field`)
+    throw new Error(
+      `Property "${Array.isArray(names) ? names.join('" or "') : names}" on Notion page ${page.id} is not a rich_text field`
+    )
   }
-  return property.rich_text.map((item) => item.plain_text).join('').trim()
+  return property.rich_text
+    .map((item) => item.plain_text)
+    .join('')
+    .trim()
 }
 
-function getOptionalRichTextValue(page: PageObjectResponse, names: string | string[]): string | undefined {
+function getRequiredRichTextValue(page: PageObjectResponse, names: string | string[]): string {
+  const value = getRichTextValue(page, names)
+  if (!value) {
+    throw new Error(
+      `Property "${Array.isArray(names) ? names.join('" or "') : names}" on Notion page ${page.id} is empty`
+    )
+  }
+  return value
+}
+
+function getOptionalRichTextValue(
+  page: PageObjectResponse,
+  names: string | string[]
+): string | undefined {
   const aliases = Array.isArray(names) ? names : [names]
   const property = aliases.map((name) => page.properties[name]).find(Boolean)
   if (!property) return undefined
   if (property.type !== 'rich_text') {
-    throw new Error(`Property "${aliases.join('" or "')}" on Notion page ${page.id} is not a rich_text field`)
+    throw new Error(
+      `Property "${aliases.join('" or "')}" on Notion page ${page.id} is not a rich_text field`
+    )
   }
 
-  const value = property.rich_text.map((item) => item.plain_text).join('').trim()
+  const value = property.rich_text
+    .map((item) => item.plain_text)
+    .join('')
+    .trim()
   return value || undefined
 }
 
 function getSelectValue(page: PageObjectResponse, names: string | string[]): string {
   const property = getProperty(page, names)
   if (property.type !== 'select') {
-    throw new Error(`Property "${Array.isArray(names) ? names.join('" or "') : names}" on Notion page ${page.id} is not a select field`)
+    throw new Error(
+      `Property "${Array.isArray(names) ? names.join('" or "') : names}" on Notion page ${page.id} is not a select field`
+    )
   }
   if (!property.select?.name) {
-    throw new Error(`Property "${Array.isArray(names) ? names.join('" or "') : names}" on Notion page ${page.id} is empty`)
+    throw new Error(
+      `Property "${Array.isArray(names) ? names.join('" or "') : names}" on Notion page ${page.id} is empty`
+    )
   }
   return property.select.name
 }
 
-function getOptionalSelectValue(page: PageObjectResponse, names: string | string[]): string | undefined {
+function getOptionalSelectValue(
+  page: PageObjectResponse,
+  names: string | string[]
+): string | undefined {
   const aliases = Array.isArray(names) ? names : [names]
   const property = aliases.map((name) => page.properties[name]).find(Boolean)
   if (!property) return undefined
   if (property.type !== 'select') {
-    throw new Error(`Property "${aliases.join('" or "')}" on Notion page ${page.id} is not a select field`)
+    throw new Error(
+      `Property "${aliases.join('" or "')}" on Notion page ${page.id} is not a select field`
+    )
   }
   return property.select?.name || undefined
 }
@@ -219,7 +270,9 @@ function getOptionalSelectValue(page: PageObjectResponse, names: string | string
 function getMultiSelectValues(page: PageObjectResponse, names: string | string[]): string[] {
   const property = getProperty(page, names)
   if (property.type !== 'multi_select') {
-    throw new Error(`Property "${Array.isArray(names) ? names.join('" or "') : names}" on Notion page ${page.id} is not a multi_select field`)
+    throw new Error(
+      `Property "${Array.isArray(names) ? names.join('" or "') : names}" on Notion page ${page.id} is not a multi_select field`
+    )
   }
   return property.multi_select.map((item) => item.name)
 }
@@ -227,30 +280,44 @@ function getMultiSelectValues(page: PageObjectResponse, names: string | string[]
 function getUrlValue(page: PageObjectResponse, names: string | string[]): string {
   const property = getProperty(page, names)
   if (property.type !== 'url') {
-    throw new Error(`Property "${Array.isArray(names) ? names.join('" or "') : names}" on Notion page ${page.id} is not a url field`)
+    throw new Error(
+      `Property "${Array.isArray(names) ? names.join('" or "') : names}" on Notion page ${page.id} is not a url field`
+    )
   }
   if (!property.url) {
-    throw new Error(`Property "${Array.isArray(names) ? names.join('" or "') : names}" on Notion page ${page.id} is empty`)
+    throw new Error(
+      `Property "${Array.isArray(names) ? names.join('" or "') : names}" on Notion page ${page.id} is empty`
+    )
   }
   return property.url
 }
 
-function getOptionalUrlValue(page: PageObjectResponse, names: string | string[]): string | undefined {
+function getOptionalUrlValue(
+  page: PageObjectResponse,
+  names: string | string[]
+): string | undefined {
   const aliases = Array.isArray(names) ? names : [names]
   const property = aliases.map((name) => page.properties[name]).find(Boolean)
   if (!property) return undefined
   if (property.type !== 'url') {
-    throw new Error(`Property "${aliases.join('" or "')}" on Notion page ${page.id} is not a url field`)
+    throw new Error(
+      `Property "${aliases.join('" or "')}" on Notion page ${page.id} is not a url field`
+    )
   }
   return property.url || undefined
 }
 
-function getOptionalNumberValue(page: PageObjectResponse, names: string | string[]): number | undefined {
+function getOptionalNumberValue(
+  page: PageObjectResponse,
+  names: string | string[]
+): number | undefined {
   const aliases = Array.isArray(names) ? names : [names]
   const property = aliases.map((name) => page.properties[name]).find(Boolean)
   if (!property) return undefined
   if (property.type !== 'number') {
-    throw new Error(`Property "${aliases.join('" or "')}" on Notion page ${page.id} is not a number field`)
+    throw new Error(
+      `Property "${aliases.join('" or "')}" on Notion page ${page.id} is not a number field`
+    )
   }
   return property.number ?? undefined
 }
@@ -258,15 +325,22 @@ function getOptionalNumberValue(page: PageObjectResponse, names: string | string
 function getDateValue(page: PageObjectResponse, names: string | string[]): Date {
   const property = getProperty(page, names)
   if (property.type !== 'date') {
-    throw new Error(`Property "${Array.isArray(names) ? names.join('" or "') : names}" on Notion page ${page.id} is not a date field`)
+    throw new Error(
+      `Property "${Array.isArray(names) ? names.join('" or "') : names}" on Notion page ${page.id} is not a date field`
+    )
   }
   if (!property.date?.start) {
-    throw new Error(`Property "${Array.isArray(names) ? names.join('" or "') : names}" on Notion page ${page.id} is empty`)
+    throw new Error(
+      `Property "${Array.isArray(names) ? names.join('" or "') : names}" on Notion page ${page.id} is empty`
+    )
   }
   return new Date(property.date.start)
 }
 
-function getOptionalFileOrUrlValue(page: PageObjectResponse, names: string | string[]): string | undefined {
+function getOptionalFileOrUrlValue(
+  page: PageObjectResponse,
+  names: string | string[]
+): string | undefined {
   const aliases = Array.isArray(names) ? names : [names]
   const property = aliases.map((name) => page.properties[name]).find(Boolean)
   if (!property) return undefined
@@ -281,7 +355,9 @@ function getOptionalFileOrUrlValue(page: PageObjectResponse, names: string | str
     return firstFile.type === 'external' ? firstFile.external.url : firstFile.file.url
   }
 
-  throw new Error(`Property "${aliases.join('" or "')}" on Notion page ${page.id} must be a url or files field`)
+  throw new Error(
+    `Property "${aliases.join('" or "')}" on Notion page ${page.id} must be a url or files field`
+  )
 }
 
 function getLangValue(page: PageObjectResponse): NotionLang {
@@ -298,32 +374,76 @@ function isNoteTypeValue(value?: string): boolean {
   return normalizedValue === 'note' || normalizedValue === 'notes'
 }
 
+function getPageWarningLabel(page: PageObjectResponse): string {
+  const titleProperty = page.properties.Title
+  if (titleProperty?.type !== 'title') {
+    return page.id
+  }
+
+  const title = titleProperty.title
+    .map((item) => item.plain_text)
+    .join('')
+    .trim()
+  return title ? `${page.id} "${title}"` : page.id
+}
+
+function collectValidNotionPages<T>(
+  type: NotionRegistryType,
+  pages: PageObjectResponse[],
+  mapper: NotionMapper<T>
+): T[] {
+  const entries: T[] = []
+
+  for (const page of pages) {
+    try {
+      const entry = mapper(page)
+      if (entry) {
+        entries.push(entry)
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      const warningKey = `${type}:${page.id}:${message}`
+      if (!invalidPageWarnings.has(warningKey)) {
+        invalidPageWarnings.add(warningKey)
+        console.warn(
+          `[notion] Skipping invalid Published ${type} page ${getPageWarningLabel(page)} (${page.url}): ${message}`
+        )
+      }
+    }
+  }
+
+  return entries
+}
+
 async function findDataSourceId(type: NotionRegistryType): Promise<string | null> {
   if (!dataSourceIdCache.has(type)) {
-    dataSourceIdCache.set(type, (async () => {
-      const database = await notion.databases.retrieve({
-        database_id: NOTION_DATABASE_ID
-      })
+    dataSourceIdCache.set(
+      type,
+      (async () => {
+        const database = await notion.databases.retrieve({
+          database_id: NOTION_DATABASE_ID
+        })
 
-      if (!('data_sources' in database) || !database.data_sources.length) {
-        throw new Error(`No data source found for Notion database: ${NOTION_DATABASE_ID}`)
-      }
+        if (!('data_sources' in database) || !database.data_sources.length) {
+          throw new Error(`No data source found for Notion database: ${NOTION_DATABASE_ID}`)
+        }
 
-      const nameMap: Record<NotionRegistryType, string[]> = {
-        Post: ['astro-blog', 'post'],
-        Page: ['page'],
-        Link: ['link'],
-        Project: ['project'],
-        Note: ['note', 'notes']
-      }
+        const nameMap: Record<NotionRegistryType, string[]> = {
+          Post: ['astro-blog', 'post'],
+          Page: ['page'],
+          Link: ['link'],
+          Project: ['project'],
+          Note: ['note', 'notes']
+        }
 
-      const candidates = nameMap[type]
-      const dataSource = database.data_sources.find((item) =>
-        candidates.some((candidate) => item.name.toLowerCase() === candidate)
-      )
+        const candidates = nameMap[type]
+        const dataSource = database.data_sources.find((item) =>
+          candidates.some((candidate) => item.name.toLowerCase() === candidate)
+        )
 
-      return dataSource?.id ?? null
-    })())
+        return dataSource?.id ?? null
+      })()
+    )
   }
 
   return dataSourceIdCache.get(type)!
@@ -372,7 +492,7 @@ export async function queryNotionDB(type: string): Promise<PageObjectResponse[]>
       })
 
       results.push(...response.results.filter(isFullPage))
-      cursor = response.has_more ? response.next_cursor ?? undefined : undefined
+      cursor = response.has_more ? (response.next_cursor ?? undefined) : undefined
     } while (cursor)
 
     return results
@@ -385,12 +505,13 @@ export async function queryNotionDB(type: string): Promise<PageObjectResponse[]>
 export async function getNotionPosts(): Promise<NotionPost[]> {
   const pages = await queryNotionDB('Post')
 
-  return pages.map((page) => ({
+  return collectValidNotionPages('Post', pages, (page) => ({
     notionId: normalizeId(page.id),
-    title: getTitleValue(page, 'Title'),
+    title: getRequiredTitleValue(page, 'Title'),
     type: 'Post',
     lang: getLangValue(page),
-    slug: getRichTextValue(page, 'Slug'),
+    slug: getRequiredRichTextValue(page, 'Slug'),
+    description: getOptionalRichTextValue(page, 'Description'),
     sourcePageId: extractPageId(getUrlValue(page, 'Source Page')),
     date: getDateValue(page, ['Date', 'Data']),
     tags: getMultiSelectValues(page, ['Tags', 'Tag']),
@@ -399,18 +520,22 @@ export async function getNotionPosts(): Promise<NotionPost[]> {
 }
 
 export async function getNotionPages(): Promise<NotionPageEntry[]> {
-  const pages = (await queryNotionDB('Page')).filter(
-    (page) => !isNoteTypeValue(getOptionalSelectValue(page, 'Type'))
-  )
+  const pages = await queryNotionDB('Page')
 
-  return pages.map((page) => ({
-    notionId: normalizeId(page.id),
-    title: getTitleValue(page, 'Title'),
-    type: 'Page',
-    lang: getLangValue(page),
-    slug: getRichTextValue(page, 'Slug'),
-    sourcePageId: extractPageId(getUrlValue(page, 'Source Page'))
-  }))
+  return collectValidNotionPages('Page', pages, (page) => {
+    if (isNoteTypeValue(getOptionalSelectValue(page, 'Type'))) {
+      return undefined
+    }
+
+    return {
+      notionId: normalizeId(page.id),
+      title: getRequiredTitleValue(page, 'Title'),
+      type: 'Page',
+      lang: getLangValue(page),
+      slug: getRequiredRichTextValue(page, 'Slug'),
+      sourcePageId: extractPageId(getUrlValue(page, 'Source Page'))
+    }
+  })
 }
 
 function normalizeNoteSlug(slug: string): string {
@@ -433,9 +558,9 @@ export async function getNotionNotes(): Promise<NotionNoteEntry[]> {
   if (noteDataSourceId) {
     const pages = await queryNotionDB('Note')
 
-    return pages.map((page) => ({
+    return collectValidNotionPages('Note', pages, (page) => ({
       notionId: normalizeId(page.id),
-      title: getTitleValue(page, 'Title'),
+      title: getRequiredTitleValue(page, 'Title'),
       type: 'Note',
       lang: getLangValue(page),
       slug: normalizeNoteSlug(getRichTextValue(page, 'Slug')),
@@ -443,28 +568,30 @@ export async function getNotionNotes(): Promise<NotionNoteEntry[]> {
     }))
   }
 
-  return (await queryNotionDB('Page'))
-    .filter((page) => {
-      const pageType = getOptionalSelectValue(page, 'Type')
-      const slug = getRichTextValue(page, 'Slug')
-      return isNoteTypeValue(pageType) || slug === 'notes' || slug.startsWith('notes/')
-    })
-    .map((page) => ({
+  return collectValidNotionPages('Note', await queryNotionDB('Page'), (page) => {
+    const pageType = getOptionalSelectValue(page, 'Type')
+    const slug = getRichTextValue(page, 'Slug')
+    if (!isNoteTypeValue(pageType) && slug !== 'notes' && !slug.startsWith('notes/')) {
+      return undefined
+    }
+
+    return {
       notionId: normalizeId(page.id),
-      title: getTitleValue(page, 'Title'),
+      title: getRequiredTitleValue(page, 'Title'),
       type: 'Note' as const,
       lang: getLangValue(page),
-      slug: normalizeNoteSlug(getRichTextValue(page, 'Slug')),
+      slug: normalizeNoteSlug(slug),
       sourcePageId: extractPageId(getUrlValue(page, 'Source Page'))
-    }))
+    }
+  })
 }
 
 export async function getNotionLinks(): Promise<NotionLink[]> {
   const pages = await queryNotionDB('Link')
 
-  return pages.map((page) => ({
+  return collectValidNotionPages('Link', pages, (page) => ({
     notionId: normalizeId(page.id),
-    title: getTitleValue(page, 'Title'),
+    title: getRequiredTitleValue(page, 'Title'),
     type: 'Link',
     lang: getLangValue(page),
     url: getUrlValue(page, ['URL', 'userDefined:URL']),
@@ -477,9 +604,9 @@ export async function getNotionLinks(): Promise<NotionLink[]> {
 export async function getNotionProjects(): Promise<NotionProject[]> {
   const pages = await queryNotionDB('Project')
 
-  return pages.map((page) => ({
+  return collectValidNotionPages('Project', pages, (page) => ({
     notionId: normalizeId(page.id),
-    title: getTitleValue(page, 'Title'),
+    title: getRequiredTitleValue(page, 'Title'),
     type: 'Project',
     lang: getLangValue(page),
     description: getOptionalRichTextValue(page, 'Description'),
@@ -504,7 +631,7 @@ export async function getNotionPageContent(pageId: string): Promise<string> {
     const mdBlocks = await n2m.pageToMarkdown(normalizedPageId)
     const markdown = n2m.toMarkdownString(mdBlocks)
 
-    return typeof markdown === 'string' ? markdown : markdown.parent
+    return typeof markdown === 'string' ? markdown : (markdown.parent ?? '')
   })()
 
   markdownCache.set(normalizedPageId, request)

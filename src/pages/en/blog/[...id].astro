@@ -153,11 +153,11 @@ type Props = {
 const { post, posts } = Astro.props as Props
 const markdown = await getNotionPageContent(post.sourcePageId)
 const { html, headings, remarkPluginFrontmatter } = await renderNotionMarkdown(markdown)
-const description = getDescriptionFromMarkdown(markdown, post.title)
+const description = post.description || getDescriptionFromMarkdown(markdown, post.title)
 
 const renderedPost = toRenderedPost(post, description)
 const renderedPosts = posts.map((item) =>
-  item.slug === post.slug ? renderedPost : toRenderedPost(item, item.title)
+  item.slug === post.slug ? renderedPost : toRenderedPost(item, item.description || item.title)
 )
 ---
 

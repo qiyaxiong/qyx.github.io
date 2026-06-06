@@ -5,7 +5,6 @@ import {
   formatISO,
   getDay,
   getMonth,
-  getYear,
   nextDay,
   parseISO,
   subWeeks
@@ -23,13 +22,43 @@ interface GitHubActivityApiResponse {
     lastYear: number
     [year: string]: number
   }
+  source?: 'github' | 'public'
+}
+
+interface GitHubGraphqlResponse {
+  data?: {
+    user?: {
+      contributionsCollection?: {
+        contributionCalendar?: {
+          totalContributions: number
+          weeks: Array<{
+            contributionDays: Array<{
+              date: string
+              contributionCount: number
+              contributionLevel:
+                | 'NONE'
+                | 'FIRST_QUARTILE'
+                | 'SECOND_QUARTILE'
+                | 'THIRD_QUARTILE'
+                | 'FOURTH_QUARTILE'
+            }>
+          }>
+        }
+      }
+    }
+  }
+  errors?: Array<{ message: string }>
 }
 
 interface Props {
   username: string
 }
 
-async function fetchData(username: string): Promise<GitHubActivityApiResponse> {
+function getGitHubToken() {
+  return import.meta.env.GITHUB_TOKEN || import.meta.env.GH_TOKEN || ''
+}
+
+async function fetchPublicData(username: string): Promise<GitHubActivityApiResponse> {
   const apiUrl = 'https://github-contributions-api.jogruber.de/v4/'
   const response = await fetch(`${apiUrl}${username}?y=last`)
   const data = (await response.json()) as GitHubActivityApiResponse
@@ -37,7 +66,88 @@ async function fetchData(username: string): Promise<GitHubActivityApiResponse> {
     const message = (data as any).error || 'Unknown error'
     throw Error(`Fetching GitHub contribution data for "${username}" failed: ${message}`)
   }
-  return data
+  return { ...data, source: 'public' }
+}
+
+async function fetchGitHubData(
+  username: string,
+  token: string
+): Promise<GitHubActivityApiResponse> {
+  const levelMap = {
+    NONE: 0,
+    FIRST_QUARTILE: 1,
+    SECOND_QUARTILE: 2,
+    THIRD_QUARTILE: 3,
+    FOURTH_QUARTILE: 4
+  } satisfies Record<string, number>
+  const to = new Date()
+  const from = new Date(Date.UTC(to.getUTCFullYear() - 1, to.getUTCMonth(), 1))
+
+  const response = await fetch('https://api.github.com/graphql', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      'User-Agent': 'astro-blog'
+    },
+    body: JSON.stringify({
+      query: `
+        query ContributionCalendar($login: String!, $from: DateTime!, $to: DateTime!) {
+          user(login: $login) {
+            contributionsCollection(from: $from, to: $to) {
+              contributionCalendar {
+                totalContributions
+                weeks {
+                  contributionDays {
+                    date
+                    contributionCount
+                    contributionLevel
+                  }
+                }
+              }
+            }
+          }
+        }
+      `,
+      variables: {
+        login: username,
+        from: from.toISOString(),
+        to: to.toISOString()
+      }
+    })
+  })
+  const data = (await response.json()) as GitHubGraphqlResponse
+  const calendar = data.data?.user?.contributionsCollection?.contributionCalendar
+  if (!response.ok || data.errors?.length || !calendar) {
+    const message = data.errors?.map((error) => error.message).join('; ') || 'Unknown error'
+    throw Error(`Fetching GitHub contribution data for "${username}" failed: ${message}`)
+  }
+
+  return {
+    contributions: calendar.weeks.flatMap((week) =>
+      week.contributionDays.map((day) => ({
+        date: day.date,
+        count: day.contributionCount,
+        level: levelMap[day.contributionLevel]
+      }))
+    ),
+    total: {
+      lastYear: calendar.totalContributions
+    },
+    source: 'github'
+  }
+}
+
+async function fetchData(username: string): Promise<GitHubActivityApiResponse> {
+  const token = getGitHubToken()
+  if (token) {
+    try {
+      return await fetchGitHubData(username, token)
+    } catch (error) {
+      console.warn(error)
+    }
+  }
+  return fetchPublicData(username)
 }
 
 function fillHoles(activities: Array<GitHubActivityDay>): Array<GitHubActivityDay> {
@@ -99,91 +209,162 @@ const data = await fetchData(username)
 
 const activities = data.contributions
 const totalCount = data.total.lastYear
-const activityYear = getYear(parseISO(activities[0].date))
 
-const blockSize = 12
+const blockSize = 11
 const blockMargin = 4
 const blockRadius = 2
-const fontSize = 14
-const labelMargin = 8
-const labelHeight = fontSize + labelMargin
+const labelWidth = 34
+const labelHeight = 22
 const weeks = groupByWeeks(activities)
-const width = weeks.length * (blockSize + blockMargin) - blockMargin
-const height = labelHeight + (blockSize + blockMargin) * 7 - blockMargin
+const gridWidth = weeks.length * (blockSize + blockMargin) - blockMargin
+const gridHeight = (blockSize + blockMargin) * 7 - blockMargin
+const width = labelWidth + gridWidth
+const height = labelHeight + gridHeight
 const monthLabels = getMonthLabels(weeks)
+const weekdayLabels = [
+  { dayIndex: 1, label: 'Mon' },
+  { dayIndex: 3, label: 'Wed' },
+  { dayIndex: 5, label: 'Fri' }
+]
+const sourceLabel = data.source === 'github' ? 'contributions' : 'public contributions'
+
+function getLevelClass(level: number) {
+  return [
+    level === 0 && 'fill-[#ebedf0] dark:fill-[#161b22]',
+    level === 1 && 'fill-[#c6e48b] dark:fill-[#0e4429]',
+    level === 2 && 'fill-[#7bc96f] dark:fill-[#006d32]',
+    level === 3 && 'fill-[#239a3b] dark:fill-[#26a641]',
+    level === 4 && 'fill-[#196127] dark:fill-[#39d353]'
+  ]
+}
 ---
 
-<div class="overflow-x-auto w-full" style="max-width: 90vw;">
-  <svg class='block' width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
-    <g>
-      {
-        monthLabels.map(({ label, weekIndex }) => (
-          <text
-            x={(blockSize + blockMargin) * weekIndex}
-            y={0}
-            dominant-baseline='hanging'
-            fill='currentColor'
-          >
-            {label}
-          </text>
-        ))
-      }
-    </g>
-    {
-      weeks.map((week, wi) => (
-        <g transform={`translate(${(blockSize + blockMargin) * wi}, 0)`}>
-          {week.map((activity, di) =>
-            activity ? (
-              <rect
-                class:list={[
-                  'stroke-foreground/10, hover:opacity-80',
-                  activity.level === 0 && 'fill-[#ebedf0] dark:fill-[#161b22]',
-                  activity.level === 1 && 'fill-[#c6e48b] dark:fill-[#0e4429]',
-                  activity.level === 2 && 'fill-[#7bc96f] dark:fill-[#006d32]',
-                  activity.level === 3 && 'fill-[#239a3b] dark:fill-[#26a641]',
-                  activity.level === 4 && 'fill-[#196127] dark:fill-[#39d353]'
-                ]}
+<section class='github-calendar'>
+  <h2 class='mb-4 text-2xl font-semibold text-foreground'>
+    {totalCount} {sourceLabel} in the last year
+  </h2>
+  <div class='rounded-md border border-foreground/20 px-5 py-4'>
+    <div class='calendar-scroll'>
+      <svg
+        class='calendar-svg'
+        width={width}
+        height={height}
+        viewBox={`0 0 ${width} ${height}`}
+        role='img'
+        aria-label={`${totalCount} ${sourceLabel} in the last year`}
+        style={`--calendar-width: ${width}px;`}
+      >
+        <g class='calendar-labels'>
+          {
+            monthLabels.map(({ label, weekIndex }) => (
+              <text
+                x={labelWidth + (blockSize + blockMargin) * weekIndex}
+                y={0}
+                dominant-baseline='hanging'
+                fill='currentColor'
+              >
+                {label}
+              </text>
+            ))
+          }
+          {
+            weekdayLabels.map(({ label, dayIndex }) => (
+              <text
                 x={0}
-                y={labelHeight + (blockSize + blockMargin) * di}
+                y={labelHeight + (blockSize + blockMargin) * dayIndex + blockSize / 2}
+                dominant-baseline='middle'
+                fill='currentColor'
+              >
+                {label}
+              </text>
+            ))
+          }
+        </g>
+        {
+          weeks.map((week, wi) => (
+            <g transform={`translate(${labelWidth + (blockSize + blockMargin) * wi}, ${labelHeight})`}>
+              {week.map((activity, di) =>
+                activity ? (
+                  <rect
+                    class:list={['calendar-day stroke-foreground/10 hover:opacity-80', getLevelClass(activity.level)]}
+                    x={0}
+                    y={(blockSize + blockMargin) * di}
+                    width={blockSize}
+                    height={blockSize}
+                    rx={blockRadius}
+                    ry={blockRadius}
+                    data-date={activity.date}
+                    data-level={activity.level}
+                  >
+                    <title>{`${activity.count} contributions on ${activity.date}`}</title>
+                  </rect>
+                ) : null
+              )}
+            </g>
+          ))
+        }
+      </svg>
+    </div>
+    <footer class='mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-foreground/60'>
+      <a
+        href='https://docs.github.com/account-and-profile/setting-up-and-managing-your-github-profile/managing-contribution-settings-on-your-profile/viewing-contributions-on-your-profile'
+        target='_blank'
+        rel='noreferrer'
+        class='hover:text-foreground'
+      >
+        Learn how we count contributions
+      </a>
+      <div class='flex items-center gap-1'>
+        <span>Less</span>
+        {
+          [0, 1, 2, 3, 4].map((level) => (
+            <svg width={blockSize} height={blockSize} aria-hidden='true'>
+              <rect
                 width={blockSize}
                 height={blockSize}
                 rx={blockRadius}
                 ry={blockRadius}
-                data-date={activity.date}
-                data-level={activity.level}
-              >
-                <title>{`${activity.count} contributions on ${activity.date}`}</title>
-              </rect>
-            ) : null
-          )}
-        </g>
-      ))
-    }
-  </svg>
-</div>
-<footer class='flex items-center justify-between'>
-  <div>{totalCount} contributions in {activityYear} ~ {activityYear + 1}</div>
-  <div class='flex items-center gap-1'>
-    <span>Less</span>
-    {
-      [0, 1, 2, 3, 4].map((level) => (
-        <svg width={blockSize} height={blockSize}>
-          <rect
-            width={blockSize}
-            height={blockSize}
-            rx={blockRadius}
-            ry={blockRadius}
-            class:list={[
-              level === 0 && 'fill-[#ebedf0] dark:fill-[#161b22]',
-              level === 1 && 'fill-[#c6e48b] dark:fill-[#0e4429]',
-              level === 2 && 'fill-[#7bc96f] dark:fill-[#006d32]',
-              level === 3 && 'fill-[#239a3b] dark:fill-[#26a641]',
-              level === 4 && 'fill-[#196127] dark:fill-[#39d353]'
-            ]}
-          />
-        </svg>
-      ))
-    }
-    <span>More</span>
+                class:list={getLevelClass(level)}
+              />
+            </svg>
+          ))
+        }
+        <span>More</span>
+      </div>
+    </footer>
   </div>
-</footer>
+</section>
+
+<style>
+  .github-calendar {
+    color: currentColor;
+  }
+
+  .calendar-scroll {
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .calendar-svg {
+    display: block;
+    width: var(--calendar-width);
+    max-width: none;
+    height: auto;
+    font-size: 12px;
+  }
+
+  .calendar-labels {
+    opacity: 0.7;
+  }
+
+  .calendar-day {
+    shape-rendering: geometricPrecision;
+  }
+
+  @media (min-width: 900px) {
+    .calendar-svg {
+      width: min(100%, var(--calendar-width));
+    }
+  }
+</style>

@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url'
 import checkFunc from './check.mjs'
 import minimist from './libs/minimist.cjs'
 import newFunc from './new.mjs'
+import registerNotionPostFunc from './register-notion-post.mjs'
 
 const args = minimist(process.argv.slice(2))
 
@@ -18,6 +19,10 @@ switch (args._[0]) {
   case 'new':
     const newArgs = process.argv.slice(3)
     newFunc(newArgs)
+    break
+  case 'register-post':
+    const registerPostArgs = process.argv.slice(3)
+    await registerNotionPostFunc(registerPostArgs)
     break
   case 'info':
     const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -32,6 +37,7 @@ switch (args._[0]) {
   case 'help':
     console.log('Usage:')
     console.log('  new [args] - Create new post on blog collection')
+    console.log('  register-post [args] - Register a Notion page in the blog Post data source')
     console.log('  info - Show this info message')
     console.log('  help - Show this help message')
     break
