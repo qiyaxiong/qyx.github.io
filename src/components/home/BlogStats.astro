@@ -25,7 +25,15 @@ const lastUpdated = sortedPosts.length > 0 ?
 const totalWords = (
   await Promise.all(
     sortedPosts.map(async (post) => {
-      const markdown = await getNotionPageContent(post.sourcePageId)
+      let markdown = ''
+
+      try {
+        markdown = await getNotionPageContent(post.sourcePageId)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        console.warn(`[notion] Unable to read content for post "${post.id}": ${message}`)
+      }
+
       return getReadingTime(markdown).words
     })
   )

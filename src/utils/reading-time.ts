@@ -25,18 +25,23 @@ function isCJK(char: string): boolean {
   return CJK_RANGES.some(([start, end]) => code >= start && code <= end)
 }
 
-function countWords(text: string = ''): number {
+function toReadableText(text: unknown): string {
+  return typeof text === 'string' ? text : ''
+}
+
+function countWords(text: unknown = ''): number {
+  const content = toReadableText(text)
   let words = 0
   let inWord = false
 
-  for (let i = 0; i < text.length; i++) {
-    const char = text[i]
+  for (let i = 0; i < content.length; i++) {
+    const char = content[i]
 
     if (isCJK(char)) {
       // Each CJK character counts as a word
       words++
       // Skip following CJK punctuation
-      while (i + 1 < text.length && CJK_PUNCTUATION.test(text[i + 1])) {
+      while (i + 1 < content.length && CJK_PUNCTUATION.test(content[i + 1])) {
         i++
       }
       inWord = false
@@ -48,7 +53,7 @@ function countWords(text: string = ''): number {
       }
     } else {
       // Whitespace character
-      if (inWord && i + 1 < text.length && /\S/.test(text[i + 1])) {
+      if (inWord && i + 1 < content.length && /\S/.test(content[i + 1])) {
         // If next character is non-whitespace, count as new word
         inWord = false
       }
@@ -59,10 +64,10 @@ function countWords(text: string = ''): number {
 }
 
 export function getReadingTime(
-  text: string | null | undefined,
+  text: unknown,
   wordsPerMinute: number = 200
 ): ReadingTimeResult {
-  const words = countWords(text ?? '')
+  const words = countWords(text)
   const minutes = words / wordsPerMinute
   const time = Math.round(minutes * 60 * 1000)
   const displayed = Math.ceil(minutes)
