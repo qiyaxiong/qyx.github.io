@@ -1,7 +1,6 @@
 ---
 import { getPostCollections } from '@/server'
 import PageLayout from '@/layouts/BaseLayout.astro'
-import { Button } from '@/components/user'
 import { CollectionPreview } from '@/components/pages'
 
 const collections = await getPostCollections()
@@ -13,8 +12,6 @@ const meta = {
 ---
 
 <PageLayout {meta}>
-  <Button title='Back' href='/' style='back' />
-  
   <main class='mt-6 lg:mt-10'>
     <div id='content-header' class='animate'>
         <h1 class='text-3xl font-bold mb-6'>Collections</h1>

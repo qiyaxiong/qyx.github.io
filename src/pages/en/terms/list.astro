@@ -1,5 +1,5 @@
 ---
-import { Button, CardList } from '@/components/user'
+import { CardList } from '@/components/user'
 import { cn } from '@/utils'
 import PageLayout from '@/layouts/BaseLayout.astro'
 import { integ, terms } from '@/site-config'
@@ -11,7 +11,6 @@ const meta = {
 ---
 
 <PageLayout {meta}>
-  <Button title='Back' href='/en' style='back' />
   <main class='mt-6 lg:mt-10'>
     <div id='content-header' class='animate'>
       <h1 class='mb-6 text-3xl font-medium'>Site Policy</h1>

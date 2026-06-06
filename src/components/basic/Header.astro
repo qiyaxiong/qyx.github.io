@@ -130,6 +130,37 @@ function getLocalizedUrl(locale: string | undefined, path: string) {
 <script>
   import { setTheme, showToast } from '@/utils'
 
+  function bindHeaderScrollState() {
+    const header = document.querySelector('header-component') as HTMLElement | null
+    if (!header) return
+
+    const previousCleanup = (window as any).__astroHeaderScrollCleanup
+    if (typeof previousCleanup === 'function') {
+      previousCleanup()
+    }
+
+    let preScrollY = window.scrollY
+    let ticking = false
+    const updateState = () => {
+      header.classList.toggle('not-top', window.scrollY > 20)
+      header.dataset.show = (window.scrollY < 600 || window.scrollY < preScrollY).toString()
+      preScrollY = window.scrollY
+      ticking = false
+    }
+    const onScroll = () => {
+      if (!ticking) {
+        ticking = true
+        window.requestAnimationFrame(updateState)
+      }
+    }
+
+    updateState()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    ;(window as any).__astroHeaderScrollCleanup = () => {
+      window.removeEventListener('scroll', onScroll)
+    }
+  }
+
   class Header extends HTMLElement {
     constructor() {
       super()
@@ -137,13 +168,7 @@ function getLocalizedUrl(locale: string | undefined, path: string) {
 
     connectedCallback() {
       // Header
-      let preScrollY = window.scrollY
-      this.classList.toggle('not-top', preScrollY > 20)
-      window.addEventListener('scroll', () => {
-        this.classList.toggle('not-top', window.scrollY > 20)
-        this.dataset.show = (window.scrollY < 600 || window.scrollY < preScrollY).toString()
-        preScrollY = window.scrollY
-      })
+      bindHeaderScrollState()
 
       // Dark Mode
       const darkModeBtn = this.querySelector('#toggleDarkMode') as HTMLElement
@@ -165,7 +190,10 @@ function getLocalizedUrl(locale: string | undefined, path: string) {
     }
   }
 
-  customElements.define('header-component', Header)
+  if (!customElements.get('header-component')) {
+    customElements.define('header-component', Header)
+  }
+  bindHeaderScrollState()
 </script>
 
 <style>
@@ -177,22 +205,25 @@ function getLocalizedUrl(locale: string | undefined, path: string) {
       border 0.15s,
       background-color 0.15s,
       backdrop-filter 0.15s;
+  }
 
-    &.not-top {
-      box-shadow:
-        rgb(255, 255, 255) 0px 0px 0px 0px,
-        rgba(24, 24, 27, 0.08) 0px 0px 0px 1px,
-        rgba(39, 39, 42, 0.08) 0px 10px 15px -3px,
-        rgba(39, 39, 42, 0.08) 0px 4px 6px -4px;
-    }
-    &[data-show='false']:not(.expanded) {
-      transform: translateY(-5rem);
-    }
+  header-component.not-top {
+    box-shadow:
+      rgb(255, 255, 255) 0px 0px 0px 0px,
+      rgba(24, 24, 27, 0.08) 0px 0px 0px 1px,
+      rgba(39, 39, 42, 0.08) 0px 10px 15px -3px,
+      rgba(39, 39, 42, 0.08) 0px 4px 6px -4px;
+    background-color: hsl(var(--background) / 0.92);
+    backdrop-filter: blur(16px);
+  }
+
+  header-component[data-show='false']:not(.expanded) {
+    transform: translateY(-5rem);
   }
 
   @media (min-width: 800px) {
     header-component.not-top {
-      margin-inline: 8%;
+      margin-inline: clamp(4rem, 12vw, 12rem);
     }
   }
  
