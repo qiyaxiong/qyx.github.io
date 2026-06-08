@@ -5,13 +5,12 @@
   numbering=fraction
 ]{metropolis}
 
-\usepackage{ctex}
 \usepackage{booktabs}
 \usepackage{graphicx}
 
-\title{用 Beamer 做一份清爽的学术汇报}
-\subtitle{从主题选择到页面结构}
-\author{戚柒}
+\title{A Clean Academic Talk with Beamer}
+\subtitle{Theme selection and slide structure}
+\author{Qi Qi}
 \institute{Personal Blog Demo}
 \date{\today}
 
@@ -19,70 +18,70 @@
 
 \maketitle
 
-\begin{frame}{今天要解决的问题}
+\begin{frame}{What this talk covers}
   \begin{itemize}
-    \item 找到适合学术和技术汇报的 Beamer 主题
-    \item 用 Metropolis 快速搭建一份 16:9 幻灯片
-    \item 把内容拆成清晰的章节、观点和图表
+    \item Pick a Beamer theme for academic and technical talks
+    \item Build a 16:9 slide deck with Metropolis
+    \item Structure the deck around sections, claims, and evidence
   \end{itemize}
 \end{frame}
 
-\section{为什么选 Metropolis}
+\section{Why Metropolis}
 
-\begin{frame}{主题选择标准}
+\begin{frame}{Theme selection criteria}
   \begin{columns}[T,onlytextwidth]
     \column{0.48\textwidth}
-      \textbf{适合长期使用}
+      \textbf{Good for reuse}
       \begin{itemize}
-        \item 视觉噪音少
-        \item 默认排版稳
-        \item 适合公式和代码
+        \item Low visual noise
+        \item Stable default layout
+        \item Works well with equations and code
       \end{itemize}
 
     \column{0.48\textwidth}
-      \textbf{容易交给别人}
+      \textbf{Easy to share}
       \begin{itemize}
-        \item CTAN/TeX Live 常见
-        \item Overleaf 可直接试
-        \item 只需少量配置
+        \item Available in common TeX distributions
+        \item Easy to try in Overleaf
+        \item Needs little configuration
       \end{itemize}
   \end{columns}
 \end{frame}
 
-\section{正文结构}
+\section{Slide structure}
 
-\begin{frame}{一页只讲一个观点}
-  \begin{block}{实用原则}
-    每页先写结论，再放证据。不要把论文正文直接搬到幻灯片上。
+\begin{frame}{One slide, one claim}
+  \begin{block}{Practical rule}
+    Put the conclusion in the slide title, then add only the evidence needed to support it.
   \end{block}
 
-  \begin{exampleblock}{推荐结构}
-    标题 = 观点；正文 = 3 个以内的支撑点；页脚进度条负责提示节奏。
+  \begin{exampleblock}{Recommended structure}
+    Title = claim; body = up to three supporting points; progress bar = pacing.
   \end{exampleblock}
 \end{frame}
 
-\begin{frame}{一个简单表格}
+\begin{frame}{A simple table}
   \begin{table}
     \centering
     \begin{tabular}{lll}
       \toprule
-      场景 & 推荐做法 & 原因 \\
+      Scenario & Recommendation & Reason \\
       \midrule
-      答辩 & 少动画 & 降低不确定性 \\
-      组会 & 多图表 & 方便讨论 \\
-      技术分享 & 多代码 & 便于复现 \\
+      Defense & Fewer animations & Reduce uncertainty \\
+      Lab meeting & More charts & Enable discussion \\
+      Tech talk & More code & Improve reproducibility \\
       \bottomrule
     \end{tabular}
   \end{table}
 \end{frame}
 
-\section{结束}
+\section{Next steps}
 
-\begin{frame}{下一步}
+\begin{frame}{How to adapt this deck}
   \begin{enumerate}
-    \item 从主题列表里选一个风格
-    \item 复制这份模板
-    \item 先写大纲，再填每页内容
+    \item Choose a theme from the Beamer theme list
+    \item Copy this template into a new project
+    \item Write the outline before filling in each slide
   \end{enumerate}
 \end{frame}
 
