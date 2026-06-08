@@ -1,0 +1,89 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+
+\usetheme[
+  progressbar=frametitle,
+  numbering=fraction
+]{metropolis}
+
+\usepackage{ctex}
+\usepackage{booktabs}
+\usepackage{graphicx}
+
+\title{用 Beamer 做一份清爽的学术汇报}
+\subtitle{从主题选择到页面结构}
+\author{戚柒}
+\institute{Personal Blog Demo}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{frame}{今天要解决的问题}
+  \begin{itemize}
+    \item 找到适合学术和技术汇报的 Beamer 主题
+    \item 用 Metropolis 快速搭建一份 16:9 幻灯片
+    \item 把内容拆成清晰的章节、观点和图表
+  \end{itemize}
+\end{frame}
+
+\section{为什么选 Metropolis}
+
+\begin{frame}{主题选择标准}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.48\textwidth}
+      \textbf{适合长期使用}
+      \begin{itemize}
+        \item 视觉噪音少
+        \item 默认排版稳
+        \item 适合公式和代码
+      \end{itemize}
+
+    \column{0.48\textwidth}
+      \textbf{容易交给别人}
+      \begin{itemize}
+        \item CTAN/TeX Live 常见
+        \item Overleaf 可直接试
+        \item 只需少量配置
+      \end{itemize}
+  \end{columns}
+\end{frame}
+
+\section{正文结构}
+
+\begin{frame}{一页只讲一个观点}
+  \begin{block}{实用原则}
+    每页先写结论，再放证据。不要把论文正文直接搬到幻灯片上。
+  \end{block}
+
+  \begin{exampleblock}{推荐结构}
+    标题 = 观点；正文 = 3 个以内的支撑点；页脚进度条负责提示节奏。
+  \end{exampleblock}
+\end{frame}
+
+\begin{frame}{一个简单表格}
+  \begin{table}
+    \centering
+    \begin{tabular}{lll}
+      \toprule
+      场景 & 推荐做法 & 原因 \\
+      \midrule
+      答辩 & 少动画 & 降低不确定性 \\
+      组会 & 多图表 & 方便讨论 \\
+      技术分享 & 多代码 & 便于复现 \\
+      \bottomrule
+    \end{tabular}
+  \end{table}
+\end{frame}
+
+\section{结束}
+
+\begin{frame}{下一步}
+  \begin{enumerate}
+    \item 从主题列表里选一个风格
+    \item 复制这份模板
+    \item 先写大纲，再填每页内容
+  \end{enumerate}
+\end{frame}
+
+\end{document}
