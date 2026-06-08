@@ -53,3 +53,122 @@ const { meta, highlightColor, back = '/', ...props } = Astro.props
 
   <BackToTop header='content-header' content='content' />
 </PageLayout>
+
+<script>
+  const copyIcon = `
+    <svg aria-hidden="true" class="size-5">
+      <use href="/icons/code.svg#mingcute-clipboard-line"></use>
+    </svg>
+  `
+  const copiedIcon = `
+    <svg aria-hidden="true" class="size-5">
+      <use href="/icons/code.svg#mingcute-file-check-line"></use>
+    </svg>
+  `
+
+  async function copyText(text: string) {
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(text)
+        return
+      } catch {
+        // Fall back for local or restricted browser contexts.
+      }
+    }
+
+    const textarea = document.createElement('textarea')
+    textarea.value = text
+    textarea.setAttribute('readonly', '')
+    textarea.style.position = 'fixed'
+    textarea.style.opacity = '0'
+    document.body.appendChild(textarea)
+    textarea.select()
+    document.execCommand('copy')
+    textarea.remove()
+  }
+
+  function initCodeCopyButtons() {
+    document.querySelectorAll<HTMLElement>('#content pre').forEach((pre) => {
+      if (pre.querySelector(':scope > .copy, :scope > .code-copy-button')) return
+
+      const code = pre.querySelector('code')
+      if (!code?.textContent?.trim()) return
+
+      pre.classList.add('code-copy-ready')
+
+      const button = document.createElement('button')
+      button.type = 'button'
+      button.className = 'code-copy-button'
+      button.title = 'Copy code'
+      button.setAttribute('aria-label', 'Copy code')
+      button.innerHTML = copyIcon
+
+      button.addEventListener('click', async () => {
+        await copyText(code.textContent || '')
+        button.classList.add('copied')
+        button.title = 'Copied'
+        button.setAttribute('aria-label', 'Copied')
+        button.innerHTML = copiedIcon
+
+        window.setTimeout(() => {
+          button.classList.remove('copied')
+          button.title = 'Copy code'
+          button.setAttribute('aria-label', 'Copy code')
+          button.innerHTML = copyIcon
+        }, 2000)
+      })
+
+      pre.appendChild(button)
+    })
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initCodeCopyButtons, { once: true })
+  } else {
+    initCodeCopyButtons()
+  }
+</script>
+
+<style>
+  :global(#content pre.code-copy-ready) {
+    position: relative;
+  }
+
+  :global(#content pre.code-copy-ready:hover .code-copy-button),
+  :global(#content pre.code-copy-ready:focus-within .code-copy-button),
+  :global(#content .code-copy-button.copied) {
+    opacity: 1;
+  }
+
+  :global(#content .code-copy-button) {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border: 1px solid hsl(var(--border));
+    border-radius: 0.5rem;
+    background: hsl(var(--background) / 0.88);
+    color: hsl(var(--muted-foreground));
+    opacity: 0.72;
+    backdrop-filter: blur(8px);
+    transition:
+      opacity 160ms ease,
+      color 160ms ease,
+      border-color 160ms ease,
+      background-color 160ms ease;
+  }
+
+  :global(#content .code-copy-button:hover),
+  :global(#content .code-copy-button:focus-visible),
+  :global(#content .code-copy-button.copied) {
+    border-color: hsl(var(--foreground) / 0.25);
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
+    outline: none;
+  }
+</style>
