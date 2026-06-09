@@ -81,7 +81,8 @@ async function fetchGitHubData(
     FOURTH_QUARTILE: 4
   } satisfies Record<string, number>
   const to = new Date()
-  const from = new Date(Date.UTC(to.getUTCFullYear() - 1, to.getUTCMonth(), 1))
+  const from = new Date(to)
+  from.setUTCFullYear(from.getUTCFullYear() - 1)
 
   const response = await fetch('https://api.github.com/graphql', {
     method: 'POST',
