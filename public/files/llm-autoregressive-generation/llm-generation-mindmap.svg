@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="880" viewBox="0 0 1400 880" role="img" aria-labelledby="title desc">
+  <title id="title">大模型生成机制学习脑图</title>
+  <desc id="desc">Mind map for learning autoregressive large language model generation, covering tokenizer, transformer decoder, inference pipeline, sampling and common pitfalls.</desc>
+  <defs>
+    <linearGradient id="root" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#16a34a"/>
+      <stop offset="100%" stop-color="#0284c7"/>
+    </linearGradient>
+    <style>
+      .bg { fill: #0b1020; }
+      .rootText { font: 800 28px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #f8fafc; letter-spacing: 0; }
+      .branchTitle { font: 800 20px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #f8fafc; letter-spacing: 0; }
+      .nodeText { font: 600 15px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #dbe7f4; letter-spacing: 0; }
+      .note { font: 500 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #9fb0c3; letter-spacing: 0; }
+      .line { fill: none; stroke: #44546a; stroke-width: 2.5; }
+      .branch { fill: #151c2c; stroke-width: 1.5; }
+      .leaf { fill: #101827; stroke: #334155; stroke-width: 1.1; }
+      .green { stroke: #22c55e; }
+      .sky { stroke: #38bdf8; }
+      .amber { stroke: #f59e0b; }
+      .violet { stroke: #a78bfa; }
+      .rose { stroke: #fb7185; }
+      .slate { stroke: #94a3b8; }
+    </style>
+  </defs>
+  <rect class="bg" width="1400" height="880"/>
+  <circle cx="700" cy="438" r="178" fill="#22c55e" opacity="0.05"/>
+  <circle cx="1100" cy="110" r="210" fill="#38bdf8" opacity="0.045"/>
+  <circle cx="190" cy="760" r="250" fill="#a78bfa" opacity="0.04"/>
+
+  <rect x="510" y="350" width="380" height="150" rx="36" fill="url(#root)"/>
+  <text class="rootText" x="572" y="410">大模型如何生成文本</text>
+  <text class="note" x="572" y="446" fill="#e7f8ff">从 token 到下一个 token 的自回归循环</text>
+
+  <path class="line green" d="M510 398 C380 330 310 190 214 136"/>
+  <path class="line sky" d="M890 392 C1030 300 1088 172 1196 112"/>
+  <path class="line amber" d="M508 456 C360 516 292 614 176 710"/>
+  <path class="line violet" d="M888 454 C1028 514 1096 628 1228 718"/>
+  <path class="line rose" d="M700 350 C704 238 700 158 700 86"/>
+  <path class="line slate" d="M700 500 C700 602 700 704 700 784"/>
+
+  <g transform="translate(58,56)">
+    <rect class="branch green" x="0" y="0" width="312" height="92" rx="22"/>
+    <text class="branchTitle" x="22" y="38">1. Tokenizer</text>
+    <text class="note" x="22" y="66">文本不是直接进入模型</text>
+    <rect class="leaf" x="34" y="116" width="254" height="40" rx="12"/>
+    <text class="nodeText" x="52" y="141">BPE / Unigram 切成子词</text>
+    <rect class="leaf" x="34" y="168" width="254" height="40" rx="12"/>
+    <text class="nodeText" x="52" y="193">token id 再查 embedding</text>
+    <rect class="leaf" x="34" y="220" width="254" height="40" rx="12"/>
+    <text class="nodeText" x="52" y="245">中文、代码、符号成本不同</text>
+  </g>
+
+  <g transform="translate(1030,38)">
+    <rect class="branch sky" x="0" y="0" width="312" height="92" rx="22"/>
+    <text class="branchTitle" x="22" y="38">2. Decoder-only Transformer</text>
+    <text class="note" x="22" y="66">每层都在更新 token 表示</text>
+    <rect class="leaf" x="28" y="116" width="262" height="40" rx="12"/>
+    <text class="nodeText" x="46" y="141">Q/K/V 与 masked attention</text>
+    <rect class="leaf" x="28" y="168" width="262" height="40" rx="12"/>
+    <text class="nodeText" x="46" y="193">MLP / MoE 承载非线性变换</text>
+    <rect class="leaf" x="28" y="220" width="262" height="40" rx="12"/>
+    <text class="nodeText" x="46" y="245">残差、归一化稳定深层网络</text>
+  </g>
+
+  <g transform="translate(52,650)">
+    <rect class="branch amber" x="0" y="0" width="324" height="92" rx="22"/>
+    <text class="branchTitle" x="22" y="38">3. Prefill / Decode</text>
+    <text class="note" x="22" y="66">推理不是一次性吐完整答案</text>
+    <rect class="leaf" x="36" y="-156" width="260" height="40" rx="12"/>
+    <text class="nodeText" x="54" y="-131">Prefill 读完整 prompt</text>
+    <rect class="leaf" x="36" y="-104" width="260" height="40" rx="12"/>
+    <text class="nodeText" x="54" y="-79">Decode 每次只算新 token</text>
+    <rect class="leaf" x="36" y="-52" width="260" height="40" rx="12"/>
+    <text class="nodeText" x="54" y="-27">KV cache 用空间换时间</text>
+  </g>
+
+  <g transform="translate(1020,650)">
+    <rect class="branch violet" x="0" y="0" width="330" height="92" rx="22"/>
+    <text class="branchTitle" x="22" y="38">4. Sampling</text>
+    <text class="note" x="22" y="66">从概率分布中选择下一个 token</text>
+    <rect class="leaf" x="38" y="-156" width="262" height="40" rx="12"/>
+    <text class="nodeText" x="56" y="-131">temperature 控制分布尖/平</text>
+    <rect class="leaf" x="38" y="-104" width="262" height="40" rx="12"/>
+    <text class="nodeText" x="56" y="-79">top-k 固定保留前 k 个</text>
+    <rect class="leaf" x="38" y="-52" width="262" height="40" rx="12"/>
+    <text class="nodeText" x="56" y="-27">top-p 保留累计概率核心</text>
+  </g>
+
+  <g transform="translate(544,34)">
+    <rect class="branch rose" x="0" y="0" width="312" height="88" rx="22"/>
+    <text class="branchTitle" x="22" y="36">5. 训练目标</text>
+    <text class="note" x="22" y="64">next-token prediction</text>
+    <rect class="leaf" x="32" y="112" width="248" height="40" rx="12"/>
+    <text class="nodeText" x="50" y="137">输入右移一位作为标签</text>
+    <rect class="leaf" x="32" y="164" width="248" height="40" rx="12"/>
+    <text class="nodeText" x="50" y="189">交叉熵压低错误 token</text>
+  </g>
+
+  <g transform="translate(536,748)">
+    <rect class="branch slate" x="0" y="0" width="328" height="88" rx="22"/>
+    <text class="branchTitle" x="22" y="36">6. 常见误区</text>
+    <text class="note" x="22" y="64">把现象和机制分清楚</text>
+    <rect class="leaf" x="36" y="-112" width="256" height="40" rx="12"/>
+    <text class="nodeText" x="54" y="-87">模型不是先写完整答案</text>
+    <rect class="leaf" x="36" y="-60" width="256" height="40" rx="12"/>
+    <text class="nodeText" x="54" y="-35">幻觉是分布生成的副作用之一</text>
+  </g>
+</svg>

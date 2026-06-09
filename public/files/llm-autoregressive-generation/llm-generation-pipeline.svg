@@ -1,0 +1,133 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-labelledby="title desc">
+  <title id="title">Autoregressive LLM generation pipeline</title>
+  <desc id="desc">A diagram showing prompt text tokenized into ids, transformed through embeddings and decoder blocks, converted into logits, sampled as the next token, then appended back to the context with KV cache reuse.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#10151f"/>
+      <stop offset="52%" stop-color="#111827"/>
+      <stop offset="100%" stop-color="#172033"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#22c55e"/>
+      <stop offset="100%" stop-color="#38bdf8"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#9fb2c8"/>
+    </marker>
+    <filter id="shadow" x="-20%" y="-30%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#000" flood-opacity="0.28"/>
+    </filter>
+    <style>
+      .title { font: 700 34px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #f8fafc; letter-spacing: 0; }
+      .subtitle { font: 500 17px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #b6c3d2; letter-spacing: 0; }
+      .label { font: 700 18px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #f8fafc; letter-spacing: 0; }
+      .small { font: 500 14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #b8c5d6; letter-spacing: 0; }
+      .tiny { font: 600 12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #d4e4f7; letter-spacing: 0; }
+      .box { fill: #1c2433; stroke: #334155; stroke-width: 1.4; rx: 18; filter: url(#shadow); }
+      .box2 { fill: #172033; stroke: #3c4b61; stroke-width: 1.4; rx: 14; }
+      .chip { fill: #243044; stroke: #3b4c65; stroke-width: 1.2; rx: 10; }
+      .green { fill: #123329; stroke: #22c55e; }
+      .blue { fill: #112f45; stroke: #38bdf8; }
+      .orange { fill: #3b2817; stroke: #f59e0b; }
+      .line { stroke: #9fb2c8; stroke-width: 2.4; fill: none; marker-end: url(#arrow); }
+      .loop { stroke: #22c55e; stroke-width: 2.6; fill: none; marker-end: url(#arrow); stroke-dasharray: 7 7; }
+    </style>
+  </defs>
+
+  <rect width="1280" height="720" fill="url(#bg)"/>
+  <circle cx="1168" cy="84" r="130" fill="#22c55e" opacity="0.07"/>
+  <circle cx="100" cy="642" r="190" fill="#38bdf8" opacity="0.055"/>
+
+  <text x="74" y="76" class="title">LLM 如何生成下一个 token</text>
+  <text x="74" y="112" class="subtitle">训练时学会预测下一个 token；推理时不断重复“读上下文 -> 打分 -> 采样 -> 追加”。</text>
+
+  <g transform="translate(62,170)">
+    <rect class="box" x="0" y="0" width="185" height="120"/>
+    <text class="label" x="24" y="38">1. Prompt</text>
+    <text class="small" x="24" y="70">用户输入文本</text>
+    <text class="small" x="24" y="94">含历史与指令</text>
+  </g>
+
+  <g transform="translate(286,170)">
+    <rect class="box" x="0" y="0" width="185" height="120"/>
+    <text class="label" x="24" y="38">2. Tokenizer</text>
+    <text class="small" x="24" y="70">BPE / Unigram</text>
+    <text class="small" x="24" y="94">文本 -> token ids</text>
+  </g>
+
+  <g transform="translate(510,170)">
+    <rect class="box" x="0" y="0" width="185" height="120"/>
+    <text class="label" x="24" y="38">3. Embedding</text>
+    <text class="small" x="24" y="70">token id 查表</text>
+    <text class="small" x="24" y="94">加位置信息</text>
+  </g>
+
+  <g transform="translate(734,146)">
+    <rect class="box" x="0" y="0" width="245" height="168"/>
+    <text class="label" x="24" y="38">4. Decoder Blocks</text>
+    <rect class="box2" x="24" y="58" width="197" height="34"/>
+    <text class="tiny" x="42" y="80">masked self-attention</text>
+    <rect class="box2" x="24" y="102" width="197" height="34"/>
+    <text class="tiny" x="42" y="124">MLP / MoE + residual</text>
+    <text class="small" x="24" y="154">每层更新当前位置表示</text>
+  </g>
+
+  <g transform="translate(1022,170)">
+    <rect class="box" x="0" y="0" width="195" height="120"/>
+    <text class="label" x="24" y="38">5. Logits</text>
+    <text class="small" x="24" y="70">对词表每个 token</text>
+    <text class="small" x="24" y="94">给一个分数</text>
+  </g>
+
+  <path class="line" d="M247 230 H276"/>
+  <path class="line" d="M471 230 H500"/>
+  <path class="line" d="M695 230 H724"/>
+  <path class="line" d="M979 230 H1012"/>
+
+  <g transform="translate(157,382)">
+    <rect class="chip green" x="0" y="0" width="160" height="54"/>
+    <text class="tiny" x="18" y="22">token ids</text>
+    <text class="small" x="18" y="42">[128000, 305, 98]</text>
+  </g>
+  <path class="line" d="M378 290 C378 340 260 334 238 374"/>
+
+  <g transform="translate(388,376)">
+    <rect class="chip blue" x="0" y="0" width="214" height="72"/>
+    <text class="tiny" x="18" y="24">causal mask</text>
+    <text class="small" x="18" y="48">当前位置只能看左侧历史</text>
+  </g>
+  <path class="line" d="M848 314 C790 390 664 408 612 410"/>
+
+  <g transform="translate(672,376)">
+    <rect class="chip orange" x="0" y="0" width="218" height="72"/>
+    <text class="tiny" x="18" y="24">KV cache</text>
+    <text class="small" x="18" y="48">历史 K/V 复用，减少重复算</text>
+  </g>
+  <path class="line" d="M840 314 C832 348 802 366 782 374"/>
+
+  <g transform="translate(954,376)">
+    <rect class="box" x="0" y="0" width="220" height="138"/>
+    <text class="label" x="24" y="38">6. Sampling</text>
+    <text class="small" x="24" y="70">temperature 调平/调尖</text>
+    <text class="small" x="24" y="94">top-k / top-p 截断尾部</text>
+    <text class="small" x="24" y="118">选出 next token</text>
+  </g>
+  <path class="line" d="M1118 290 V366"/>
+
+  <g transform="translate(742,570)">
+    <rect class="chip green" x="0" y="0" width="265" height="62"/>
+    <text class="tiny" x="20" y="25">append next token</text>
+    <text class="small" x="20" y="48">新 token 追加回上下文，继续下一轮</text>
+  </g>
+  <path class="line" d="M1064 514 C1034 548 990 572 1014 598"/>
+  <path class="loop" d="M742 600 C412 628 100 520 104 302"/>
+
+  <g transform="translate(70,570)">
+    <rect x="0" y="0" width="530" height="64" rx="18" fill="#0f172a" stroke="#29364a"/>
+    <text class="tiny" x="22" y="25">核心公式</text>
+    <text class="small" x="22" y="49">p(x<tspan baseline-shift="sub">t+1</tspan> | x<tspan baseline-shift="sub">1:t</tspan>) = softmax(logits)，一次只预测一个下一个 token。</text>
+  </g>
+
+  <rect x="1048" y="44" width="144" height="38" rx="19" fill="url(#accent)" opacity="0.9"/>
+  <text x="1071" y="68" class="tiny" fill="#06121f">Autoregressive</text>
+</svg>
