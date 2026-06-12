@@ -1,0 +1,838 @@
+---
+title: RAG 进阶：混合检索、重排、GraphRAG 和评测集
+publishDate: 2026-06-12
+updatedDate: 2026-06-12
+description: 从向量召回的局限出发，梳理混合检索、重排、GraphRAG 和评测集如何把 RAG 从 demo 推向可维护系统。
+category: ai
+tags:
+  - rag
+  - hybrid-search
+  - rerank
+  - graphrag
+  - evaluation
+language: zh
+---
+
+上一篇讲的是 RAG 入门：文档切分、向量召回和带引用回答。
+
+那套链路已经能做出一个可用 demo：
+
+```text
+文档 -> chunk -> embedding -> 向量召回 -> 证据上下文 -> 带引用回答
+```
+
+但真实业务里很快会遇到更复杂的问题：
+
+- 用户问的是产品编号、订单号、错误码，向量召回不一定准。
+- 文档里有很多相似段落，topK 结果看起来都相关，但真正答案不在前面。
+- 一个问题需要跨多个实体、多个文档、多个时间点才能回答。
+- 每次调 chunk、topK、prompt，都不知道到底变好了还是变差了。
+
+这时 RAG 就从“接一个向量库”进入了工程阶段。
+
+这篇文章讲四个进阶主题：混合检索、重排、GraphRAG 和评测集。它们解决的不是同一个问题，但都服务于同一个目标：让系统更稳定地找到证据，并能持续评估效果。
+
+## 1. 向量召回为什么会不够
+
+向量召回适合语义相似问题。
+
+例如用户问：
+
+```text
+怎么申请退款？
+```
+
+文档里写：
+
+```text
+用户可以在订单详情页提交售后申请。
+```
+
+即使没有“退款”这个词，embedding 也可能把它们拉近。
+
+但向量召回不是万能的。它对下面这些问题经常不稳定：
+
+| 问题类型 | 示例 | 难点 |
+| --- | --- | --- |
+| 精确标识符 | `ERR_AUTH_401` 是什么？ | 语义相似不如精确匹配可靠 |
+| 数字和版本 | v2.3.7 支持哪个接口？ | 数字差一点含义就变了 |
+| 人名和专有名词 | 张三负责哪个模块？ | 低频实体容易被模糊化 |
+| 表格字段 | `max_retry_count` 默认值是多少？ | 字段名和上下文结构都重要 |
+| 否定条件 | 哪些情况不能退款？ | 需要保留约束和例外 |
+| 多跳问题 | A 产品依赖的服务由谁维护？ | 需要跨文档追踪关系 |
+
+这不是 embedding 模型不好，而是检索目标变复杂了。
+
+RAG 入门阶段可以先做向量召回；进阶阶段要把“召回”拆成更细的检索系统。
+
+## 2. 进阶 RAG 的检索栈
+
+可以把进阶 RAG 看成五层：
+
+```text
+用户问题
+  -> 查询理解
+  -> 候选召回
+  -> 重排
+  -> 证据组装
+  -> 答案生成与评测
+```
+
+每一层负责不同问题。
+
+| 层级 | 目标 | 常见技术 |
+| --- | --- | --- |
+| 查询理解 | 明确用户真正要找什么 | query rewrite、意图识别、拆问题 |
+| 候选召回 | 尽量把可能相关的证据找全 | 向量、BM25、关键词、过滤器 |
+| 重排 | 从候选里选出最能回答问题的片段 | reranker、LLM rank、规则排序 |
+| 证据组装 | 控制上下文质量和 token 成本 | 去重、合并、压缩、引用编号 |
+| 评测 | 判断改动是否真的提升 | recall@k、faithfulness、citation check |
+
+初级 RAG 往往把“候选召回”和“最终证据”混在一起：向量库 topK 返回什么，就把什么塞给模型。
+
+进阶 RAG 会分成两步：
+
+```text
+先召回更多候选
+再重排出少量高质量证据
+```
+
+这就是为什么混合检索和重排经常一起出现。
+
+## 3. 混合检索解决什么问题
+
+混合检索通常指把语义检索和关键词检索结合起来。
+
+最常见组合是：
+
+```text
+BM25 / 全文检索
+  + 向量检索
+  -> 合并候选
+  -> 重排
+```
+
+两者各有优势。
+
+| 检索方式 | 擅长 | 不擅长 |
+| --- | --- | --- |
+| 关键词 / BM25 | 精确词、代码、编号、字段名、错误码 | 同义表达、口语化问题 |
+| 向量检索 | 语义相似、同义改写、自然语言问题 | 精确数字、短 ID、低频实体 |
+
+例如用户问：
+
+```text
+ERR_AUTH_401 登录失败怎么处理？
+```
+
+向量检索可能召回“认证失败排查”“登录状态异常”这类语义相关段落。
+
+关键词检索会精确命中 `ERR_AUTH_401`。
+
+更稳妥的做法是把两个结果都拿回来，然后合并：
+
+```text
+vector candidates: A, B, C, D
+keyword candidates: C, E, F, A
+merged candidates: A, C, B, E, D, F
+```
+
+这样可以同时照顾“语义相似”和“精确命中”。
+
+## 4. 混合检索的数据准备
+
+要做好混合检索，chunk 里不能只有正文。
+
+建议每个 chunk 至少保留这些字段：
+
+```json
+{
+  "id": "doc_123_chunk_0004",
+  "documentId": "doc_123",
+  "tenantId": "tenant_a",
+  "title": "退款规则说明",
+  "sectionPath": ["售后政策", "虚拟商品"],
+  "content": "虚拟商品一经兑换不支持退款...",
+  "keywords": ["退款", "虚拟商品", "兑换", "售后"],
+  "sourceUrl": "https://example.com/docs/refund",
+  "updatedAt": "2026-06-12T10:00:00+08:00",
+  "embedding": [0.12, -0.08, 0.31]
+}
+```
+
+这些字段在不同阶段有不同作用：
+
+- `title` 和 `sectionPath` 可以提升关键词检索质量。
+- `tenantId` 用于权限和租户过滤。
+- `keywords` 可以保存人工标签或自动抽取的关键词。
+- `updatedAt` 可以让新文档在同等相关性下更靠前。
+- `sourceUrl` 用于回答引用。
+- `embedding` 用于语义召回。
+
+如果你后续要接 PostgreSQL、Meilisearch、向量库或 LLMWiki，建议把“原始文档”和“检索 chunk”分开存。PostgreSQL 保存真实业务状态，检索系统保存可召回片段。
+
+## 5. 候选合并：不要直接拼接
+
+混合检索的第一坑，是把两个列表直接拼起来。
+
+例如：
+
+```text
+vector topK: A, B, C, D, E
+keyword topK: C, A, F, G, H
+```
+
+如果直接拼接，就会有重复：
+
+```text
+A, B, C, D, E, C, A, F, G, H
+```
+
+去重以后也不够，因为不同检索方式的分数尺度不一样。
+
+向量分数可能是 0.83、0.79、0.76；BM25 分数可能是 12.4、8.9、3.1。不能简单相加。
+
+一个常用的合并方法是 Reciprocal Rank Fusion，简称 RRF。
+
+它不直接比较原始分数，而是看排名：
+
+```text
+score(doc) = 1 / (k + rank_in_vector) + 1 / (k + rank_in_keyword)
+```
+
+简化理解就是：
+
+- 同时被多个检索器排在前面的文档，更可信。
+- 只在一个检索器里出现的文档，也不会完全丢掉。
+- 不需要把不同分数强行归一到同一尺度。
+
+伪代码如下：
+
+```ts
+type Candidate = {
+  chunkId: string
+  rank: number
+  source: "vector" | "keyword"
+}
+
+function rrfMerge(results: Candidate[][], k = 60) {
+  const scores = new Map<string, number>()
+
+  for (const resultList of results) {
+    for (const item of resultList) {
+      const score = 1 / (k + item.rank)
+      scores.set(item.chunkId, (scores.get(item.chunkId) ?? 0) + score)
+    }
+  }
+
+  return [...scores.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([chunkId, score]) => ({ chunkId, score }))
+}
+```
+
+RRF 不一定永远最好，但它很适合作为混合检索的起点。
+
+## 6. 查询改写和查询拆分
+
+用户问题经常不是最适合检索的形式。
+
+例如：
+
+```text
+它这个报错怎么解决？
+```
+
+这里的“它”可能指上一轮对话里的某个错误码。如果直接拿这句话去检索，效果会很差。
+
+查询改写的目标是把用户问题变成更完整、更适合检索的查询：
+
+```text
+ERR_AUTH_401 登录失败报错怎么解决？
+```
+
+查询拆分适合更复杂的问题：
+
+```text
+A 产品依赖哪些服务，这些服务分别由哪个团队维护？
+```
+
+可以拆成：
+
+```text
+1. A 产品依赖哪些服务？
+2. 每个依赖服务由哪个团队维护？
+```
+
+然后分别检索，再合并证据。
+
+但查询改写也有风险。模型可能改错问题，把用户原意带偏。因此最好保留原始问题，并让改写结果可观测：
+
+```json
+{
+  "originalQuery": "它这个报错怎么解决？",
+  "rewrittenQuery": "ERR_AUTH_401 登录失败报错怎么解决？",
+  "reason": "上一轮上下文中提到 ERR_AUTH_401"
+}
+```
+
+如果你在做 agent，查询改写可以作为一个独立工具或步骤，而不是藏在 prompt 里。
+
+## 7. 重排解决什么问题
+
+候选召回的目标是“别漏掉答案”，重排的目标是“把最能回答问题的证据放前面”。
+
+这两个目标不一样。
+
+召回阶段可以宽一点，拿 30 到 100 个候选；重排阶段再选出 5 到 10 个证据块。
+
+```text
+混合召回 top 80
+  -> reranker
+  -> top 8 evidence
+  -> context builder
+```
+
+重排模型通常同时看“问题”和“候选 chunk”，判断这个 chunk 是否能回答问题。
+
+和 embedding 不同，embedding 是提前把 chunk 编成向量；reranker 往往是在查询时成对比较：
+
+```text
+(question, chunk) -> relevance score
+```
+
+所以 reranker 通常更准，但也更慢、更贵。
+
+可以把它放在候选数量已经被压缩之后：
+
+```text
+全量文档：几十万 chunks
+混合召回：100 chunks
+重排：100 -> 8 chunks
+LLM 上下文：8 chunks
+```
+
+不要让 reranker 直接扫全库。它不是向量数据库的替代品。
+
+## 8. 重排时不要只看相关性
+
+很多人做 rerank，只按相关性分数排序。
+
+这会带来一个问题：top 8 可能都来自同一篇文档的相邻段落。
+
+例如用户问：
+
+```text
+新用户退款需要满足哪些条件？
+```
+
+重排后可能得到：
+
+```text
+退款政策 chunk 1
+退款政策 chunk 2
+退款政策 chunk 3
+退款政策 chunk 4
+退款政策 chunk 5
+```
+
+这些都相关，但可能缺少“新用户定义”“订单状态”“虚拟商品例外”等其他必要证据。
+
+所以最终证据选择要同时考虑：
+
+- 相关性。
+- 多样性。
+- 文档来源。
+- 章节覆盖。
+- 是否相互重复。
+- 是否过期。
+- 用户是否有权限。
+
+一个实用策略是：
+
+```text
+1. 按 rerank 分数排序
+2. 合并同一文档相邻 chunk
+3. 限制单篇文档最多占 N 个证据块
+4. 保留能覆盖不同子问题的证据
+5. 最后按上下文预算裁剪
+```
+
+这样回答质量通常比“取 reranker topK”更稳定。
+
+## 9. GraphRAG 解决什么问题
+
+GraphRAG 不是“更高级的向量库”，它解决的是关系和多跳问题。
+
+普通 RAG 更像这样：
+
+```text
+问题 -> 找相似片段 -> 基于片段回答
+```
+
+GraphRAG 会额外关心实体和关系：
+
+```text
+文档 -> 实体抽取 -> 关系抽取 -> 图谱/社区摘要 -> 图检索 + 文本检索 -> 回答
+```
+
+适合 GraphRAG 的问题通常长这样：
+
+- 某个产品依赖哪些内部服务？
+- 哪些团队共同影响了一个故障？
+- 某个政策变化会影响哪些流程？
+- 一个客户投诉背后涉及哪些订单、工单和人员？
+- 多篇会议纪要里反复出现的主要风险是什么？
+
+这些问题不是单个 chunk 能回答的。它们需要把多个实体串起来。
+
+例如：
+
+```text
+A 产品 -> 依赖 -> B 服务
+B 服务 -> 由 -> 支付团队维护
+B 服务 -> 调用 -> C 风控接口
+C 风控接口 -> 有限制 -> 夜间批处理限流
+```
+
+向量召回可能找到其中某几段，但不一定能稳定串起完整路径。GraphRAG 的价值就在这里。
+
+## 10. GraphRAG 的基本构建流程
+
+一个简化 GraphRAG 构建流程如下：
+
+```text
+原始文档
+  -> chunk
+  -> 抽取实体
+  -> 抽取关系
+  -> 实体消歧
+  -> 写入图结构
+  -> 生成社区摘要或主题摘要
+```
+
+实体可以是：
+
+- 人。
+- 团队。
+- 产品。
+- 服务。
+- 接口。
+- 政策。
+- 客户。
+- 工单。
+- 错误码。
+
+关系可以是：
+
+- 负责。
+- 依赖。
+- 调用。
+- 属于。
+- 影响。
+- 替代。
+- 冲突。
+- 更新时间。
+
+图结构可以存在图数据库，也可以先存在 PostgreSQL 表里：
+
+```sql
+create table rag_entities (
+  id text primary key,
+  tenant_id text not null,
+  name text not null,
+  type text not null,
+  aliases text[] not null default '{}',
+  metadata jsonb not null default '{}'
+);
+
+create table rag_relations (
+  id text primary key,
+  tenant_id text not null,
+  from_entity_id text not null,
+  to_entity_id text not null,
+  relation_type text not null,
+  evidence_chunk_ids text[] not null,
+  confidence double precision,
+  metadata jsonb not null default '{}'
+);
+```
+
+关键是每条关系都要能追溯到证据 chunk。否则图谱会变成另一个不可验证的“模型幻想结果”。
+
+## 11. GraphRAG 查询怎么做
+
+GraphRAG 查询通常不是只查图，也不是只查向量，而是组合。
+
+可以按问题类型选择策略。
+
+局部问题：
+
+```text
+支付团队维护哪些服务？
+```
+
+适合从实体出发：
+
+```text
+识别实体：支付团队
+  -> 查询一跳/两跳关系
+  -> 找到相关服务
+  -> 取关系对应的证据 chunk
+  -> 回答
+```
+
+全局问题：
+
+```text
+这批会议纪要里主要风险是什么？
+```
+
+适合用社区摘要或主题摘要：
+
+```text
+文档图谱
+  -> 社区聚类
+  -> 每个社区摘要
+  -> 汇总多个社区的风险
+```
+
+多跳问题：
+
+```text
+A 产品的故障为什么影响了退款流程？
+```
+
+可能需要：
+
+```text
+A 产品 -> 依赖服务 -> 支付接口 -> 订单状态 -> 退款流程
+```
+
+这类问题如果只靠相似 chunk，容易漏掉中间关系。
+
+但 GraphRAG 的成本也更高：抽取成本、实体消歧、关系更新、图谱污染、解释和评测都更复杂。
+
+所以不要一上来就 GraphRAG。先把基础 RAG、混合检索、重排和评测做好，再看是否真的需要图结构。
+
+## 12. GraphRAG 的风险
+
+GraphRAG 很容易被讲得很神奇，但工程上有几个明显风险。
+
+第一，实体抽取会错。
+
+同一个词可能有多个含义：
+
+```text
+Phoenix
+```
+
+可能是项目名、服务名、城市名，也可能是一个代号。
+
+第二，关系抽取会漏。
+
+文档里可能说：
+
+```text
+退款系统依赖订单状态同步。
+```
+
+模型抽取时可能漏掉“依赖”关系，或者把方向抽反。
+
+第三，图谱会过期。
+
+如果文档更新了，旧关系没有删除，GraphRAG 就可能回答旧架构。
+
+第四，图谱不等于证据。
+
+图上的边只是索引线索，最终回答仍然要回到原文 chunk 和引用。
+
+因此 GraphRAG 的基本原则是：
+
+```text
+图谱帮助找证据，不替代证据。
+```
+
+如果回答里给的是图谱结论，而不是可引用原文，用户仍然很难信任。
+
+## 13. 评测集是 RAG 进阶的分水岭
+
+没有评测集，就很难判断 RAG 是否真的变好了。
+
+比如你把 topK 从 5 改到 10，可能有三种结果：
+
+- 找到了更多正确证据。
+- 带入了更多无关证据。
+- 回答变长，但准确率没提高。
+
+如果只靠人工随便问两句，很容易误判。
+
+一个最小评测集可以从 30 到 100 个真实问题开始。每条记录包含：
+
+```json
+{
+  "id": "refund_001",
+  "question": "虚拟商品兑换后还能退款吗？",
+  "expectedChunkIds": [
+    "refund_policy_2026_chunk_0004"
+  ],
+  "expectedAnswerPoints": [
+    "已兑换虚拟商品不支持退款",
+    "未兑换虚拟商品可在 7 天内申请退款"
+  ],
+  "mustCite": true,
+  "shouldAbstain": false
+}
+```
+
+还应该加入一些“不能回答”的问题：
+
+```json
+{
+  "id": "unknown_001",
+  "question": "2028 年退款政策会怎么改？",
+  "expectedChunkIds": [],
+  "expectedAnswerPoints": [],
+  "mustCite": false,
+  "shouldAbstain": true
+}
+```
+
+拒答问题很重要。一个只会回答、不知道何时拒答的 RAG 系统，在业务里风险很高。
+
+## 14. 检索评测看什么
+
+检索评测先不看最终回答，只看证据有没有找对。
+
+常见指标包括：
+
+| 指标 | 含义 | 适合判断 |
+| --- | --- | --- |
+| recall@k | 正确证据是否出现在前 k 个结果里 | 召回有没有漏 |
+| precision@k | 前 k 个结果里有多少是相关的 | 结果是否干净 |
+| MRR | 第一个正确结果排在多前 | 排序是否合理 |
+| nDCG | 高相关结果是否排得更靠前 | 多级相关性 |
+| duplication rate | topK 里重复内容比例 | 是否被相似 chunk 占满 |
+
+对于 RAG，`recall@k` 特别重要。因为如果正确证据没被召回，后面的 LLM 很难凭空答对。
+
+但只看 recall 也不够。召回 100 个结果，recall 可能很高，但上下文放不下，也会增加噪声。
+
+所以要同时看：
+
+```text
+召回是否足够全
+排序是否足够靠前
+最终进入上下文的证据是否足够干净
+```
+
+这也是为什么需要“召回”和“重排”两阶段。
+
+## 15. 回答评测看什么
+
+最终用户看到的是回答，不是检索结果。
+
+回答评测可以看五个维度：
+
+| 维度 | 问题 |
+| --- | --- |
+| 正确性 | 回答是否覆盖标准答案点？ |
+| 忠实性 | 回答是否只基于证据？ |
+| 引用正确性 | 每个关键结论是否有正确引用？ |
+| 完整性 | 是否漏掉重要限制或例外？ |
+| 拒答能力 | 证据不足时是否明确拒答？ |
+
+一个常见错误是只评测“答案看起来对不对”，不评测“证据是否支持答案”。
+
+RAG 的优势是可追溯。如果答案正确但引用错了，系统仍然不可靠。
+
+可以把评测拆成两步：
+
+```text
+1. 检查回答是否包含 expectedAnswerPoints
+2. 检查每个结论是否被 citations 支持
+```
+
+第二步可以人工抽样，也可以用另一个模型做辅助判断。但模型评测也会出错，所以关键场景仍然需要人工标注一部分样本作为基准。
+
+## 16. 一套离线评测流程
+
+离线评测可以在每次改检索策略前后运行。
+
+流程如下：
+
+```text
+读取 eval cases
+  -> 对每个问题执行 retrieval
+  -> 记录 topK chunks
+  -> 计算 retrieval metrics
+  -> 调用 LLM 生成回答
+  -> 计算 answer metrics
+  -> 输出对比报告
+```
+
+伪代码：
+
+```ts
+type EvalCase = {
+  id: string
+  question: string
+  expectedChunkIds: string[]
+  expectedAnswerPoints: string[]
+  shouldAbstain: boolean
+}
+
+async function runRagEval(cases: EvalCase[]) {
+  const results = []
+
+  for (const item of cases) {
+    const retrieval = await retrieve(item.question)
+    const answer = await answerWithEvidence(item.question, retrieval.evidence)
+
+    results.push({
+      id: item.id,
+      retrievedChunkIds: retrieval.candidates.map((chunk) => chunk.id),
+      answer: answer.text,
+      citations: answer.citations,
+      expectedChunkIds: item.expectedChunkIds,
+      expectedAnswerPoints: item.expectedAnswerPoints,
+      shouldAbstain: item.shouldAbstain
+    })
+  }
+
+  return summarizeEvalResults(results)
+}
+```
+
+每次改动都应该能回答：
+
+- recall@5 是升了还是降了？
+- 引用错误率有没有变高？
+- 拒答问题有没有开始乱答？
+- 平均延迟增加了多少？
+- 每次回答的平均 token 成本增加了多少？
+
+没有这些数字，很难维护 RAG。
+
+## 17. 线上日志也要结构化
+
+离线评测只能覆盖已知问题。线上用户会问很多意料之外的问题。
+
+建议记录结构化日志：
+
+```json
+{
+  "question": "ERR_AUTH_401 怎么处理？",
+  "rewrittenQuery": "ERR_AUTH_401 登录失败报错怎么处理？",
+  "retrievalStrategy": "hybrid_rrf_rerank_v2",
+  "candidateCount": 80,
+  "evidenceChunkIds": [
+    "auth_errors_chunk_0012",
+    "login_flow_chunk_0005"
+  ],
+  "answerTokenCount": 312,
+  "latencyMs": 1840,
+  "citationCount": 2,
+  "abstained": false
+}
+```
+
+这些日志能帮助你定位问题：
+
+- 是没召回，还是召回了没排上去？
+- 是证据足够但模型答错了？
+- 是 prompt 导致引用丢失？
+- 是某个租户的知识库质量差？
+- 是某类问题延迟太高？
+
+注意不要把敏感信息随便写进日志。多租户、内部文档、用户隐私都要做脱敏和权限控制。
+
+## 18. 一个推荐演进路线
+
+如果从零开始做 RAG，不建议一开始就堆满所有技术。
+
+更稳的路线是：
+
+```text
+第 1 阶段：基础 RAG
+  文档清洗、chunk、向量召回、带引用回答
+
+第 2 阶段：混合检索
+  BM25/关键词 + 向量，解决编号、字段、专有名词问题
+
+第 3 阶段：重排
+  召回更多候选，用 reranker 选择高质量证据
+
+第 4 阶段：评测集
+  固定真实问题，持续比较检索和回答质量
+
+第 5 阶段：GraphRAG
+  当关系和多跳问题真的变多时，再引入图结构
+```
+
+其中评测集不应该拖到最后。只要系统开始被真实使用，就应该尽早建立最小评测集。
+
+GraphRAG 则相反，不要过早引入。它适合有大量实体关系、跨文档推理和全局总结需求的场景。
+
+## 19. 和博客问答入口怎么结合
+
+如果 blog 页面后续要放一个问答入口，可以先不要做复杂 GraphRAG。
+
+博客文章更适合从这条链路开始：
+
+```text
+博客 MDX / LLMWiki Markdown
+  -> 按标题切 chunk
+  -> 建关键词索引 + 向量索引
+  -> 用户在 blog 页面提问
+  -> 混合检索当前站点内容
+  -> 重排 top evidence
+  -> 返回回答和引用链接
+```
+
+前端只需要关心：
+
+```json
+{
+  "answer": "RAG 进阶通常会先引入混合检索，再用重排提高证据质量 [1]。",
+  "citations": [
+    {
+      "id": "1",
+      "title": "RAG 进阶：混合检索、重排、GraphRAG 和评测集",
+      "url": "/blog/rag-advanced-hybrid-rerank-graphrag-evaluation",
+      "section": "18. 一个推荐演进路线"
+    }
+  ]
+}
+```
+
+agent 服务负责检索、重排、生成、引用校验和日志。
+
+这样网站和 agent 是解耦的：
+
+- 网站负责展示文章和问答入口。
+- LLMWiki 或知识层负责把内容整理成模型友好的结构。
+- agent 负责调用检索工具和生成答案。
+
+后续如果要把检索范围扩展到 PostgreSQL 里的业务知识库，只需要扩展检索服务和权限过滤，不需要改博客页面的基本交互。
+
+## 20. 进阶 RAG 检查清单
+
+如果一个 RAG 系统已经到了进阶阶段，可以用这张清单检查：
+
+- 是否同时支持语义召回和关键词召回？
+- 混合检索是否做了去重和合理融合？
+- 是否有 query rewrite 或多轮上下文补全？
+- 召回候选和最终证据是否分成两阶段？
+- 是否有 reranker 或等价的重排策略？
+- 最终证据是否做了去重、合并和多样性控制？
+- 回答是否严格引用证据？
+- 引用是否能回到原文 chunk 或章节？
+- 是否有拒答问题评测？
+- 是否有真实问题组成的离线评测集？
+- 是否记录线上检索策略、候选数量、证据 ID 和延迟？
+- GraphRAG 是否真的有必要，还是基础检索没做好？
+
+RAG 进阶不是把技术名词堆到架构图上，而是把“找证据”这件事拆细、测准、持续改。
+
+下一篇会进入上下文工程：当 prompt 不再是一句话，而是一套可维护的信息系统时，应该怎么设计系统提示、任务指令、记忆、工具结果和检索证据。
