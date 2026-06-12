@@ -1,0 +1,412 @@
+---
+title: MCP 与工具生态：统一协议解决了什么，不解决什么
+publishDate: 2026-06-12
+updatedDate: 2026-06-12
+description: 从 agent 工具生态出发，解释 MCP 这类统一协议解决了工具接入、上下文暴露和能力发现问题，但不替代权限和产品设计。
+category: ai
+tags:
+  - mcp
+  - agent
+  - tool-calling
+  - protocol
+  - ai-learning-series
+language: zh
+---
+
+前面讲工具调用时，我们把工具看成模型可以使用的外部能力。讲工作流与 Agent 时，又进一步讨论了工具如何被编排。
+
+当工具数量变多，一个新问题会出现：每个应用、每个模型、每个工具都用自己的接入方式，生态会很快碎掉。
+
+这就是 MCP 这类统一协议试图解决的问题。
+
+MCP 可以理解为 agent 和外部工具之间的一套通用连接方式。它让模型应用能发现工具、读取资源、调用能力，而不是每个工具都重新设计一套私有接口。
+
+但 MCP 不是魔法。它解决的是连接协议问题，不自动解决权限、安全、业务边界、产品体验和评测问题。
+
+## 1. 为什么需要统一工具协议
+
+没有统一协议时，每接一个工具都要定制：
+
+```text
+Notion API
+GitHub API
+PostgreSQL 查询
+浏览器自动化
+文件系统
+内部知识库
+工单系统
+```
+
+每个工具都有自己的鉴权、参数、返回值、错误格式和文档。
+
+对于 agent 应用来说，这会带来几个问题：
+
+- 工具接入成本高。
+- 工具描述格式不一致。
+- 模型不知道有哪些工具可用。
+- 返回结果难以统一进入上下文。
+- 权限和错误处理散落在各处。
+
+统一协议的目标是让工具暴露方式更标准：
+
+```text
+工具提供方
+  -> 按协议暴露 resources / tools / prompts
+  -> agent 客户端发现能力
+  -> 模型按 schema 调用工具
+```
+
+这样工具生态才能规模化。
+
+## 2. MCP 解决的第一件事：能力发现
+
+Agent 要调用工具，首先得知道有哪些工具。
+
+一个 MCP server 可以声明：
+
+- 可读取的资源。
+- 可调用的工具。
+- 可复用的 prompt 模板。
+
+例如一个博客知识库 server 可以暴露：
+
+```text
+resources:
+  blog://articles
+  blog://articles/{slug}
+
+tools:
+  search_blog_articles
+  read_blog_article
+  list_blog_series
+```
+
+客户端不需要提前把这些能力写死在代码里，而是可以从 server 查询。
+
+这对工具生态很重要。否则每新增一个工具，都要改 agent 客户端代码。
+
+## 3. MCP 解决的第二件事：统一 schema
+
+工具调用需要 schema。
+
+例如：
+
+```json
+{
+  "name": "search_blog_articles",
+  "description": "Search published blog articles.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "query": { "type": "string" },
+      "topK": { "type": "number" }
+    },
+    "required": ["query"]
+  }
+}
+```
+
+统一 schema 的好处是：
+
+- 模型知道参数怎么填。
+- 客户端可以做校验。
+- 工具文档可以自动生成。
+- 返回值可以按统一方式进入上下文。
+
+这和前面讲的工具调用是一脉相承的。MCP 让工具 schema 有了更统一的分发方式。
+
+## 4. MCP 解决的第三件事：上下文资源
+
+有些信息不适合设计成“调用工具”，而更像“读取资源”。
+
+例如：
+
+```text
+file:///README.md
+github://repo/issues/123
+blog://articles/rag-introduction-retrieval-citations
+postgres://schema/public
+```
+
+资源的价值是把外部信息以稳定 URI 暴露给 agent。
+
+这样模型或客户端可以先列出资源，再按需读取，而不是把所有内容一次性塞进上下文。
+
+这和上下文工程关系很大：
+
+```text
+不要把全部知识放进 prompt
+  -> 暴露可读取资源
+  -> 根据任务按需读取
+  -> 把读取结果压缩进上下文
+```
+
+资源机制让 agent 有机会“查资料”，而不是只能依赖初始 prompt。
+
+## 5. MCP 解决的第四件事：工具复用
+
+如果一个工具按统一协议暴露，它就不只服务于一个 agent。
+
+例如一个 `search_blog_articles` server 可以被多个客户端使用：
+
+- 网站问答入口。
+- 本地写作助手。
+- 后台内容运营工具。
+- 代码编辑器里的 agent。
+
+工具提供方只需要维护一套协议实现，客户端按标准接入。
+
+这能降低生态重复建设。
+
+但复用不等于所有客户端都能做同样事情。权限和策略仍然要按客户端、用户和场景控制。
+
+## 6. MCP 不解决权限设计
+
+统一协议不会自动让系统安全。
+
+如果一个 server 暴露了：
+
+```text
+delete_production_database
+```
+
+即使它用的是标准协议，也仍然危险。
+
+权限必须在工具服务端执行：
+
+- 谁可以调用这个工具？
+- 可以访问哪些资源？
+- 写操作是否需要确认？
+- 是否允许跨租户访问？
+- 是否要记录审计日志？
+
+客户端 prompt 里写“不要调用危险工具”是不够的。
+
+MCP 只是连接方式，不是权限模型本身。
+
+## 7. MCP 不解决产品边界
+
+工具暴露出来，不代表产品就应该让用户直接使用。
+
+例如：
+
+```text
+read_file
+write_file
+run_shell_command
+deploy_to_production
+send_email
+```
+
+这些工具非常强，但产品层面要决定：
+
+- 用户是否理解这些动作？
+- 出错后怎么回滚？
+- UI 里怎么展示确认？
+- 是否需要审批流？
+- 是否符合组织安全策略？
+
+协议能让工具接上，不能替你决定产品体验。
+
+一个好的 agent 产品，不是把工具列表丢给模型，而是把工具放进合适的任务流程里。
+
+## 8. MCP 不解决工具质量
+
+一个工具即使用标准协议暴露，也可能很难用。
+
+常见问题：
+
+- 描述含糊。
+- schema 太宽。
+- 返回值太大。
+- 错误码不清楚。
+- 没有分页。
+- 没有幂等。
+- 没有版本。
+- 权限错误和资源不存在混在一起。
+
+这些问题要靠工具设计解决。
+
+MCP 能让工具被发现和调用，但不能让一个坏工具变成好工具。
+
+## 9. MCP 和 RAG 的关系
+
+RAG 可以通过 MCP 暴露成工具和资源。
+
+例如：
+
+```text
+tools:
+  search_knowledge_base
+  rerank_evidence
+
+resources:
+  kb://documents/{id}
+  kb://chunks/{id}
+```
+
+博客问答入口可以调用：
+
+```text
+search_knowledge_base(query="RAG 为什么要重排？")
+```
+
+然后读取返回的 chunk 或文章资源。
+
+这样 RAG 不再只是某个后端服务内部逻辑，而可以成为 agent 生态里的可复用能力。
+
+但仍然要记住：
+
+```text
+MCP 暴露检索能力
+RAG 负责找证据
+LLM 负责生成回答
+权限和引用校验仍然要独立设计
+```
+
+## 10. MCP 和 LLMWiki 的关系
+
+如果你后续使用 LLMWiki，它更像知识层。
+
+LLMWiki 可以负责：
+
+- 把文章整理成模型友好的 Markdown。
+- 保留标题、章节、链接、引用。
+- 生成知识图谱或主题关系。
+- 提供搜索和读取能力。
+
+MCP 可以负责：
+
+- 把这些能力暴露给不同 agent。
+- 让 agent 发现可读资源。
+- 让工具调用有统一 schema。
+
+关系可以这样理解：
+
+```text
+博客内容
+  -> LLMWiki 整理成知识层
+  -> MCP 暴露搜索/读取工具
+  -> Agent 调用工具回答用户
+```
+
+LLMWiki 解决“知识如何组织”，MCP 解决“工具如何接入”。
+
+## 11. 一个博客 MCP server 可以暴露什么
+
+如果给当前博客做一个 MCP server，可以从很小的能力开始：
+
+```text
+resources:
+  blog://series/ai-learning
+  blog://articles/{slug}
+
+tools:
+  list_ai_learning_series
+  search_blog_articles
+  read_blog_article_section
+```
+
+`list_ai_learning_series` 返回 12 篇主线文章：
+
+```json
+{
+  "series": "ai-learning",
+  "articles": [
+    {
+      "order": 1,
+      "title": "大模型如何生成文本：从 Token 到下一个 Token",
+      "slug": "llm-autoregressive-generation"
+    }
+  ]
+}
+```
+
+`search_blog_articles` 返回证据块：
+
+```json
+{
+  "query": "RAG 为什么要重排",
+  "results": [
+    {
+      "citationId": "1",
+      "title": "RAG 进阶：混合检索、重排、GraphRAG 和评测集",
+      "url": "/blog/rag-advanced-hybrid-rerank-graphrag-evaluation",
+      "snippet": "候选召回的目标是别漏掉答案，重排的目标是把最能回答问题的证据放前面。"
+    }
+  ]
+}
+```
+
+这样 agent 不需要知道博客内部是 Astro、Notion、MDX 还是 PostgreSQL。
+
+## 12. MCP server 的边界
+
+一个 MCP server 不应该什么都做。
+
+建议边界清晰：
+
+```text
+blog mcp server
+  -> 文章搜索
+  -> 文章读取
+  -> 系列列表
+
+postgres mcp server
+  -> schema 读取
+  -> 只读查询
+  -> 受控写操作
+
+deployment mcp server
+  -> 查看部署状态
+  -> 触发部署
+  -> 回滚部署
+```
+
+不要做一个万能 server，把所有工具堆在一起。
+
+边界越清楚，权限越容易控制，模型也越容易选对工具。
+
+## 13. 工具协议不能替代评测
+
+工具接入后，还要评测 agent 是否真的用对。
+
+可以测试：
+
+- 用户问博客内容时，是否调用博客搜索工具？
+- 需要读取原文时，是否调用 read 工具？
+- 无权限资源是否被拒绝？
+- 写操作是否停在确认点？
+- 工具失败时是否正确恢复？
+
+统一协议解决“能调用”，评测解决“调用得对不对”。
+
+没有评测，工具越多，问题越隐蔽。
+
+## 14. 小结
+
+MCP 这类统一协议的价值在于工具生态：
+
+- 统一能力发现。
+- 统一工具 schema。
+- 统一资源读取。
+- 降低客户端和工具的耦合。
+- 让能力可以复用。
+
+但它不解决：
+
+- 权限边界。
+- 产品流程。
+- 工具质量。
+- 错误恢复。
+- 人类确认点。
+- RAG 评测。
+- Agent 行为评测。
+
+所以更准确的理解是：
+
+```text
+MCP 是工具生态的连接层，不是 agent 系统的全部。
+```
+
+下一篇会进入 RLHF 主线：从 SFT、奖励模型到 PPO，理解大模型为什么会从“会续写文本”变成“更像助手”。

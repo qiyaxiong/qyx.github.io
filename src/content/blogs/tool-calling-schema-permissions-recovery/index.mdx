@@ -1,0 +1,626 @@
+---
+title: 工具调用：schema、权限、返回值和错误恢复
+publishDate: 2026-06-12
+updatedDate: 2026-06-12
+description: 讲清大模型工具调用的工程边界：工具 schema 怎么设计，权限怎么控制，返回值怎么压缩，失败后如何恢复。
+category: ai
+tags:
+  - llm
+  - tool-calling
+  - agent
+  - schema
+  - ai-learning-series
+language: zh
+---
+
+前面讲上下文工程时，我们已经把 prompt 拆成了多层信息：系统规则、任务指令、历史、记忆、RAG 证据和工具结果。
+
+这一篇专门讲工具调用。
+
+工具调用的意义是让模型不只“生成文本”，还可以使用外部能力：
+
+- 搜索知识库。
+- 查询数据库。
+- 调用业务 API。
+- 读取文件。
+- 创建工单。
+- 发送通知。
+- 执行代码或自动化浏览器。
+
+但工具调用也会把风险放大。模型一旦能操作系统，就不再只是回答错的问题，而可能查错数据、改错状态、泄露权限、重复执行动作。
+
+所以工具调用的重点不是“怎么让模型调用函数”，而是怎么设计 schema、权限、返回值和错误恢复。
+
+## 1. 工具不是函数名列表
+
+一个工具至少包含四件事：
+
+```text
+工具名
+  -> 输入 schema
+  -> 权限边界
+  -> 返回 contract
+  -> 错误语义
+```
+
+例如一个搜索工具：
+
+```json
+{
+  "name": "searchKnowledgeBase",
+  "description": "Search published knowledge base chunks visible to the current user.",
+  "inputSchema": {
+    "query": "string",
+    "topK": "number",
+    "sourceTypes": "string[]"
+  }
+}
+```
+
+这只是起点。真正上线时还要问：
+
+- 这个工具能查哪些租户的数据？
+- `topK` 最大允许多少？
+- 是否允许查未发布内容？
+- 返回原文还是摘要？
+- 搜不到时返回什么？
+- 下游 API 超时时模型应该怎么处理？
+
+这些都属于工具设计，而不是模型能力本身。
+
+## 2. 工具命名要稳定具体
+
+工具名会影响模型选择。
+
+不推荐：
+
+```text
+doThing
+callApi
+query
+search
+handleData
+```
+
+推荐：
+
+```text
+searchBlogArticles
+getOrderRefundStatus
+createSupportTicket
+readRepositoryFile
+listUserAccessibleDocuments
+```
+
+好的工具名应该让模型知道：
+
+- 它做什么。
+- 它操作什么对象。
+- 它是否会产生副作用。
+
+工具描述也要具体。
+
+不要写：
+
+```text
+Use this tool to search.
+```
+
+更好：
+
+```text
+Search published blog article chunks that are visible to anonymous website visitors. Use this before answering questions about blog content.
+```
+
+工具选择很大程度依赖上下文里的语义线索。工具名和描述越含糊，模型越容易误用。
+
+## 3. 输入 schema 要收窄，不要放任
+
+工具输入要尽量结构化。
+
+不要给模型一个万能字符串：
+
+```ts
+type Input = {
+  command: string
+}
+```
+
+这会把权限控制推给模型，风险很高。
+
+更好的方式是把可变部分收窄：
+
+```ts
+type SearchBlogInput = {
+  query: string
+  topK?: number
+  tags?: string[]
+}
+```
+
+再在服务端做限制：
+
+```ts
+const topK = Math.min(input.topK ?? 5, 10)
+const tags = input.tags?.filter(isAllowedTag) ?? []
+```
+
+模型可以提出意图，但最终参数必须经过程序校验。
+
+工具 schema 里的字段应该满足：
+
+- 名字清晰。
+- 类型明确。
+- 有合理默认值。
+- 有枚举就用枚举。
+- 有上限就写上限。
+- 不暴露内部敏感字段。
+
+## 4. 枚举比自由文本可靠
+
+如果某个字段只能取几个值，不要让模型自由填写。
+
+不推荐：
+
+```ts
+type TicketInput = {
+  priority: string
+}
+```
+
+推荐：
+
+```ts
+type TicketInput = {
+  priority: "low" | "normal" | "high" | "urgent"
+}
+```
+
+同理：
+
+```ts
+type SearchScope = "blog" | "docs" | "orders" | "tickets"
+type OutputFormat = "summary" | "detailed" | "json"
+type ActionMode = "preview" | "execute"
+```
+
+枚举能减少参数漂移，也方便服务端校验。
+
+如果用户说“很紧急”，模型可以映射到 `urgent`，但不能创造一个 `super_urgent_now`。
+
+## 5. 权限必须在工具层执行
+
+不要靠 prompt 控制权限。
+
+错误做法：
+
+```text
+你不能查询用户无权限的数据。
+```
+
+正确做法：
+
+```text
+工具服务根据 userId、tenantId、role、resource ACL 做权限过滤。
+```
+
+模型不应该决定用户能不能看某条数据。模型最多表达：
+
+```text
+我需要查询这个用户的订单。
+```
+
+真正执行时，工具服务要检查：
+
+- 当前用户是谁。
+- 属于哪个租户。
+- 角色是什么。
+- 是否有资源权限。
+- 操作是读还是写。
+- 是否需要二次确认。
+
+例如：
+
+```ts
+async function getOrderRefundStatus(input: Input, auth: AuthContext) {
+  const order = await db.orders.findById(input.orderId)
+
+  if (!order || order.tenantId !== auth.tenantId) {
+    return { ok: false, errorCode: "NOT_FOUND" }
+  }
+
+  if (!canReadOrder(auth, order)) {
+    return { ok: false, errorCode: "FORBIDDEN" }
+  }
+
+  return {
+    ok: true,
+    data: summarizeRefundStatus(order)
+  }
+}
+```
+
+注意这里不要告诉无权限用户“这条订单存在但你不能看”。很多场景里应该统一返回 `NOT_FOUND`。
+
+## 6. 读工具和写工具要分开
+
+工具调用最重要的边界之一是副作用。
+
+读工具：
+
+- 搜索文章。
+- 查询订单。
+- 获取文件内容。
+- 列出可用项目。
+
+写工具：
+
+- 创建工单。
+- 更新订单。
+- 发送邮件。
+- 删除文件。
+- 执行部署。
+
+写工具需要更严格的控制。
+
+建议所有写操作都支持预览模式：
+
+```ts
+type CreateTicketInput = {
+  title: string
+  body: string
+  priority: "low" | "normal" | "high"
+  mode: "preview" | "execute"
+}
+```
+
+当 `mode` 是 `preview` 时，工具只返回将要执行的动作：
+
+```json
+{
+  "ok": true,
+  "mode": "preview",
+  "preview": {
+    "title": "退款申请异常",
+    "priority": "high"
+  }
+}
+```
+
+真正执行前，可以要求用户确认。
+
+## 7. 返回值不是越完整越好
+
+工具返回给模型的内容应该是“完成任务所需信息”，不是 API 原始响应。
+
+原始响应可能包含：
+
+- 内部 ID。
+- 调试字段。
+- 权限字段。
+- 用户隐私。
+- 大量无关列表。
+- 嵌套对象。
+
+更好的做法是定义模型可读返回：
+
+```ts
+type ToolResult<T> =
+  | { ok: true; data: T; summary?: string }
+  | { ok: false; errorCode: string; retryable: boolean; message: string }
+```
+
+例如：
+
+```json
+{
+  "ok": true,
+  "summary": "订单已支付，仍在 7 天退款窗口内。",
+  "data": {
+    "orderId": "order_123",
+    "status": "paid",
+    "refundEligible": true,
+    "refundDeadline": "2026-06-18"
+  }
+}
+```
+
+这样模型不需要在复杂 JSON 里找答案。
+
+## 8. 错误要有语义
+
+工具失败时，不要只返回：
+
+```text
+failed
+```
+
+模型需要知道失败类型。
+
+可以定义错误码：
+
+| 错误码 | 含义 | 模型应对 |
+| --- | --- | --- |
+| `INVALID_INPUT` | 参数不合法 | 修正参数后重试 |
+| `FORBIDDEN` | 无权限 | 告诉用户无权操作 |
+| `NOT_FOUND` | 资源不存在或不可见 | 告诉用户未找到 |
+| `RATE_LIMITED` | 请求过快 | 稍后重试 |
+| `TIMEOUT` | 工具超时 | 可重试一次 |
+| `UPSTREAM_ERROR` | 下游服务失败 | 告知暂时不可用 |
+| `NEEDS_CONFIRMATION` | 需要用户确认 | 请求确认 |
+
+错误返回示例：
+
+```json
+{
+  "ok": false,
+  "errorCode": "NEEDS_CONFIRMATION",
+  "retryable": false,
+  "message": "创建工单前需要用户确认。",
+  "confirmation": {
+    "action": "createSupportTicket",
+    "summary": "创建高优先级退款异常工单"
+  }
+}
+```
+
+错误语义清楚，agent 才能恢复，而不是一直重复调用。
+
+## 9. 工具调用要可观测
+
+每次工具调用都应该有结构化日志。
+
+日志至少包含：
+
+```json
+{
+  "toolName": "searchBlogArticles",
+  "toolVersion": "v2",
+  "userId": "user_123",
+  "tenantId": "tenant_a",
+  "inputSummary": {
+    "query": "RAG 为什么要重排",
+    "topK": 8
+  },
+  "resultStatus": "ok",
+  "latencyMs": 320,
+  "requestId": "req_abc"
+}
+```
+
+注意不要把敏感输入原样写进日志。可以记录摘要、哈希或脱敏后的字段。
+
+工具日志能回答：
+
+- 模型为什么调用这个工具？
+- 参数是否合理？
+- 工具有没有超时？
+- 返回了什么类型的错误？
+- 用户是否有权限？
+- 是否出现重复调用？
+
+没有工具日志，就很难调试 agent。
+
+## 10. 工具选择不应该完全交给模型
+
+很多系统把所有工具一次性塞给模型，让模型自己选。
+
+当工具只有 3 个时还可以。当工具有 30 个、100 个时，模型会更容易选错，也会消耗大量上下文。
+
+更稳的方式是按任务选择工具集：
+
+```text
+博客问答任务
+  -> searchBlogArticles
+  -> readBlogArticle
+
+订单售后任务
+  -> getOrderRefundStatus
+  -> createSupportTicket
+
+代码仓库任务
+  -> searchRepository
+  -> readRepositoryFile
+  -> runTests
+```
+
+工具不是越多越好。每次模型调用只给当前任务可能用到的工具。
+
+这也是上下文工程的一部分。
+
+## 11. 防止重复调用
+
+Agent 常见问题是重复调用同一个工具。
+
+例如：
+
+```text
+searchBlogArticles("RAG 重排")
+searchBlogArticles("RAG 重排")
+searchBlogArticles("RAG 重排")
+```
+
+可以从三层防止：
+
+第一，提示模型：
+
+```text
+如果同一查询已经返回可用结果，不要重复调用搜索工具。
+```
+
+第二，在状态里记录调用历史：
+
+```json
+{
+  "usedTools": [
+    {
+      "name": "searchBlogArticles",
+      "inputHash": "abc123",
+      "status": "ok"
+    }
+  ]
+}
+```
+
+第三，在程序层做去重：
+
+```ts
+if (hasSameRecentToolCall(toolName, inputHash)) {
+  return {
+    ok: false,
+    errorCode: "DUPLICATE_CALL",
+    retryable: false,
+    message: "Same tool call was already executed."
+  }
+}
+```
+
+不要只靠模型自觉。
+
+## 12. 写操作需要人类确认点
+
+凡是不可逆、有费用、有外部影响、涉及隐私或权限提升的操作，都应该有人类确认点。
+
+例如：
+
+- 删除文件。
+- 发送邮件。
+- 修改订单状态。
+- 发起退款。
+- 发布文章。
+- 创建线上部署。
+- 给用户授权。
+
+确认点应该展示清楚：
+
+```json
+{
+  "action": "publishArticle",
+  "title": "工具调用：schema、权限、返回值和错误恢复",
+  "target": "production",
+  "effects": [
+    "文章将在公开博客可见",
+    "Vercel 会触发生产部署"
+  ]
+}
+```
+
+用户确认后，才把 `mode` 从 `preview` 切到 `execute`。
+
+这不是不信任模型，而是工程责任边界。
+
+## 13. 工具版本要可回滚
+
+工具 schema 一旦被模型使用，就不应该随意改。
+
+如果要改字段，最好版本化：
+
+```text
+searchBlogArticles.v1
+searchBlogArticles.v2
+```
+
+或者在工具 metadata 里记录版本：
+
+```json
+{
+  "toolName": "searchBlogArticles",
+  "version": "v2"
+}
+```
+
+为什么？
+
+因为旧 prompt、旧 agent、旧评测集可能还依赖旧返回值。
+
+如果直接改：
+
+```ts
+refundEligible: boolean
+```
+
+改成：
+
+```ts
+eligibility: "eligible" | "not_eligible" | "unknown"
+```
+
+下游解析可能会断。
+
+工具是 agent 的 API。API 就要有兼容性意识。
+
+## 14. 一个工具调用流程
+
+一个稳妥的工具调用流程可以这样设计：
+
+```text
+模型提出工具调用
+  -> 参数 schema 校验
+  -> 权限校验
+  -> 幂等/重复检查
+  -> 执行工具
+  -> 返回压缩结果
+  -> 写工具日志
+  -> 模型基于结果继续推理
+```
+
+如果是写操作：
+
+```text
+模型提出写操作
+  -> 生成 preview
+  -> 用户确认
+  -> execute
+  -> 返回结果
+```
+
+工具层应该把危险操作挡在模型之外。
+
+模型负责推理和选择，程序负责边界和执行。
+
+## 15. 和 RAG 的关系
+
+RAG 本质上也是一种工具调用：
+
+```text
+search(query) -> evidence chunks
+read(source) -> full content
+```
+
+区别是 RAG 工具通常是读工具，风险比写工具低，但仍然需要权限、返回格式和引用校验。
+
+一个博客问答 agent 可以只有两个工具：
+
+```text
+searchBlogArticles
+readBlogArticleSection
+```
+
+当用户问：
+
+```text
+RAG 进阶为什么要重排？
+```
+
+agent 先调用搜索工具，再读取相关章节，最后基于证据回答。
+
+这比把所有文章全文塞进 prompt 更稳定。
+
+## 16. 小结
+
+工具调用让模型连接外部世界，也让系统风险从“回答不准”扩展到“操作不当”。
+
+一个可上线的工具系统应该做到：
+
+- 工具名和描述稳定具体。
+- 输入 schema 收窄并可校验。
+- 权限在工具服务端执行。
+- 读工具和写工具分开。
+- 写操作支持 preview 和确认。
+- 返回值面向模型压缩。
+- 错误码有明确恢复语义。
+- 工具调用有结构化日志。
+- 工具集合按任务裁剪。
+- schema 和返回 contract 有版本。
+
+下一篇会讲工作流与 Agent：什么时候用固定流程，什么时候让模型自主决策，什么时候必须加入人类确认点。
