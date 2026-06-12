@@ -1,0 +1,503 @@
+---
+title: PostgreSQL + Meilisearch 搭建 Airag 检索链路
+publishDate: 2026-06-11
+updatedDate: 2026-06-11
+description: 从数据建模、chunk 切分、索引同步、更新删除到 RAG 召回，梳理 Airag 场景下 PostgreSQL 与 Meilisearch 的协作方式。
+category: ai
+tags:
+  - rag
+  - meilisearch
+  - postgresql
+  - ai
+  - search
+language: zh
+---
+
+很多 RAG 系统一开始都会把问题想简单：数据库里有文章，直接把文章丢进搜索引擎，用户提问时搜一下，再把结果交给大模型回答。
+
+这个方向没错，但实现细节很容易踩坑。尤其是在 Airag 这类业务里，内容通常来自 PostgreSQL，检索交给 Meilisearch，回答交给 LLM。如果更新文章、删除文章、权限过滤、chunk 切分这些环节没有设计好，用户很快就会遇到“明明文章改了，AI 还在回答旧内容”的问题。
+
+这篇文章整理一套更稳妥的做法：PostgreSQL 保存原始内容，Meilisearch 保存可召回的 chunk，业务服务负责同步与检索。
+
+## 1. PostgreSQL 和 Meilisearch 各自负责什么
+
+不要把 Meilisearch 当主数据库用。更合理的分工是：
+
+| 组件 | 职责 |
+| --- | --- |
+| PostgreSQL | 保存原始文章、权限、版本、删除状态和业务元数据 |
+| Meilisearch | 保存可检索的 chunk，用于快速召回相关片段 |
+| 应用服务 | 负责切分、同步、权限过滤、搜索 API 和 RAG prompt 组装 |
+| LLM | 基于召回片段生成最终回答 |
+
+整体链路如下：
+
+```text
+PostgreSQL 原始文章
+  -> 切分为 chunks
+  -> 同步到 Meilisearch py_rag_demo_docs
+  -> 用户问题检索 topK chunks
+  -> 组装上下文
+  -> LLM 生成回答
+```
+
+这里的“文章”不是博客文章，而是 Airag 知识库中的业务文档、制度文档、产品说明、客服话术、内部知识等。
+
+## 2. 为什么不要直接索引整篇文章
+
+RAG 检索的目标不是找到“哪篇文章相关”，而是找到“哪几段内容可以回答这个问题”。
+
+如果把整篇文章作为一条 Meilisearch 文档，会有几个问题：
+
+- 长文章里的无关内容会稀释相关性。
+- LLM 上下文会被整篇文章占满，浪费 token。
+- 更新文章时不好判断哪些段落变了。
+- 多个问题可能命中同一篇文章，但真正需要的段落不同。
+
+所以更好的方式是：
+
+```text
+一篇文章
+  -> 多个 chunk
+  -> 每个 chunk 是 Meilisearch 的一条文档
+```
+
+例如：
+
+```json
+{
+  "id": "doc_123_chunk_0001",
+  "documentId": "doc_123",
+  "tenantId": "tenant_a",
+  "title": "退款规则说明",
+  "content": "用户在支付成功后 7 天内可以申请退款，但虚拟商品...",
+  "chunkIndex": 1,
+  "sourceType": "knowledge_base",
+  "tags": ["refund", "policy"],
+  "updatedAt": 1781147200
+}
+```
+
+`documentId` 指向 PostgreSQL 里的原始文章，`id` 是 Meilisearch 里的 chunk 主键。
+
+## 3. PostgreSQL 表结构建议
+
+可以把原始文章和 chunk 分开存。
+
+```sql
+create table airag_documents (
+  id text primary key,
+  tenant_id text not null,
+  title text not null,
+  content text not null,
+  source_type text not null,
+  source_id text,
+  tags text[] not null default '{}',
+  metadata jsonb not null default '{}',
+  content_hash text not null,
+  indexed_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  deleted_at timestamptz
+);
+
+create table airag_chunks (
+  id text primary key,
+  document_id text not null references airag_documents(id),
+  tenant_id text not null,
+  chunk_index integer not null,
+  title text not null,
+  content text not null,
+  token_count integer,
+  content_hash text not null,
+  metadata jsonb not null default '{}',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index airag_chunks_document_id_idx on airag_chunks(document_id);
+create index airag_documents_tenant_id_idx on airag_documents(tenant_id);
+```
+
+几个字段很重要：
+
+- `tenant_id`：多租户隔离时必须带上。
+- `content_hash`：判断内容是否真的变化，避免重复索引。
+- `deleted_at`：做软删除时，同步任务要把 Meilisearch 中的 chunk 删除。
+- `indexed_at`：记录最近一次成功同步到 Meilisearch 的时间。
+
+## 4. Chunk 切分策略
+
+切分不需要一开始就做得很复杂。第一版可以按标题和段落切分：
+
+- 每个 chunk 控制在 500 到 1000 个中文字符左右。
+- 相邻 chunk 保留少量 overlap，比如 80 到 150 个字符。
+- 保留文章标题、章节标题、来源信息。
+- 不要把表格、代码块、列表拆得太碎。
+
+一个实用的 chunk 文本模板：
+
+```text
+标题：{title}
+章节：{sectionTitle}
+正文：{chunkContent}
+```
+
+这样即使用户的问题只命中正文，LLM 也能从上下文里知道这段内容属于哪篇文档。
+
+## 5. Meilisearch 索引设计
+
+给 Airag 单独建一个索引，不要和博客搜索、后台搜索混在一起：
+
+```text
+py_rag_demo_docs
+```
+
+建议设置：
+
+```bash
+curl -X PATCH "$MEILI_HOST/indexes/py_rag_demo_docs/settings" \
+  -H "Authorization: Bearer $MEILI_KEY" \
+  -H "Content-Type: application/json" \
+  --data '{
+    "searchableAttributes": ["title", "content", "tags"],
+    "filterableAttributes": ["tenantId", "documentId", "sourceType", "tags", "updatedAt"],
+    "sortableAttributes": ["updatedAt"],
+    "displayedAttributes": [
+      "id",
+      "documentId",
+      "tenantId",
+      "title",
+      "content",
+      "chunkIndex",
+      "sourceType",
+      "tags",
+      "updatedAt"
+    ]
+  }'
+```
+
+注意：如果后续要用 `filter` 按 `documentId`、`tenantId` 删除或查询，这些字段必须放进 `filterableAttributes`。
+
+## 6. 新增文章时怎么同步
+
+新增文章的流程：
+
+```text
+1. 写入 airag_documents
+2. 切分文章，写入 airag_chunks
+3. 把 chunks 批量写入 Meilisearch
+4. 等待 Meilisearch task succeeded
+5. 更新 airag_documents.indexed_at
+```
+
+写入 Meilisearch：
+
+```bash
+curl -X PUT "$MEILI_HOST/indexes/py_rag_demo_docs/documents" \
+  -H "Authorization: Bearer $MEILI_KEY" \
+  -H "Content-Type: application/json" \
+  --data '[
+    {
+      "id": "doc_123_chunk_0000",
+      "documentId": "doc_123",
+      "tenantId": "tenant_a",
+      "title": "退款规则说明",
+      "content": "用户在支付成功后 7 天内可以申请退款...",
+      "chunkIndex": 0,
+      "sourceType": "knowledge_base",
+      "tags": ["refund", "policy"],
+      "updatedAt": 1781147200
+    }
+  ]'
+```
+
+Meilisearch 的写入是异步的，接口会返回 `taskUid`，不要忽略它。
+
+```json
+{
+  "taskUid": 147,
+  "indexUid": "py_rag_demo_docs",
+  "status": "enqueued",
+  "type": "documentAdditionOrUpdate"
+}
+```
+
+随后查询任务状态：
+
+```bash
+curl "$MEILI_HOST/tasks/147" \
+  -H "Authorization: Bearer $MEILI_KEY"
+```
+
+只有看到 `status` 为 `succeeded`，才能认为这次索引更新完成。
+
+## 7. 更新文章时怎么处理
+
+这是 Airag 最容易出错的地方。
+
+如果正文变了，不建议只更新某几条 chunk。更稳的做法是：
+
+```text
+1. 更新 PostgreSQL 原始文章
+2. 重新切分整篇文章
+3. 删除 Meilisearch 中该 documentId 的旧 chunks
+4. 写入新的 chunks
+5. 等待删除和写入任务完成
+6. 更新 indexed_at
+```
+
+删除旧 chunks：
+
+```bash
+curl -X POST "$MEILI_HOST/indexes/py_rag_demo_docs/documents/delete" \
+  -H "Authorization: Bearer $MEILI_KEY" \
+  -H "Content-Type: application/json" \
+  --data '{
+    "filter": "documentId = \"doc_123\""
+  }'
+```
+
+然后写入新 chunks：
+
+```bash
+curl -X PUT "$MEILI_HOST/indexes/py_rag_demo_docs/documents" \
+  -H "Authorization: Bearer $MEILI_KEY" \
+  -H "Content-Type: application/json" \
+  --data '[
+    {
+      "id": "doc_123_chunk_0000",
+      "documentId": "doc_123",
+      "tenantId": "tenant_a",
+      "title": "退款规则说明",
+      "content": "更新后的第一段内容...",
+      "chunkIndex": 0,
+      "sourceType": "knowledge_base",
+      "tags": ["refund", "policy"],
+      "updatedAt": 1781147300
+    }
+  ]'
+```
+
+这样可以避免旧 chunk 残留。旧 chunk 一旦残留，RAG 就可能召回过期内容，用户会觉得“AI 明明接了知识库，但回答还是错的”。
+
+如果只是标题、标签、分类变了，正文没有变，可以直接批量更新现有 chunks 的元数据。但只要正文变了，建议重切并重建该文章的所有 chunks。
+
+## 8. 删除文章时怎么同步
+
+如果 PostgreSQL 里做软删除：
+
+```sql
+update airag_documents
+set deleted_at = now()
+where id = 'doc_123';
+```
+
+同步任务必须删除 Meilisearch 中对应 chunks：
+
+```bash
+curl -X POST "$MEILI_HOST/indexes/py_rag_demo_docs/documents/delete" \
+  -H "Authorization: Bearer $MEILI_KEY" \
+  -H "Content-Type: application/json" \
+  --data '{
+    "filter": "documentId = \"doc_123\""
+  }'
+```
+
+不要只在搜索时过滤 `deleted_at`。因为 Meilisearch 里没有及时删除的话，后续维护和排查会变复杂。
+
+## 9. 查询接口怎么设计
+
+前端不要直接请求 Meilisearch，也不要把 Meilisearch key 暴露到浏览器。
+
+应该由业务服务提供一个搜索接口：
+
+```text
+POST /api/airag/search
+```
+
+请求：
+
+```json
+{
+  "tenantId": "tenant_a",
+  "question": "虚拟商品可以退款吗？",
+  "limit": 8
+}
+```
+
+服务端请求 Meilisearch：
+
+```bash
+curl -X POST "$MEILI_HOST/indexes/py_rag_demo_docs/search" \
+  -H "Authorization: Bearer $MEILI_KEY" \
+  -H "Content-Type: application/json" \
+  --data '{
+    "q": "虚拟商品可以退款吗？",
+    "limit": 8,
+    "filter": "tenantId = \"tenant_a\""
+  }'
+```
+
+多租户系统里，`tenantId` 过滤必须在服务端拼接，不能相信前端传来的任意 filter。
+
+## 10. RAG 回答怎么组装上下文
+
+搜索返回 chunks 后，不要直接把所有结果原样塞给 LLM。建议做几个步骤：
+
+```text
+1. 按 Meilisearch 相关性取 topK
+2. 按 documentId 去重或限制每篇文章最多 N 个 chunk
+3. 按 chunkIndex 恢复同一篇文章内的顺序
+4. 拼接标题、来源、正文
+5. 传给 LLM
+```
+
+上下文可以这样组织：
+
+```text
+你只能基于以下知识库内容回答。如果资料不足，请说无法从知识库中确认。
+
+[资料 1]
+标题：退款规则说明
+来源：knowledge_base/doc_123
+内容：
+用户在支付成功后 7 天内可以申请退款，但虚拟商品一经交付...
+
+[资料 2]
+标题：售后例外说明
+来源：knowledge_base/doc_456
+内容：
+如果商品存在质量问题，用户可以提交人工审核...
+```
+
+这样能减少模型自由发挥，也方便在回答里附带来源。
+
+## 11. 后续升级：Hybrid Search
+
+第一版可以先用 Meilisearch 的关键词检索跑通业务链路。等数据量和问题复杂度上来后，再升级 hybrid search。
+
+Meilisearch 支持在索引里配置 `embedders`，让它为文档和查询生成向量，然后在搜索时使用 `hybrid` 参数。一个示例配置：
+
+```bash
+curl -X PATCH "$MEILI_HOST/indexes/py_rag_demo_docs/settings" \
+  -H "Authorization: Bearer $MEILI_KEY" \
+  -H "Content-Type: application/json" \
+  --data '{
+    "embedders": {
+      "airag-openai": {
+        "source": "openAi",
+        "apiKey": "OPENAI_API_KEY",
+        "model": "text-embedding-3-small",
+        "documentTemplate": "标题：{{doc.title}}\n正文：{{doc.content}}"
+      }
+    }
+  }'
+```
+
+搜索时：
+
+```bash
+curl -X POST "$MEILI_HOST/indexes/py_rag_demo_docs/search" \
+  -H "Authorization: Bearer $MEILI_KEY" \
+  -H "Content-Type: application/json" \
+  --data '{
+    "q": "用户买了虚拟商品后能不能退款？",
+    "limit": 8,
+    "filter": "tenantId = \"tenant_a\"",
+    "hybrid": {
+      "embedder": "airag-openai",
+      "semanticRatio": 0.5
+    }
+  }'
+```
+
+`semanticRatio` 越接近 `1.0`，越偏语义检索；越接近 `0.0`，越偏关键词检索。实际业务里可以从 `0.3` 到 `0.6` 之间试起。
+
+## 12. 一个最小可用同步函数
+
+下面是伪代码，展示更新一篇文章时的核心逻辑：
+
+```ts
+async function reindexDocument(documentId: string) {
+  const doc = await db.airagDocuments.findById(documentId)
+
+  if (!doc || doc.deletedAt) {
+    await deleteChunksFromMeili(documentId)
+    return
+  }
+
+  const chunks = splitIntoChunks(doc.content).map((chunk, index) => ({
+    id: `${doc.id}_chunk_${String(index).padStart(4, '0')}`,
+    documentId: doc.id,
+    tenantId: doc.tenantId,
+    title: doc.title,
+    content: chunk.content,
+    chunkIndex: index,
+    sourceType: doc.sourceType,
+    tags: doc.tags,
+    updatedAt: Math.floor(doc.updatedAt.getTime() / 1000)
+  }))
+
+  await db.transaction(async (tx) => {
+    await tx.airagChunks.deleteMany({ documentId: doc.id })
+    await tx.airagChunks.insertMany(chunks)
+  })
+
+  const deleteTask = await deleteChunksFromMeili(doc.id)
+  await waitMeiliTask(deleteTask.taskUid)
+
+  const addTask = await addChunksToMeili(chunks)
+  await waitMeiliTask(addTask.taskUid)
+
+  await db.airagDocuments.update(doc.id, {
+    indexedAt: new Date()
+  })
+}
+```
+
+真实项目里还要处理重试、日志、批量大小和错误告警，但主流程就是这几步。
+
+## 13. 常见坑
+
+### 旧 chunk 没删干净
+
+文章从 10 个 chunk 更新成 6 个 chunk，如果只 upsert 新的 6 个，旧的 4 个还会留在 Meilisearch。解决方式是按 `documentId` 先删再写。
+
+### 忽略 Meilisearch 异步任务
+
+写入接口返回 `enqueued` 不代表索引已经更新完成。需要查 `/tasks/{taskUid}`，确认 `succeeded`。
+
+### key 暴露在前端
+
+Meilisearch master key 或管理 key 不能放在浏览器。搜索接口应由服务端代理，并在服务端加权限过滤。
+
+### 没有多租户过滤
+
+如果是 SaaS 或多空间知识库，搜索时必须加 `tenantId`、`workspaceId` 或类似字段的 filter。
+
+### chunk 太大或太小
+
+太大时召回不精准，太小时上下文破碎。第一版可以用 500 到 1000 个中文字符作为经验值，再根据真实问题调整。
+
+## 14. 推荐落地顺序
+
+不要一开始就把 embedding、rerank、复杂队列全部接上。可以按这个顺序推进：
+
+1. PostgreSQL 保存原始文章。
+2. 实现 chunk 切分和 `airag_chunks` 表。
+3. 建立 Meilisearch `py_rag_demo_docs` 索引。
+4. 实现新增、更新、删除文章的同步逻辑。
+5. 实现 `/api/airag/search`，服务端加权限过滤。
+6. 把搜索结果接入 LLM prompt。
+7. 根据真实效果再加 hybrid search、rerank 或更复杂的同步队列。
+
+这个顺序的好处是，每一步都能单独验证。先把“内容更新后能稳定召回新内容”做好，再谈语义检索和召回质量，系统会更容易维护。
+
+## 参考资料
+
+- [Meilisearch: Add or update documents](https://www.meilisearch.com/docs/reference/api/documents/add-or-update-documents)
+- [Meilisearch: Delete documents by filter](https://www.meilisearch.com/docs/reference/api/documents/delete-documents-by-filter)
+- [Meilisearch: Get task](https://www.meilisearch.com/docs/reference/api/async-task-management/get-task)
+- [Meilisearch: Hybrid search](https://www.meilisearch.com/docs/capabilities/hybrid_search/getting_started)
+- [Meilisearch: Configure OpenAI embedder](https://www.meilisearch.com/docs/capabilities/hybrid_search/how_to/configure_openai_embedder)

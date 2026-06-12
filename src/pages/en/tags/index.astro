@@ -1,11 +1,11 @@
 ---
-import { getBlogCollection, getUniqueTagsWithCount } from '@/server'
+import { getBlogCollectionEn, getUniqueTagsWithCount } from '@/server'
 
 import PageLayout from '@/layouts/BaseLayout.astro'
 import { Button } from '@/components/user'
 import { cn } from '@/utils'
 
-const allPosts = await getBlogCollection()
+const allPosts = await getBlogCollectionEn()
 const allTags = getUniqueTagsWithCount(allPosts)
 
 const meta = {

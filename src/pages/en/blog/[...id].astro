@@ -1,5 +1,6 @@
 ---
 import type { MarkdownHeading } from 'astro'
+import { render, type CollectionEntry } from 'astro:content'
 import type { Root } from 'mdast'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
@@ -13,34 +14,15 @@ import { visit } from 'unist-util-visit'
 import PostLayout from '@/layouts/BlogPost.astro'
 import mdastToString from '@/utils/mdast-util-to-string'
 import getReadingTime from '@/utils/reading-time'
-import { getNotionPageContent, getNotionPosts, type NotionPost } from '../../../lib/notion'
+import { getNotionPageContent } from '../../../lib/notion'
+import {
+  getBlogCollectionEn,
+  sortMDByDate,
+  type BlogCollectionEntry,
+  type BlogPostEntry
+} from '@/server'
 
 export const prerender = true
-
-interface RenderedPostData {
-  title: string
-  description: string
-  publishDate: Date
-  updatedDate?: Date
-  heroImage?: {
-    src: string
-    alt?: string
-    width?: number
-    height?: number
-    color?: string
-  }
-  tags: string[]
-  category?: string
-  language: 'zh' | 'en'
-  draft: boolean
-  comment: boolean
-  pixivLink?: string
-}
-
-interface RenderedPost {
-  id: string
-  data: RenderedPostData
-}
 
 function slugifyHeading(text: string): string {
   return text
@@ -118,47 +100,59 @@ async function renderNotionMarkdown(markdown: string): Promise<{
   }
 }
 
-function toRenderedPost(post: NotionPost, description: string): RenderedPost {
-  return {
-    id: post.slug,
-    data: {
-      title: post.title,
-      description,
-      publishDate: post.date,
-      tags: post.tags,
-      category: post.category,
-      language: post.lang,
-      draft: false,
-      comment: true
-    }
-  }
-}
-
 export async function getStaticPaths() {
-  const posts = (await getNotionPosts())
-    .filter((post) => post.lang === 'en')
-    .sort((a, b) => b.date.valueOf() - a.date.valueOf())
+  const posts = sortMDByDate(await getBlogCollectionEn())
 
   return posts.map((post) => ({
-    params: { id: post.slug },
+    params: { id: post.id },
     props: { post, posts }
   }))
 }
 
 type Props = {
-  post: NotionPost
-  posts: NotionPost[]
+  post: BlogCollectionEntry
+  posts: BlogCollectionEntry[]
 }
 
 const { post, posts } = Astro.props as Props
-const markdown = await getNotionPageContent(post.sourcePageId)
-const { html, headings, remarkPluginFrontmatter } = await renderNotionMarkdown(markdown)
-const description = post.description || getDescriptionFromMarkdown(markdown, post.title)
 
-const renderedPost = toRenderedPost(post, description)
-const renderedPosts = posts.map((item) =>
-  item.slug === post.slug ? renderedPost : toRenderedPost(item, item.description || item.title)
-)
+function isNotionPostEntry(
+  entry: BlogCollectionEntry
+): entry is BlogPostEntry & { sourcePageId: string } {
+  return typeof (entry as BlogPostEntry).sourcePageId === 'string'
+}
+
+let html = ''
+let Content: any
+let headings: MarkdownHeading[] = []
+let remarkPluginFrontmatter: Record<string, unknown> = {}
+let renderedPost: BlogCollectionEntry = post
+let renderedPosts: BlogCollectionEntry[] = posts
+
+if (isNotionPostEntry(post)) {
+  const markdown = await getNotionPageContent(post.sourcePageId)
+  const rendered = await renderNotionMarkdown(markdown)
+  const description = post.data.description || getDescriptionFromMarkdown(markdown, post.data.title)
+
+  html = rendered.html
+  headings = rendered.headings
+  remarkPluginFrontmatter = rendered.remarkPluginFrontmatter
+  renderedPost = {
+    ...post,
+    data: {
+      ...post.data,
+      description
+    }
+  }
+  renderedPosts = posts.map((item) =>
+    item.id === post.id ? renderedPost : item
+  )
+} else {
+  const rendered = await render(post as CollectionEntry<'blogEn'>)
+  Content = rendered.Content
+  headings = rendered.headings
+  remarkPluginFrontmatter = rendered.remarkPluginFrontmatter
+}
 ---
 
 <PostLayout
@@ -167,5 +161,5 @@ const renderedPosts = posts.map((item) =>
   {headings}
   {remarkPluginFrontmatter}
 >
-  <Fragment set:html={html} />
+  {Content ? <Content /> : <Fragment set:html={html} />}
 </PostLayout>

@@ -32,9 +32,14 @@ export interface BlogPostData {
 export interface BlogPostEntry {
   id: string
   data: BlogPostData
-  notionId: string
-  sourcePageId: string
+  notionId?: string
+  sourcePageId?: string
 }
+
+export type BlogCollectionEntry =
+  | BlogPostEntry
+  | CollectionEntry<'blog'>
+  | CollectionEntry<'blogEn'>
 
 export interface NoteEntry {
   id: string
@@ -90,12 +95,38 @@ async function getPostsByLang(lang: NotionLang): Promise<BlogPostEntry[]> {
     .map(toBlogPostEntry)
 }
 
+async function getLocalPostsByLang(lang: NotionLang): Promise<BlogCollectionEntry[]> {
+  const isPublishableLocalPost = ({ data }: CollectionEntry<'blog'> | CollectionEntry<'blogEn'>) =>
+    !data.draft && data.category === 'ai'
+
+  const normalizeLocalPost = <T extends CollectionEntry<'blog'> | CollectionEntry<'blogEn'>>(
+    post: T
+  ): T => ({
+    ...post,
+    id: post.id.replace(/\/index-en$/, '').replace(/\/index$/, '')
+  })
+
+  if (lang === 'en') {
+    return (await getCollection('blogEn', isPublishableLocalPost)).map(normalizeLocalPost)
+  }
+
+  return (await getCollection('blog', isPublishableLocalPost)).map(normalizeLocalPost)
+}
+
+async function getAllPostsByLang(lang: NotionLang): Promise<BlogCollectionEntry[]> {
+  const notionPosts = await getPostsByLang(lang)
+  const localPosts = await getLocalPostsByLang(lang)
+  const notionIds = new Set(notionPosts.map((post) => post.id))
+
+  return [...notionPosts, ...localPosts.filter((post) => !notionIds.has(post.id))]
+}
+
 export async function getBlogCollection() {
-  return await getPostsByLang('zh')
+  return await getAllPostsByLang('zh')
 }
 
 export async function getBlogCollectionEn() {
-  return await getPostsByLang('en')
+  return await getAllPostsByLang('en')
 }
 
 function splitNotePath(path: string) {
@@ -268,22 +299,22 @@ export async function getPostsForCollection(
   const allPosts = isEn ? await getBlogCollectionEn() : await getBlogCollection()
   const blogList = collection.data.bloglist || []
 
-  const postMap = new Map<string, BlogPostEntry>()
+  const postMap = new Map<string, BlogCollectionEntry>()
   allPosts.forEach((post) => {
     postMap.set(post.id.toLowerCase(), post)
   })
 
   return blogList
     .map((itemId) => postMap.get(itemId.toLowerCase()))
-    .filter((post): post is BlogPostEntry => post !== undefined)
+    .filter((post): post is BlogCollectionEntry => post !== undefined)
 }
 
-function getYearFromCollection(collection: BlogPostEntry): number | undefined {
+function getYearFromCollection(collection: BlogCollectionEntry): number | undefined {
   const dateStr = collection.data.updatedDate ?? collection.data.publishDate
   return dateStr ? new Date(dateStr).getFullYear() : undefined
 }
 
-export function groupCollectionsByYear<T extends BlogPostEntry>(
+export function groupCollectionsByYear<T extends BlogCollectionEntry>(
   collections: T[]
 ): [number, T[]][] {
   const collectionsByYear = collections.reduce((acc, collection) => {
@@ -300,7 +331,7 @@ export function groupCollectionsByYear<T extends BlogPostEntry>(
   return Array.from(collectionsByYear.entries()).sort((a, b) => b[0] - a[0])
 }
 
-export function sortMDByDate<T extends BlogPostEntry>(collections: T[]): T[] {
+export function sortMDByDate<T extends BlogCollectionEntry>(collections: T[]): T[] {
   return [...collections].sort((a, b) => {
     const aUpdatedDate = a.data.updatedDate ? new Date(a.data.updatedDate).valueOf() : 0
     const bUpdatedDate = b.data.updatedDate ? new Date(b.data.updatedDate).valueOf() : 0
@@ -313,15 +344,15 @@ export function sortMDByDate<T extends BlogPostEntry>(collections: T[]): T[] {
   })
 }
 
-export function getAllTags(collections: BlogPostEntry[]) {
+export function getAllTags(collections: BlogCollectionEntry[]) {
   return collections.flatMap((collection) => [...collection.data.tags])
 }
 
-export function getUniqueTags(collections: BlogPostEntry[]) {
+export function getUniqueTags(collections: BlogCollectionEntry[]) {
   return [...new Set(getAllTags(collections))]
 }
 
-export function getUniqueTagsWithCount(collections: BlogPostEntry[]): [string, number][] {
+export function getUniqueTagsWithCount(collections: BlogCollectionEntry[]): [string, number][] {
   return [
     ...getAllTags(collections).reduce(
       (acc, tag) => acc.set(tag, (acc.get(tag) || 0) + 1),
@@ -330,17 +361,17 @@ export function getUniqueTagsWithCount(collections: BlogPostEntry[]): [string, n
   ].sort((a, b) => b[1] - a[1])
 }
 
-export function getAllCategories(collections: BlogPostEntry[]) {
+export function getAllCategories(collections: BlogCollectionEntry[]) {
   return collections
     .map((collection) => collection.data.category)
     .filter((category): category is string => category !== undefined)
 }
 
-export function getUniqueCategories(collections: BlogPostEntry[]) {
+export function getUniqueCategories(collections: BlogCollectionEntry[]) {
   return [...new Set(getAllCategories(collections))]
 }
 
-export function getUniqueCategoriesWithCount(collections: BlogPostEntry[]): [string, number][] {
+export function getUniqueCategoriesWithCount(collections: BlogCollectionEntry[]): [string, number][] {
   return [
     ...getAllCategories(collections).reduce(
       (acc, category) => acc.set(category, (acc.get(category) || 0) + 1),
@@ -349,7 +380,7 @@ export function getUniqueCategoriesWithCount(collections: BlogPostEntry[]): [str
   ].sort((a, b) => b[1] - a[1])
 }
 
-export function getCollectionsByCategory<T extends BlogPostEntry>(
+export function getCollectionsByCategory<T extends BlogCollectionEntry>(
   collections: T[],
   category: string
 ): T[] {
