@@ -15,11 +15,14 @@ let headings: MarkdownHeading[] = []
 let description = 'Browse all notes and nested notebooks.'
 
 if (root.page) {
-  const markdown = await getNotionPageContent(root.page.sourcePageId)
+  const markdown =
+    root.page.source === 'local'
+      ? root.page.markdown || ''
+      : await getNotionPageContent(root.page.sourcePageId!)
   const rendered = await renderNotionMarkdown(markdown)
   html = rendered.html
   headings = rendered.headings
-  description = getDescriptionFromMarkdown(markdown, root.page.title)
+  description = root.page.description || getDescriptionFromMarkdown(markdown, root.page.title)
 }
 
 const title = root.page?.title || 'Notes'

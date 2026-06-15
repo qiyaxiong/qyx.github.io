@@ -45,11 +45,15 @@ let headings: MarkdownHeading[] = []
 let description = `Browse notes inside ${currentNode.page?.title || currentNode.title}.`
 
 if (currentNode.page) {
-  const markdown = await getNotionPageContent(currentNode.page.sourcePageId)
+  const markdown =
+    currentNode.page.source === 'local'
+      ? currentNode.page.markdown || ''
+      : await getNotionPageContent(currentNode.page.sourcePageId!)
   const rendered = await renderNotionMarkdown(markdown)
   html = rendered.html
   headings = rendered.headings
-  description = getDescriptionFromMarkdown(markdown, currentNode.page.title)
+  description =
+    currentNode.page.description || getDescriptionFromMarkdown(markdown, currentNode.page.title)
 }
 
 const title = currentNode.page?.title || currentNode.title

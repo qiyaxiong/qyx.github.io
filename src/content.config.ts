@@ -74,4 +74,16 @@ const postCollections = defineCollection({
   schema: collectionSchema
 })
 
-export const collections = { blog, blogEn, postCollections }
+const notes = defineCollection({
+  loader: glob({ base: './src/content/notes', pattern: '**/*.{md,mdx}' }),
+  schema: z.object({
+    title: z.string().max(80),
+    description: z.string().max(180).optional(),
+    publishDate: z.coerce.date().optional(),
+    updatedDate: z.coerce.date().optional(),
+    language: z.enum(['zh', 'en']).default('zh'),
+    draft: z.boolean().default(false)
+  })
+})
+
+export const collections = { blog, blogEn, postCollections, notes }

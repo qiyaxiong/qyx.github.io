@@ -47,8 +47,11 @@ export interface NoteEntry {
   lang: NotionLang
   path: string
   fullSlug: string
-  notionId: string
-  sourcePageId: string
+  source: 'notion' | 'local'
+  notionId?: string
+  sourcePageId?: string
+  description?: string
+  markdown?: string
   segments: string[]
 }
 
@@ -155,16 +158,49 @@ function toNoteEntry(note: NotionNoteEntry): NoteEntry {
     lang: note.lang,
     path,
     fullSlug: note.slug,
+    source: 'notion',
     notionId: note.notionId,
     sourcePageId: note.sourcePageId,
     segments: splitNotePath(path)
   }
 }
 
+function normalizeLocalNotePath(id: string): string {
+  const path = id.replace(/\/index$/, '')
+  return path === 'index' ? '' : path
+}
+
+function toLocalNoteEntry(note: CollectionEntry<'notes'>): NoteEntry {
+  const path = normalizeLocalNotePath(note.id)
+  const body = (note as CollectionEntry<'notes'> & { body?: string }).body || ''
+
+  return {
+    id: path || 'notes',
+    title: note.data.title,
+    lang: note.data.language,
+    path,
+    fullSlug: path,
+    source: 'local',
+    description: note.data.description,
+    markdown: body,
+    segments: splitNotePath(path)
+  }
+}
+
+async function getLocalNotesByLang(lang: NotionLang): Promise<NoteEntry[]> {
+  return (await getCollection('notes', ({ data }) => !data.draft && data.language === lang))
+    .map(toLocalNoteEntry)
+}
+
 async function getNotesByLang(lang: NotionLang): Promise<NoteEntry[]> {
-  return (await getNotionNotes())
+  const notionNotes = (await getNotionNotes())
     .filter((note) => note.lang === lang)
     .map(toNoteEntry)
+
+  const notionPaths = new Set(notionNotes.map((note) => note.path))
+  const localNotes = (await getLocalNotesByLang(lang)).filter((note) => !notionPaths.has(note.path))
+
+  return [...notionNotes, ...localNotes]
     .sort((a, b) => a.path.localeCompare(b.path))
 }
 
