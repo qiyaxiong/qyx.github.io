@@ -74,7 +74,22 @@ export interface FlatNoteTreeNode {
 
 export const prod = import.meta.env.PROD
 
+function normalizeBlogImageSource(src: string): string {
+  try {
+    const url = new URL(src)
+    if (['qyxgithubio.vercel.app', 'qiqi7777777.github.io'].includes(url.hostname)) {
+      return `${url.pathname}${url.search}`
+    }
+  } catch {
+    return src
+  }
+
+  return src
+}
+
 function toBlogPostEntry(post: NotionPost): BlogPostEntry {
+  const heroImageSrc = post.image ? normalizeBlogImageSource(post.image) : undefined
+
   return {
     id: post.slug,
     notionId: post.notionId,
@@ -86,6 +101,17 @@ function toBlogPostEntry(post: NotionPost): BlogPostEntry {
       tags: post.tags,
       category: post.category,
       language: post.lang,
+      ...(heroImageSrc
+        ? {
+            heroImage: {
+              src: heroImageSrc,
+              alt: post.title,
+              width: 1200,
+              height: 630,
+              color: '#2f8f86'
+            }
+          }
+        : {}),
       draft: false,
       comment: true
     }

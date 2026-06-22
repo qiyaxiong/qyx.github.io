@@ -21,6 +21,7 @@ export interface NotionPost {
   date: Date
   tags: string[]
   category?: string
+  image?: string
 }
 
 export interface NotionPageEntry {
@@ -360,6 +361,11 @@ function getOptionalFileOrUrlValue(
   )
 }
 
+function getCoverUrl(page: PageObjectResponse): string | undefined {
+  if (!page.cover) return undefined
+  return page.cover.type === 'external' ? page.cover.external.url : page.cover.file.url
+}
+
 function getLangValue(page: PageObjectResponse): NotionLang {
   const lang = getSelectValue(page, 'Lang')
   const normalizedLang = lang.toLowerCase()
@@ -515,7 +521,8 @@ export async function getNotionPosts(): Promise<NotionPost[]> {
     sourcePageId: extractPageId(getUrlValue(page, 'Source Page')),
     date: getDateValue(page, ['Date', 'Data']),
     tags: getMultiSelectValues(page, ['Tags', 'Tag']),
-    category: getOptionalSelectValue(page, 'Category')
+    category: getOptionalSelectValue(page, 'Category'),
+    image: getOptionalFileOrUrlValue(page, ['Image', 'Hero Image', 'Cover']) || getCoverUrl(page)
   }))
 }
 

@@ -26,6 +26,7 @@ GITHUB_TOKEN="ghp_xxx"
 - `Source Page`：实际文章页面的 Notion 链接
 - `Date`：发布日期
 - `Tags` / `Category`：用于标签页和分类页
+- `Image` / `Hero Image` / `Cover`：可选，文章头图；支持 URL 或 Notion files
 
 也可以用脚本登记，脚本会先按 `Slug` 检查是否已有记录，避免重复创建：
 
