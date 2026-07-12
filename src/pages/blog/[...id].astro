@@ -1,26 +1,28 @@
 ---
 import type { MarkdownHeading } from 'astro'
 import { render, type CollectionEntry } from 'astro:content'
-import type { Root } from 'mdast'
-import remarkGfm from 'remark-gfm'
-import remarkMath from 'remark-math'
-import remarkParse from 'remark-parse'
-import remarkRehype from 'remark-rehype'
-import rehypeKatex from 'rehype-katex'
-import rehypeStringify from 'rehype-stringify'
-import { unified } from 'unified'
-import { visit } from 'unist-util-visit'
-
-import PostLayout from '@/layouts/BlogPost.astro'
-import mdastToString from '@/utils/mdast-util-to-string'
-import getReadingTime from '@/utils/reading-time'
-import { getNotionPageContent } from '../../lib/notion'
 import {
   getBlogCollection,
   sortMDByDate,
   type BlogCollectionEntry,
   type BlogPostEntry
 } from '@/server'
+import type { Root } from 'mdast'
+import rehypeKatex from 'rehype-katex'
+import rehypeStringify from 'rehype-stringify'
+import remarkGfm from 'remark-gfm'
+import remarkMath from 'remark-math'
+import remarkParse from 'remark-parse'
+import remarkRehype from 'remark-rehype'
+import { unified } from 'unified'
+import { visit } from 'unist-util-visit'
+
+import PostLayout from '@/layouts/BlogPost.astro'
+import mdastToString from '@/utils/mdast-util-to-string'
+import { renderNotionEmbeds } from '@/utils/notion-embeds'
+import getReadingTime from '@/utils/reading-time'
+
+import { getNotionPageContent } from '../../lib/notion'
 
 function slugifyHeading(text: string): string {
   return text
@@ -126,7 +128,7 @@ if (isNotionPostEntry(post)) {
   const rendered = await renderNotionMarkdown(markdown)
   const description = post.data.description || getDescriptionFromMarkdown(markdown, post.data.title)
 
-  html = rendered.html
+  html = renderNotionEmbeds(rendered.html)
   headings = rendered.headings
   remarkPluginFrontmatter = rendered.remarkPluginFrontmatter
   renderedPost = {
@@ -136,9 +138,7 @@ if (isNotionPostEntry(post)) {
       description
     }
   }
-  renderedPosts = allPosts.map((item) =>
-    item.id === post.id ? renderedPost : item
-  )
+  renderedPosts = allPosts.map((item) => (item.id === post.id ? renderedPost : item))
 } else {
   const rendered = await render(post as CollectionEntry<'blog'>)
   Content = rendered.Content
