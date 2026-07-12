@@ -2,6 +2,10 @@ const CODEX_TOOL_DESIGN_MARKER = '{{codex-tool-design-map}}'
 const CODEX_TOOL_SPEC_MARKER = '{{codex-tool-spec-layers}}'
 const CODEX_SUBAGENT_MARKER = '{{codex-subagent-lifecycle}}'
 const CODEX_VISION_MARKER = '{{codex-vision-pipeline}}'
+const CLAUDE_MEMORY_TAXONOMY_MARKER = '{{claude-memory-taxonomy}}'
+const CLAUDE_MEMORY_WRITE_RECALL_MARKER = '{{claude-memory-write-recall}}'
+const CLAUDE_MEMORY_INJECTION_MARKER = '{{claude-memory-injection}}'
+const CLAUDE_MEMORY_TRUST_MARKER = '{{claude-memory-trust-boundary}}'
 
 const CODEX_TOOL_DESIGN_HTML = `
 <section class="notion-codex-tool-map" aria-label="Codex 通用工具设计示意">
@@ -325,10 +329,99 @@ const CODEX_VISION_HTML = `
 </section>
 `
 
+const CLAUDE_MEMORY_TAXONOMY_HTML = `<section class="notion-memory-taxonomy" aria-label="Claude Code Memory taxonomy">
+  <style>
+    .notion-memory-taxonomy { margin: 2.5rem 0; border: 1px solid hsl(214 18% 84%); border-radius: 16px; background: linear-gradient(135deg, hsl(210 30% 98%), hsl(42 48% 96%)); color: hsl(218 26% 16%); overflow: hidden; box-shadow: 0 18px 50px hsl(218 32% 20% / 0.08); }
+    .notion-memory-taxonomy * { box-sizing: border-box; }
+    .notion-memory-taxonomy .head { padding: 1.4rem 1.5rem 1rem; border-bottom: 1px solid hsl(214 18% 84%); }
+    .notion-memory-taxonomy .eyebrow { margin: 0 0 0.35rem; color: hsl(206 58% 34%); font-size: 0.78rem; font-weight: 700; letter-spacing: 0; text-transform: uppercase; }
+    .notion-memory-taxonomy h2 { margin: 0; color: hsl(218 26% 16%); font-size: 1.32rem; line-height: 1.35; }
+    .notion-memory-taxonomy .grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; padding: 1.35rem 1.5rem; }
+    .notion-memory-taxonomy .card { min-height: 12.5rem; border: 1px solid hsl(214 18% 84%); border-radius: 12px; background: white; padding: 1rem; }
+    .notion-memory-taxonomy .card span { display: inline-block; border-radius: 999px; background: hsl(218 20% 92%); padding: 0.18rem 0.5rem; color: hsl(218 22% 24%); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size: 0.72rem; font-weight: 700; }
+    .notion-memory-taxonomy .card strong { display: block; margin-top: 0.7rem; color: hsl(218 26% 16%); font-size: 1rem; }
+    .notion-memory-taxonomy .card p { margin: 0.5rem 0 0; color: hsl(218 16% 38%); font-size: 0.84rem; line-height: 1.62; }
+    .notion-memory-taxonomy .foot { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: hsl(214 18% 84%); border-top: 1px solid hsl(214 18% 84%); }
+    .notion-memory-taxonomy .foot div { min-height: 5.75rem; background: hsl(218 24% 18%); padding: 1rem 1.5rem; color: hsl(210 26% 88%); font-size: 0.84rem; line-height: 1.6; }
+    .notion-memory-taxonomy .foot strong { display: block; color: hsl(42 68% 86%); }
+    @media (max-width: 860px) { .notion-memory-taxonomy .grid, .notion-memory-taxonomy .foot { grid-template-columns: 1fr; } }
+  </style>
+  <div class="head"><p class="eyebrow">Auto Memory taxonomy</p><h2>Claude Code 的自动记忆先按语义分类，再决定如何写入和召回</h2></div>
+  <div class="grid"><div class="card"><span>user</span><strong>用户是谁</strong><p>保存用户画像、偏好、协作方式和解释力度。它不记录项目事实，而是帮助 Agent 调整默认沟通方式。</p></div><div class="card"><span>feedback</span><strong>以后怎么做</strong><p>保存行为约束和正负反馈，例如不要 mock DB、某种 PR 打包方式是对的。重点是 rule、fact、why 和 how to apply。</p></div><div class="card"><span>project</span><strong>项目外部语境</strong><p>保存代码无法直接推出的现实约束，例如冻结期、合规原因、事故背景、业务决策。</p></div><div class="card"><span>reference</span><strong>去哪里查</strong><p>保存外部信息入口，例如 Linear 项目、看板、Slack channel 或其他检索位置，而不是保存外部系统的全部内容。</p></div></div>
+  <div class="foot"><div><strong>不是时间线</strong>文件按语义主题命名，优先更新已有 topic，而不是每次创建一条时间戳笔记。</div><div><strong>不是代码索引</strong>它补充的是代码以外的记忆，不能替代读取当前仓库。</div><div><strong>不是绝对事实</strong>记忆只代表写入时的认知，使用前仍要验证。</div></div>
+</section>`
+
+const CLAUDE_MEMORY_WRITE_RECALL_HTML = `<section class="notion-memory-write-recall" aria-label="Claude Code Memory 写入和召回链路">
+  <style>
+    .notion-memory-write-recall { margin: 2.5rem 0; border: 1px solid hsl(214 18% 84%); border-radius: 16px; background: hsl(150 28% 96%); color: hsl(218 26% 16%); overflow: hidden; box-shadow: 0 18px 50px hsl(218 32% 20% / 0.08); }
+    .notion-memory-write-recall * { box-sizing: border-box; }
+    .notion-memory-write-recall .head { padding: 1.4rem 1.5rem 1rem; border-bottom: 1px solid hsl(214 18% 84%); }
+    .notion-memory-write-recall .eyebrow { margin: 0 0 0.35rem; color: hsl(156 45% 31%); font-size: 0.78rem; font-weight: 700; letter-spacing: 0; text-transform: uppercase; }
+    .notion-memory-write-recall h2 { margin: 0; color: hsl(218 26% 16%); font-size: 1.32rem; line-height: 1.35; }
+    .notion-memory-write-recall .flow { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.75rem; padding: 1.35rem 1.5rem; }
+    .notion-memory-write-recall .step { position: relative; min-height: 10.5rem; border: 1px solid hsl(214 18% 84%); border-radius: 12px; background: white; padding: 0.95rem; }
+    .notion-memory-write-recall .step::after { content: ""; position: absolute; top: 2rem; right: -0.58rem; width: 0.75rem; height: 0.75rem; border-top: 2px solid hsl(156 45% 35%); border-right: 2px solid hsl(156 45% 35%); transform: rotate(45deg); }
+    .notion-memory-write-recall .step:last-child::after { display: none; }
+    .notion-memory-write-recall .step span { display: inline-block; border-radius: 999px; background: hsl(156 34% 91%); padding: 0.18rem 0.5rem; color: hsl(156 45% 27%); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size: 0.72rem; font-weight: 700; }
+    .notion-memory-write-recall .step strong { display: block; margin-top: 0.7rem; color: hsl(218 26% 16%); font-size: 0.96rem; }
+    .notion-memory-write-recall .step p { margin: 0.45rem 0 0; color: hsl(218 16% 38%); font-size: 0.82rem; line-height: 1.58; }
+    @media (max-width: 900px) { .notion-memory-write-recall .flow { grid-template-columns: 1fr; } .notion-memory-write-recall .step::after { display: none; } }
+  </style>
+  <div class="head"><p class="eyebrow">write / update / recall</p><h2>记忆不是主 Agent 顺手写文件，而是 turn 结束后由提取 Agent 维护</h2></div>
+  <div class="flow"><div class="step"><span>turn end</span><strong>一轮对话结束</strong><p>用户问题、工具调用轨迹和最终回答形成一个完整 turn。</p></div><div class="step"><span>extract</span><strong>fork 提取 Agent</strong><p>独立 Agent 读取对话轨迹，判断是否有值得长期保存的事实或规则。</p></div><div class="step"><span>manifest</span><strong>扫描清单</strong><p>先看 memory.md、front matter 和文件时间，了解已有 topic，避免重复创建。</p></div><div class="step"><span>upsert</span><strong>更新或新建</strong><p>按 user、feedback、project、reference 分类，优先更新相同主题文件。</p></div><div class="step"><span>select</span><strong>下次召回</strong><p>下一次请求时，selector 基于名称和描述最多挑出少量强相关记忆。</p></div></div>
+</section>`
+
+const CLAUDE_MEMORY_INJECTION_HTML = `<section class="notion-memory-injection" aria-label="Claude Code Memory 注入到 Agent Loop">
+  <style>
+    .notion-memory-injection { margin: 2.5rem 0; border: 1px solid hsl(214 18% 84%); border-radius: 16px; background: hsl(210 30% 98%); color: hsl(218 26% 16%); overflow: hidden; box-shadow: 0 18px 50px hsl(218 32% 20% / 0.08); }
+    .notion-memory-injection * { box-sizing: border-box; }
+    .notion-memory-injection .head { padding: 1.4rem 1.5rem 1rem; border-bottom: 1px solid hsl(214 18% 84%); }
+    .notion-memory-injection .eyebrow { margin: 0 0 0.35rem; color: hsl(206 58% 34%); font-size: 0.78rem; font-weight: 700; letter-spacing: 0; text-transform: uppercase; }
+    .notion-memory-injection h2 { margin: 0; color: hsl(218 26% 16%); font-size: 1.32rem; line-height: 1.35; }
+    .notion-memory-injection .layers { display: grid; grid-template-columns: 0.95fr 1.05fr 1.05fr; gap: 1rem; padding: 1.35rem 1.5rem; }
+    .notion-memory-injection .panel { border: 1px solid hsl(214 18% 84%); border-radius: 12px; background: white; padding: 1rem; min-height: 12rem; }
+    .notion-memory-injection .panel.dark { background: hsl(218 24% 18%); color: hsl(210 26% 88%); }
+    .notion-memory-injection .panel strong { display: block; color: hsl(218 26% 16%); font-size: 1rem; }
+    .notion-memory-injection .panel.dark strong { color: hsl(42 68% 86%); }
+    .notion-memory-injection .panel p { margin: 0.55rem 0 0; color: hsl(218 16% 38%); font-size: 0.86rem; line-height: 1.65; }
+    .notion-memory-injection .panel.dark p { color: hsl(210 26% 88%); }
+    .notion-memory-injection .chips { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-top: 0.8rem; }
+    .notion-memory-injection .chips span { border-radius: 999px; background: hsl(218 20% 92%); padding: 0.18rem 0.5rem; color: hsl(218 22% 24%); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size: 0.72rem; }
+    @media (max-width: 760px) { .notion-memory-injection .layers { grid-template-columns: 1fr; } }
+  </style>
+  <div class="head"><p class="eyebrow">wire layer</p><h2>Memory 最终要变成远端模型请求体里的上下文</h2></div>
+  <div class="layers"><div class="panel"><strong>System policy</strong><p>告诉模型什么时候需要获取记忆、如何判断相关性、以及使用记忆前必须注意什么。</p><div class="chips"><span>rules</span><span>when to fetch</span></div></div><div class="panel"><strong>User / project context</strong><p>CLAUDE.md、项目规则和当前会话上下文以 user message 等形式注入，而不是都塞进稳定 system prompt。</p><div class="chips"><span>CLAUDE.md</span><span>session</span><span>project</span></div></div><div class="panel dark"><strong>Relevant memories</strong><p>selector 只把强相关 topic 注入 agent loop，让 Agent 在行动前获得偏好、约束和外部线索。</p><div class="chips"><span>select</span><span>max few files</span><span>inject</span></div></div></div>
+</section>`
+
+const CLAUDE_MEMORY_TRUST_HTML = `<section class="notion-memory-trust" aria-label="Claude Code Memory 信任边界">
+  <style>
+    .notion-memory-trust { margin: 2.5rem 0; border: 1px solid hsl(214 18% 84%); border-radius: 16px; background: hsl(44 48% 97%); color: hsl(218 26% 16%); overflow: hidden; box-shadow: 0 18px 50px hsl(218 32% 20% / 0.08); }
+    .notion-memory-trust * { box-sizing: border-box; }
+    .notion-memory-trust .head { padding: 1.4rem 1.5rem 1rem; border-bottom: 1px solid hsl(214 18% 84%); }
+    .notion-memory-trust .eyebrow { margin: 0 0 0.35rem; color: hsl(18 72% 38%); font-size: 0.78rem; font-weight: 700; letter-spacing: 0; text-transform: uppercase; }
+    .notion-memory-trust h2 { margin: 0; color: hsl(218 26% 16%); font-size: 1.32rem; line-height: 1.35; }
+    .notion-memory-trust .compare { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: hsl(214 18% 84%); }
+    .notion-memory-trust .cell { min-height: 10.5rem; background: white; padding: 1rem 1.5rem; }
+    .notion-memory-trust .cell.dark { background: hsl(218 24% 18%); color: hsl(210 26% 88%); }
+    .notion-memory-trust .cell span { display: inline-block; border-radius: 999px; background: hsl(18 72% 92%); padding: 0.18rem 0.5rem; color: hsl(18 72% 31%); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size: 0.72rem; font-weight: 700; }
+    .notion-memory-trust .cell strong { display: block; margin-top: 0.7rem; color: hsl(218 26% 16%); font-size: 1rem; }
+    .notion-memory-trust .cell.dark strong { color: hsl(42 68% 86%); }
+    .notion-memory-trust .cell p { margin: 0.5rem 0 0; color: hsl(218 16% 38%); font-size: 0.86rem; line-height: 1.65; }
+    .notion-memory-trust .cell.dark p { color: hsl(210 26% 88%); }
+    @media (max-width: 760px) { .notion-memory-trust .compare { grid-template-columns: 1fr; } }
+  </style>
+  <div class="head"><p class="eyebrow">memory is not source of truth</p><h2>“记忆说 X 存在”不等于“X 现在仍然存在”</h2></div>
+  <div class="compare"><div class="cell"><span>memory</span><strong>历史线索</strong><p>保存写入那一刻的认知：曾经有某个文件、函数、flag、约束或协作偏好。</p></div><div class="cell dark"><span>verify</span><strong>回到当前现场</strong><p>真正给建议或改代码前，要读取当前仓库、当前分支、当前工具结果。</p></div><div class="cell"><span>answer</span><strong>带边界地使用</strong><p>把记忆当作行动约束和检索线索，而不是当作无需验证的事实库。</p></div></div>
+</section>`
+
 export function renderNotionEmbeds(html: string): string {
   return html
     .replaceAll(`<p>${CODEX_TOOL_DESIGN_MARKER}</p>`, CODEX_TOOL_DESIGN_HTML)
     .replaceAll(`<p>${CODEX_TOOL_SPEC_MARKER}</p>`, CODEX_TOOL_SPEC_HTML)
     .replaceAll(`<p>${CODEX_SUBAGENT_MARKER}</p>`, CODEX_SUBAGENT_HTML)
     .replaceAll(`<p>${CODEX_VISION_MARKER}</p>`, CODEX_VISION_HTML)
+    .replaceAll(`<p>${CLAUDE_MEMORY_TAXONOMY_MARKER}</p>`, CLAUDE_MEMORY_TAXONOMY_HTML)
+    .replaceAll(`<p>${CLAUDE_MEMORY_WRITE_RECALL_MARKER}</p>`, CLAUDE_MEMORY_WRITE_RECALL_HTML)
+    .replaceAll(`<p>${CLAUDE_MEMORY_INJECTION_MARKER}</p>`, CLAUDE_MEMORY_INJECTION_HTML)
+    .replaceAll(`<p>${CLAUDE_MEMORY_TRUST_MARKER}</p>`, CLAUDE_MEMORY_TRUST_HTML)
 }
