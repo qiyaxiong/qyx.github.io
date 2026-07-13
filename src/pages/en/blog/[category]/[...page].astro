@@ -1,18 +1,25 @@
 ---
 import type { GetStaticPaths, Page } from 'astro'
 import type { CollectionEntry } from 'astro:content'
+import {
+  getBlogCollectionEn,
+  getCollectionsByCategory,
+  getUniqueCategories,
+  getUniqueTags,
+  sortMDByDate
+} from '@/server'
 
-import { Paginator, PostPreview } from '@/components/pages'
-import { getBlogCollectionEn, getUniqueCategories, getCollectionsByCategory, getUniqueTags, sortMDByDate } from '@/server'
-import { Button, Icon } from '@/components/user'
 import PageLayout from '@/layouts/BaseLayout.astro'
+import { Paginator, PostPreview } from '@/components/pages'
+import { Button, Icon } from '@/components/user'
+import { getCategoryLabel } from '@/utils/blog-categories'
 import config from '@/site-config'
 
 export const prerender = true
 
 export const getStaticPaths = (async ({ paginate }) => {
   const allCollections = await getBlogCollectionEn()
-  const uniqueCategories = getUniqueCategories(allCollections).sort((a, b) => a.localeCompare(b))
+  const uniqueCategories = getUniqueCategories(allCollections)
 
   return uniqueCategories.flatMap((category, index) => {
     const collections = sortMDByDate(getCollectionsByCategory(allCollections, category))
@@ -42,7 +49,7 @@ interface Props {
 }
 
 const { page, uniqueTags, collectionsCount, category, prevCategory, nextCategory } = Astro.props
-const categoryDisplayName = category
+const categoryDisplayName = getCategoryLabel(category, 'en')
 
 const meta = {
   description: `Posts in category: ${categoryDisplayName}`,
@@ -56,19 +63,19 @@ const meta = {
       <div class='category-nav-wrapper mb-6 mt-6 sm:mt-10'>
         <h1 class='inline-block text-3xl font-medium'>{categoryDisplayName}</h1>
         <div class='category-nav-arrows ml-3 inline-flex gap-1 align-middle'>
-          <a 
+          <a
             href={`/en/blog/${prevCategory}`}
             class='flex h-8 w-8 items-center justify-center transition-colors hover:text-primary'
-            title={`Previous: ${prevCategory}`}
-            aria-label={`Go to ${prevCategory}`}
+            title={`Previous: ${getCategoryLabel(prevCategory, 'en')}`}
+            aria-label={`Go to ${getCategoryLabel(prevCategory, 'en')}`}
           >
             <Icon name='up' class='size-5' />
           </a>
-          <a 
+          <a
             href={`/en/blog/${nextCategory}`}
             class='flex h-8 w-8 items-center justify-center transition-colors hover:text-primary'
-            title={`Next: ${nextCategory}`}
-            aria-label={`Go to ${nextCategory}`}
+            title={`Next: ${getCategoryLabel(nextCategory, 'en')}`}
+            aria-label={`Go to ${getCategoryLabel(nextCategory, 'en')}`}
           >
             <Icon name='chevron-down' class='size-5' />
           </a>

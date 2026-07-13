@@ -1,17 +1,15 @@
 ---
+import { getBlogCollection, getUniqueCategoriesWithCount, sortMDByDate } from '@/server'
+
+import PageLayout from '@/layouts/BaseLayout.astro'
 import { PostPreview } from '@/components/pages'
 import { Button } from '@/components/user'
-import {
-  getBlogCollection,
-  getUniqueCategoriesWithCount,
-  sortMDByDate
-} from '@/server'
-import PageLayout from '@/layouts/BaseLayout.astro'
+import { getCategoryLabel } from '@/utils/blog-categories'
 
 export const prerender = true
 
 const allPosts = sortMDByDate(await getBlogCollection())
-const categories = getUniqueCategoriesWithCount(allPosts).sort((a, b) => a[0].localeCompare(b[0]))
+const categories = getUniqueCategoriesWithCount(allPosts)
 
 const meta = {
   description: 'Browse all blog posts',
@@ -23,15 +21,21 @@ const meta = {
   <main class='mt-6 lg:mt-10'>
     <div id='content-header' class='animate'>
       <h1 class='mb-4 text-3xl font-medium'>Blog</h1>
-      {!!categories.length && (
-        <ul class='mb-6 flex flex-wrap gap-2'>
-          {categories.map(([category, count]) => (
-            <li>
-              <Button title={`${category} (${count})`} href={`/blog/${category}`} style='pill' />
-            </li>
-          ))}
-        </ul>
-      )}
+      {
+        !!categories.length && (
+          <ul class='mb-6 flex flex-wrap gap-2'>
+            {categories.map(([category, count]) => (
+              <li>
+                <Button
+                  title={`${getCategoryLabel(category)} (${count})`}
+                  href={`/blog/${category}`}
+                  style='pill'
+                />
+              </li>
+            ))}
+          </ul>
+        )
+      }
     </div>
 
     {allPosts.length === 0 && <p>No posts yet.</p>}

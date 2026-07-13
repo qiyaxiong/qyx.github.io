@@ -1,16 +1,19 @@
 ---
-import config from '@/site-config'
-import { Icon } from '@/components/user'
-import LanguageSwitch from '@/components/user/LanguageSwitch.astro'
 import { getRelativeLocaleUrl } from 'astro:i18n'
 import { getBlogCollection, getBlogCollectionEn, getUniqueCategories } from '@/server'
+
+import { Icon } from '@/components/user'
+import LanguageSwitch from '@/components/user/LanguageSwitch.astro'
+import { getCategoryLabel } from '@/utils/blog-categories'
+import config from '@/site-config'
 
 const isEnglish = Astro.currentLocale === 'en'
 const brandTitle = isEnglish ? config.author_en || 'Your Name' : config.title
 const allCollections = isEnglish ? await getBlogCollectionEn() : await getBlogCollection()
-const categories = getUniqueCategories(allCollections)
-  .sort((a, b) => a.localeCompare(b))
-  .map((category) => ({ slug: category, name: category }))
+const categories = getUniqueCategories(allCollections).map((category) => ({
+  slug: category,
+  name: getCategoryLabel(category, isEnglish ? 'en' : 'zh')
+}))
 const blogLandingPath = '/blog'
 
 // 处理 trailingSlash: 'never' 配置的辅助函数
@@ -42,7 +45,7 @@ function getLocalizedUrl(locale: string | undefined, path: string) {
     {/* Menu links */}
     <div
       id='headerExpandConetent'
-      class='end-0 start-0 top-12 grid border border-transparent group-[.not-top]:rounded-xl group-[.expanded]:opacity-100 dark:group-[.expanded.not-top]:bg-muted/60 max-md:absolute max-md:opacity-0 max-md:pointer-events-none max-md:group-[.expanded]:pointer-events-auto max-md:group-[.not-top]:border-border max-md:group-[.expanded.not-top]:bg-background/60 max-md:group-[.expanded.not-top]:backdrop-blur-md max-md:group-[.not-top]:px-4 max-md:group-[.not-top]:py-2 md:grid-rows-1'
+      class='end-0 start-0 top-12 grid border border-transparent group-[.not-top]:rounded-xl group-[.expanded]:opacity-100 dark:group-[.expanded.not-top]:bg-muted/60 max-md:pointer-events-none max-md:absolute max-md:opacity-0 max-md:group-[.expanded]:pointer-events-auto max-md:group-[.not-top]:border-border max-md:group-[.expanded.not-top]:bg-background/60 max-md:group-[.not-top]:px-4 max-md:group-[.not-top]:py-2 max-md:group-[.expanded.not-top]:backdrop-blur-md md:grid-rows-1'
     >
       <div class='flex flex-col items-center justify-center md:flex-row'>
         {
@@ -51,17 +54,26 @@ function getLocalizedUrl(locale: string | undefined, path: string) {
             const itemPath = isBlogMenu ? blogLandingPath : item.link
             if (isBlogMenu && categories.length > 0) {
               return (
-                <div class='menu-item-with-dropdown relative w-full md:w-fit' style='position: relative;'>
+                <div
+                  class='menu-item-with-dropdown relative w-full md:w-fit'
+                  style='position: relative;'
+                >
                   <a
                     href={getLocalizedUrl(Astro.currentLocale, itemPath)}
-                    class='blog-menu-link flex w-full flex-none items-center justify-end py-2 font-medium transition-none hover:text-primary md:px-3 md:justify-center'
+                    class='blog-menu-link flex w-full flex-none items-center justify-end py-2 font-medium transition-none hover:text-primary md:justify-center md:px-3'
                     aria-label='Nav menu item'
                   >
                     {item.title}
-                    <Icon name='chevron-down' class='chevron-icon ml-1 size-4 transition-transform' />
+                    <Icon
+                      name='chevron-down'
+                      class='chevron-icon ml-1 size-4 transition-transform'
+                    />
                   </a>
                   {/* Dropdown menu */}
-                  <div class='dropdown-menu absolute right-0 top-full mt-0 w-48 rounded-xl border border-border bg-background/80 shadow-lg backdrop-blur-md dark:bg-muted/80 md:left-0 md:right-auto' style='z-index: 9999;'>
+                  <div
+                    class='dropdown-menu absolute right-0 top-full mt-0 w-48 rounded-xl border border-border bg-background/80 shadow-lg backdrop-blur-md dark:bg-muted/80 md:left-0 md:right-auto'
+                    style='z-index: 9999;'
+                  >
                     <div class='py-1'>
                       {categories.map((category) => (
                         <a
@@ -76,7 +88,7 @@ function getLocalizedUrl(locale: string | undefined, path: string) {
                 </div>
               )
             }
-            
+
             return (
               <a
                 href={getLocalizedUrl(Astro.currentLocale, itemPath)}
@@ -89,7 +101,11 @@ function getLocalizedUrl(locale: string | undefined, path: string) {
           })
         }
         <div class='flex w-full grow flex-row justify-end gap-x-3 md:w-fit md:gap-x-5'>
-          <a class='px-1 py-2 transition-none md:px-2' href={getLocalizedUrl(Astro.currentLocale, '/search')} title='Search'>
+          <a
+            class='px-1 py-2 transition-none md:px-2'
+            href={getLocalizedUrl(Astro.currentLocale, '/search')}
+            title='Search'
+          >
             <span class='sr-only'>Search</span>
             <Icon name='search' class='size-5' />
           </a>
@@ -226,7 +242,6 @@ function getLocalizedUrl(locale: string | undefined, path: string) {
       margin-inline: clamp(4rem, 12vw, 12rem);
     }
   }
- 
 
   /* header menu */
   @media (max-width: 768px) {
@@ -299,7 +314,7 @@ function getLocalizedUrl(locale: string | undefined, path: string) {
   .menu-item-with-dropdown {
     position: relative !important;
   }
-  
+
   /* Add padding to the bottom of the menu item to create a hover bridge */
   .menu-item-with-dropdown::after {
     content: '';
@@ -310,24 +325,27 @@ function getLocalizedUrl(locale: string | undefined, path: string) {
     height: 0.5rem;
     background: transparent;
   }
-  
+
   .dropdown-menu {
     opacity: 0;
     visibility: hidden;
     transform: translateY(-8px);
-    transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out, visibility 0.2s;
+    transition:
+      opacity 0.2s ease-in-out,
+      transform 0.2s ease-in-out,
+      visibility 0.2s;
     pointer-events: none;
     max-height: 400px;
     overflow-y: auto;
   }
-  
+
   .menu-item-with-dropdown:hover .dropdown-menu {
     opacity: 1 !important;
     visibility: visible !important;
     transform: translateY(0) !important;
     pointer-events: auto !important;
   }
-  
+
   .menu-item-with-dropdown:hover .chevron-icon {
     transform: rotate(180deg);
   }
@@ -343,7 +361,7 @@ function getLocalizedUrl(locale: string | undefined, path: string) {
     .menu-item-with-dropdown > a {
       width: 100%;
     }
-    
+
     .dropdown-menu {
       position: static !important;
       margin-top: 0 !important;

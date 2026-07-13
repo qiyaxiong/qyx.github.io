@@ -7,6 +7,7 @@ import {
   type NotionNoteEntry,
   type NotionPost
 } from '../lib/notion'
+import { compareBlogCategories, isCanonicalBlogCategory } from './blog-categories'
 
 export interface BlogPostData {
   title: string
@@ -87,6 +88,22 @@ function normalizeBlogImageSource(src: string): string {
   return src
 }
 
+function normalizeBlogTag(tag: string): string {
+  const normalized = tag
+    .trim()
+    .toLowerCase()
+    .replace(/[’']/g, '')
+    .replace(/&/g, 'and')
+    .replace(/[^a-z0-9\u4e00-\u9fff]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+
+  return normalized || tag.trim()
+}
+
+function normalizeBlogTags(tags: readonly string[] = []): string[] {
+  return [...new Set(tags.map(normalizeBlogTag).filter(Boolean))]
+}
+
 function toBlogPostEntry(post: NotionPost): BlogPostEntry {
   const heroImageSrc = post.image ? normalizeBlogImageSource(post.image) : undefined
 
@@ -98,7 +115,7 @@ function toBlogPostEntry(post: NotionPost): BlogPostEntry {
       title: post.title,
       description: post.description || post.title,
       publishDate: post.date,
-      tags: post.tags,
+      tags: normalizeBlogTags(post.tags),
       category: post.category,
       language: post.lang,
       ...(heroImageSrc
@@ -119,21 +136,24 @@ function toBlogPostEntry(post: NotionPost): BlogPostEntry {
 }
 
 async function getPostsByLang(lang: NotionLang): Promise<BlogPostEntry[]> {
-  return (await getNotionPosts())
-    .filter((post) => post.lang === lang)
-    .map(toBlogPostEntry)
+  return (await getNotionPosts()).filter((post) => post.lang === lang).map(toBlogPostEntry)
 }
 
 async function getLocalPostsByLang(lang: NotionLang): Promise<BlogCollectionEntry[]> {
   const isPublishableLocalPost = ({ data }: CollectionEntry<'blog'> | CollectionEntry<'blogEn'>) =>
-    !data.draft && data.category === 'ai'
+    !data.draft && isCanonicalBlogCategory(data.category)
 
   const normalizeLocalPost = <T extends CollectionEntry<'blog'> | CollectionEntry<'blogEn'>>(
     post: T
-  ): T => ({
-    ...post,
-    id: post.id.replace(/\/index-en$/, '').replace(/\/index$/, '')
-  })
+  ): T =>
+    ({
+      ...post,
+      id: post.id.replace(/\/index-en$/, '').replace(/\/index$/, ''),
+      data: {
+        ...post.data,
+        tags: normalizeBlogTags(post.data.tags)
+      }
+    }) as T
 
   if (lang === 'en') {
     return (await getCollection('blogEn', isPublishableLocalPost)).map(normalizeLocalPost)
@@ -170,9 +190,7 @@ function humanizeNoteSegment(segment: string) {
     return decoded
   }
 
-  return /[A-Za-z]/.test(spaced)
-    ? spaced.replace(/\b[a-z]/g, (char) => char.toUpperCase())
-    : spaced
+  return /[A-Za-z]/.test(spaced) ? spaced.replace(/\b[a-z]/g, (char) => char.toUpperCase()) : spaced
 }
 
 function toNoteEntry(note: NotionNoteEntry): NoteEntry {
@@ -214,20 +232,18 @@ function toLocalNoteEntry(note: CollectionEntry<'notes'>): NoteEntry {
 }
 
 async function getLocalNotesByLang(lang: NotionLang): Promise<NoteEntry[]> {
-  return (await getCollection('notes', ({ data }) => !data.draft && data.language === lang))
-    .map(toLocalNoteEntry)
+  return (await getCollection('notes', ({ data }) => !data.draft && data.language === lang)).map(
+    toLocalNoteEntry
+  )
 }
 
 async function getNotesByLang(lang: NotionLang): Promise<NoteEntry[]> {
-  const notionNotes = (await getNotionNotes())
-    .filter((note) => note.lang === lang)
-    .map(toNoteEntry)
+  const notionNotes = (await getNotionNotes()).filter((note) => note.lang === lang).map(toNoteEntry)
 
   const notionPaths = new Set(notionNotes.map((note) => note.path))
   const localNotes = (await getLocalNotesByLang(lang)).filter((note) => !notionPaths.has(note.path))
 
-  return [...notionNotes, ...localNotes]
-    .sort((a, b) => a.path.localeCompare(b.path))
+  return [...notionNotes, ...localNotes].sort((a, b) => a.path.localeCompare(b.path))
 }
 
 export async function getNotesCollection() {
@@ -426,16 +442,18 @@ export function getAllCategories(collections: BlogCollectionEntry[]) {
 }
 
 export function getUniqueCategories(collections: BlogCollectionEntry[]) {
-  return [...new Set(getAllCategories(collections))]
+  return [...new Set(getAllCategories(collections))].sort(compareBlogCategories)
 }
 
-export function getUniqueCategoriesWithCount(collections: BlogCollectionEntry[]): [string, number][] {
+export function getUniqueCategoriesWithCount(
+  collections: BlogCollectionEntry[]
+): [string, number][] {
   return [
     ...getAllCategories(collections).reduce(
       (acc, category) => acc.set(category, (acc.get(category) || 0) + 1),
       new Map<string, number>()
     )
-  ].sort((a, b) => b[1] - a[1])
+  ].sort((a, b) => compareBlogCategories(a[0], b[0]))
 }
 
 export function getCollectionsByCategory<T extends BlogCollectionEntry>(
