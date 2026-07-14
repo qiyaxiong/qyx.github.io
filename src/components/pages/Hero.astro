@@ -2,8 +2,9 @@
 import { Image } from 'astro:assets'
 import type { InferEntrySchema } from 'astro:content'
 
-import { PageInfo } from '.'
 import { FormattedDate, Icon } from '@/components/user'
+
+import { PageInfo } from '.'
 
 interface Props {
   data: InferEntrySchema<'blog'> | InferEntrySchema<'blogEn'>
@@ -30,15 +31,19 @@ const dateTimeOptions: Intl.DateTimeFormatOptions = {
   month: 'short'
 }
 
-const imageProps: {
-  src: any
-  width: number
-  height: number
-} | undefined = heroImage ? {
-  src: heroImage.src,
-  width: heroImage.width || 1200,
-  height: heroImage.height || 630
-} : undefined
+const imageProps:
+  | {
+      src: any
+      width: number
+      height: number
+    }
+  | undefined = heroImage
+  ? {
+      src: heroImage.src,
+      width: heroImage.width || 1200,
+      height: heroImage.height || 630
+    }
+  : undefined
 
 const imageAlt: string = (heroImage?.alt || title) as string
 ---
@@ -51,12 +56,14 @@ const imageAlt: string = (heroImage?.alt || title) as string
         class='cover-image relative z-10 h-auto w-full max-w-[65ch] rounded-2xl object-contain'
         fetchpriority='high'
         loading='eager'
+        referrerpolicy='no-referrer'
         {...imageProps}
       />
       <Image
         alt='Blur image'
         fetchpriority='high'
         loading='eager'
+        referrerpolicy='no-referrer'
         id='blurImage'
         class='absolute end-0 top-4 z-0 mt-0 h-full max-w-[65ch] rounded-3xl opacity-60 blur-xl transition-opacity duration-300'
         {...imageProps}
@@ -107,7 +114,12 @@ const imageAlt: string = (heroImage?.alt || title) as string
       pixivLink && (
         <span class='flex items-center gap-1'>
           <Icon name='moon' class='size-5' />
-          <a href={`https://www.pixiv.net/artworks/${pixivLink}`} target="_blank" rel="noopener noreferrer" class="hover:underline hover:underline-offset-4">
+          <a
+            href={`https://www.pixiv.net/artworks/${pixivLink}`}
+            target='_blank'
+            rel='noopener noreferrer'
+            class='hover:underline hover:underline-offset-4'
+          >
             Hero Image
           </a>
         </span>

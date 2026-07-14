@@ -1,11 +1,11 @@
 ---
 import { Image } from 'astro:assets'
 import { render, type CollectionEntry, type CollectionKey } from 'astro:content'
-import type { HTMLTag, Polymorphic } from 'astro/types'
 import { getRelativeLocaleUrl } from 'astro:i18n'
+import type { HTMLTag, Polymorphic } from 'astro/types'
 
-import { cn } from '@/utils'
 import { Button, FormattedDate, Icon } from '@/components/user'
+import { cn } from '@/utils'
 
 type CompatiblePostData = {
   title: string
@@ -46,18 +46,21 @@ const isContentCollectionEntry = typeof (post as CompatiblePost).body === 'strin
 const remarkPluginFrontmatter = isContentCollectionEntry
   ? (await render(post as CollectionEntry<CollectionKey>)).remarkPluginFrontmatter
   : {}
-const minutesRead = typeof remarkPluginFrontmatter.minutesRead === 'string'
-  ? remarkPluginFrontmatter.minutesRead
-  : undefined
+const minutesRead =
+  typeof remarkPluginFrontmatter.minutesRead === 'string'
+    ? remarkPluginFrontmatter.minutesRead
+    : undefined
 const postDate = data.updatedDate ?? data.publishDate ?? data.date
 
-const heroImageProps = data.heroImage ? {
-  src: data.heroImage.src,
-  alt: data.heroImage.alt,
-  color: data.heroImage.color,
-  width: data.heroImage.width || 1200,
-  height: data.heroImage.height || 630
-} : undefined
+const heroImageProps = data.heroImage
+  ? {
+      src: data.heroImage.src,
+      alt: data.heroImage.alt,
+      color: data.heroImage.color,
+      width: data.heroImage.width || 1200,
+      height: data.heroImage.height || 630
+    }
+  : undefined
 
 function getLocalizedUrl(locale: string | undefined, path: string) {
   let url = getRelativeLocaleUrl(locale || 'zh', path)
@@ -95,6 +98,7 @@ function getLocalizedUrl(locale: string | undefined, path: string) {
           alt={heroImageProps.alt || data.title}
           class='cover-image absolute end-0 top-0 z-0 h-2/3 w-full rounded-2xl object-cover opacity-50 transition-opacity duration-300 group-hover/card:opacity-70 md:h-full md:w-3/5'
           loading='eager'
+          referrerpolicy='no-referrer'
           src={heroImageProps.src}
           width={heroImageProps.width}
           height={heroImageProps.height}
@@ -174,7 +178,11 @@ function getLocalizedUrl(locale: string | undefined, path: string) {
       <ul class='tag-list mt-1 flex flex-wrap gap-2'>
         {data.tags.map((tag: string) => (
           <li>
-            <Button title={tag} href={getLocalizedUrl(Astro.currentLocale, `/tags/${tag}`)} style='pill' />
+            <Button
+              title={tag}
+              href={getLocalizedUrl(Astro.currentLocale, `/tags/${tag}`)}
+              style='pill'
+            />
           </li>
         ))}
       </ul>

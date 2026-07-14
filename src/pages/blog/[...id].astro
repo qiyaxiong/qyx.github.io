@@ -21,6 +21,7 @@ import PostLayout from '@/layouts/BlogPost.astro'
 import mdastToString from '@/utils/mdast-util-to-string'
 import { renderNotionEmbeds } from '@/utils/notion-embeds'
 import getReadingTime from '@/utils/reading-time'
+import rehypeImagePolicy from '@/utils/rehype-image-policy'
 
 import { getNotionPageContent } from '../../lib/notion'
 
@@ -85,6 +86,7 @@ async function renderNotionMarkdown(markdown: string): Promise<{
       }
     })
     .use(remarkRehype)
+    .use(rehypeImagePolicy)
     .use(rehypeKatex)
     .use(rehypeStringify)
 

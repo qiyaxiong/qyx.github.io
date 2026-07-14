@@ -10,6 +10,7 @@ import { unified } from 'unified'
 import { visit } from 'unist-util-visit'
 
 import mdastToString from '@/utils/mdast-util-to-string'
+import rehypeImagePolicy from '@/utils/rehype-image-policy'
 
 export function slugifyHeading(text: string): string {
   return text
@@ -64,6 +65,7 @@ export async function renderNotionMarkdown(markdown: string): Promise<{
       }
     })
     .use(remarkRehype)
+    .use(rehypeImagePolicy)
     .use(rehypeKatex)
     .use(rehypeStringify)
     .process(markdown)
