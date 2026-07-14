@@ -6,6 +6,7 @@ import type { HTMLTag, Polymorphic } from 'astro/types'
 
 import { Button, FormattedDate, Icon } from '@/components/user'
 import { cn } from '@/utils'
+import { getBlogVisualLabel, getBlogVisualStyle } from '@/utils/blog-visuals'
 
 type CompatiblePostData = {
   title: string
@@ -61,6 +62,23 @@ const heroImageProps = data.heroImage
       height: data.heroImage.height || 630
     }
   : undefined
+const locale = Astro.currentLocale === 'en' ? 'en' : 'zh'
+const fallbackVisual = !heroImageProps
+  ? {
+      label: getBlogVisualLabel(data.category, locale),
+      style: getBlogVisualStyle(data.category)
+    }
+  : undefined
+const hasPreviewVisual = Boolean(heroImageProps || fallbackVisual)
+const previewStyle = detailed
+  ? data.heroImage?.color
+    ? '--preview-highlight:color-mix(in srgb,' +
+      data.heroImage.color +
+      ' 40%,hsl(var(--foreground)/var(--tw-text-opacity,1)));--preview-highlight-bg:hsl(from ' +
+      data.heroImage.color +
+      ' h s l/20%)'
+    : fallbackVisual?.style
+  : undefined
 
 function getLocalizedUrl(locale: string | undefined, path: string) {
   let url = getRelativeLocaleUrl(locale || 'zh', path)
@@ -78,16 +96,13 @@ function getLocalizedUrl(locale: string | undefined, path: string) {
     detailed && 'max-sm:px-4 sm:py-5',
     className
   )}
-  style={detailed &&
-    data.heroImage?.color &&
-    `--preview-highlight:color-mix(in srgb,${data.heroImage.color} 40%,hsl(var(--foreground)/var(--tw-text-opacity,1)));
-    --preview-highlight-bg:hsl(from ${data.heroImage.color} h s l/20%)`}
+  style={previewStyle}
 >
   <a
     class={cn(
       'group/link w-full flex flex-col transition-all hover:text-primary',
       !detailed && 'sm:flex-row',
-      detailed && data.heroImage && 'max-md:pt-24'
+      detailed && hasPreviewVisual && 'max-md:pt-24'
     )}
     href={getLocalizedUrl(Astro.currentLocale, `/blog/${id}`)}
     data-astro-prefetch
@@ -103,6 +118,17 @@ function getLocalizedUrl(locale: string | undefined, path: string) {
           width={heroImageProps.width}
           height={heroImageProps.height}
         />
+      )
+    }
+    {
+      detailed && fallbackVisual && (
+        <div
+          class='cover-image blog-fallback-cover absolute end-0 top-0 z-0 h-2/3 w-full rounded-2xl opacity-60 transition-opacity duration-300 group-hover/card:opacity-75 md:h-full md:w-3/5'
+          style={fallbackVisual.style}
+          aria-hidden='true'
+        >
+          <span>{fallbackVisual.label}</span>
+        </div>
       )
     }
 
@@ -144,7 +170,7 @@ function getLocalizedUrl(locale: string | undefined, path: string) {
             <p
               class={cn(
                 'line-clamp-2 pt-1 text-sm text-muted-foreground sm:line-clamp-3',
-                data.heroImage && 'sm:me-24'
+                hasPreviewVisual && 'sm:me-24'
               )}
             >
               {data.description}
@@ -213,6 +239,54 @@ function getLocalizedUrl(locale: string | undefined, path: string) {
       stroke: var(--preview-highlight-final) !important;
     }
   }
+  .blog-fallback-cover {
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at 76% 28%, var(--blog-visual-accent-soft), transparent 34%),
+      radial-gradient(
+        circle at 22% 78%,
+        color-mix(in srgb, var(--blog-visual-accent) 22%, transparent),
+        transparent 32%
+      ),
+      linear-gradient(135deg, var(--blog-visual-bg-a), var(--blog-visual-bg-b));
+  }
+
+  .blog-fallback-cover::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--blog-visual-grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--blog-visual-grid) 1px, transparent 1px);
+    background-size: 22px 22px;
+    mask-image: radial-gradient(circle at 70% 45%, black, transparent 68%);
+  }
+
+  .blog-fallback-cover::after {
+    content: '';
+    position: absolute;
+    right: 12%;
+    top: 18%;
+    width: 38%;
+    aspect-ratio: 1;
+    border: 1px solid color-mix(in srgb, var(--blog-visual-accent) 55%, transparent);
+    border-radius: 999px;
+    box-shadow: 0 0 70px var(--blog-visual-accent-soft);
+  }
+
+  .blog-fallback-cover span {
+    position: relative;
+    margin: 0 1.25rem 1rem 0;
+    color: color-mix(in srgb, var(--blog-visual-accent) 35%, white);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0;
+    text-transform: uppercase;
+  }
+
   .cover-image {
     mask-image: linear-gradient(to right, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 1) 100%);
     -ms-mask-image: -ms-linear-gradient(to right, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 1) 100%);

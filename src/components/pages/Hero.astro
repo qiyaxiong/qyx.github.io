@@ -3,6 +3,7 @@ import { Image } from 'astro:assets'
 import type { InferEntrySchema } from 'astro:content'
 
 import { FormattedDate, Icon } from '@/components/user'
+import { getBlogVisualLabel, getBlogVisualStyle } from '@/utils/blog-visuals'
 
 import { PageInfo } from '.'
 
@@ -17,6 +18,7 @@ const {
     description,
     draft,
     heroImage,
+    category,
     publishDate,
     updatedDate,
     comment: enableComment,
@@ -46,10 +48,17 @@ const imageProps:
   : undefined
 
 const imageAlt: string = (heroImage?.alt || title) as string
+const locale = Astro.currentLocale === 'en' ? 'en' : 'zh'
+const fallbackVisual = !imageProps
+  ? {
+      label: getBlogVisualLabel(category, locale),
+      style: getBlogVisualStyle(category)
+    }
+  : undefined
 ---
 
 {
-  imageProps && (
+  imageProps ? (
     <div class='hero-image relative mb-6'>
       <Image
         alt={imageAlt}
@@ -69,6 +78,18 @@ const imageAlt: string = (heroImage?.alt || title) as string
         {...imageProps}
       />
     </div>
+  ) : (
+    fallbackVisual && (
+      <div class='hero-image relative mb-6'>
+        <div
+          class='blog-hero-fallback relative z-10 w-full max-w-[65ch] overflow-hidden rounded-2xl'
+          style={fallbackVisual.style}
+          aria-hidden='true'
+        >
+          <span>{fallbackVisual.label}</span>
+        </div>
+      </div>
+    )
   )
 }
 
@@ -183,3 +204,55 @@ const imageAlt: string = (heroImage?.alt || title) as string
     })
   }
 </script>
+
+<style>
+  .blog-hero-fallback {
+    min-height: clamp(14rem, 33vw, 25rem);
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-start;
+    background:
+      radial-gradient(circle at 76% 28%, var(--blog-visual-accent-soft), transparent 34%),
+      radial-gradient(
+        circle at 18% 82%,
+        color-mix(in srgb, var(--blog-visual-accent) 24%, transparent),
+        transparent 34%
+      ),
+      linear-gradient(135deg, var(--blog-visual-bg-a), var(--blog-visual-bg-b));
+    box-shadow: 0 20px 70px color-mix(in srgb, var(--blog-visual-accent) 18%, transparent);
+  }
+
+  .blog-hero-fallback::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--blog-visual-grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--blog-visual-grid) 1px, transparent 1px);
+    background-size: 28px 28px;
+    mask-image: radial-gradient(circle at 62% 42%, black, transparent 72%);
+  }
+
+  .blog-hero-fallback::after {
+    content: '';
+    position: absolute;
+    right: 12%;
+    top: 15%;
+    width: 32%;
+    aspect-ratio: 1;
+    border: 1px solid color-mix(in srgb, var(--blog-visual-accent) 58%, transparent);
+    border-radius: 999px;
+    box-shadow: 0 0 90px var(--blog-visual-accent-soft);
+  }
+
+  .blog-hero-fallback span {
+    position: relative;
+    z-index: 1;
+    margin: 0 0 1.25rem 1.35rem;
+    color: color-mix(in srgb, var(--blog-visual-accent) 35%, white);
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0;
+    text-transform: uppercase;
+  }
+</style>
