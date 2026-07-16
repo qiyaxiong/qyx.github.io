@@ -9,6 +9,13 @@ type BlogVisual = {
 }
 
 const BLOG_VISUALS: Record<BlogCategory, BlogVisual> = {
+  'machine-learning': {
+    accent: '#d45b62',
+    accentSoft: 'rgba(212, 91, 98, 0.22)',
+    bgA: '#2e1821',
+    bgB: '#111c28',
+    grid: 'rgba(112, 193, 222, 0.16)'
+  },
   'agent-engineering': {
     accent: '#2f8f86',
     accentSoft: 'rgba(47, 143, 134, 0.22)',

@@ -1,4 +1,5 @@
 export const CANONICAL_BLOG_CATEGORIES = [
+  'machine-learning',
   'agent-engineering',
   'llm-systems',
   'ai-quant',
@@ -9,6 +10,7 @@ export const CANONICAL_BLOG_CATEGORIES = [
 export type BlogCategory = (typeof CANONICAL_BLOG_CATEGORIES)[number]
 
 const CATEGORY_LABELS: Record<BlogCategory, { zh: string; en: string }> = {
+  'machine-learning': { zh: '机器学习', en: 'Machine Learning' },
   'agent-engineering': { zh: 'Agent 工程', en: 'Agent Engineering' },
   'llm-systems': { zh: 'LLM 系统', en: 'LLM Systems' },
   'ai-quant': { zh: 'AI 量化', en: 'AI Quant' },

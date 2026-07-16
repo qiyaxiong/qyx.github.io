@@ -57,6 +57,8 @@ const collectionSchema = ({ image }: { image: () => any }) =>
     description: z.string().optional(),
     /** Optional English description used on /en routes */
     description_en: z.string().optional(),
+    /** Optional source repository shown on the collection landing page */
+    repository: z.string().url().optional(),
     heroImage: z
       .object({
         src: image(),
