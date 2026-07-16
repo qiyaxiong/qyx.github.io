@@ -1,0 +1,412 @@
+---
+title: Tau 对比 LangGraph：Coding Agent Harness 与工作流编排框架到底差在哪？
+publishDate: 2026-07-16
+updatedDate: 2026-07-16
+description: 从 Agent Loop、状态模型、持久化、人机协作与工程复杂度出发，对比 Hugging Face Tau 和 LangGraph，并解释两者为什么既能二选一，也能组合使用。
+category: agent-engineering
+tags:
+  - tau
+  - langgraph
+  - agent-harness
+  - orchestration
+  - coding-agent
+language: zh
+---
+
+Hugging Face 最近开源了 [Tau](https://github.com/huggingface/tau)：一个受 Pi 启发、使用 Python 编写的极简 Coding Agent Harness。它能在终端中读取文件、修改代码、执行命令、调用不同模型，并把完整会话保存下来。
+
+看到 Python、Agent、工具调用和持久化这些关键词，很多人的第一反应是：
+
+> 既然已经有 LangGraph，为什么还需要 Tau？它是不是一个更轻量的 LangGraph？
+
+答案是：**Tau 和 LangGraph并不处在完全相同的抽象层。**
+
+Tau 首先是一个可以直接使用和阅读的 Coding Agent，也是一个展示 Agent Harness 如何工作的教学项目；LangGraph 则是一个用于构造长时间运行、有状态工作流的低层编排框架。一个关心“单个 Agent 如何完成一次自主循环”，另一个关心“多个步骤、状态与参与者如何组成一条可靠流程”。
+
+![Tau 的 Agent Loop 与 LangGraph 状态图架构对比](/images/tau-vs-langgraph/loop-vs-graph.png)
+
+本文不做 API 数量或 GitHub Star 的表面比较，而是从它们各自在解决什么工程问题开始。
+
+## 1. 先给结论：Loop 与 Graph
+
+最简洁的区别可以写成：
+
+```text
+Tau：       Model → Tool → Result → Model → ...
+
+LangGraph：State → Node → Edge → State → Node → ...
+```
+
+Tau 的控制中心是 **Agent Loop**。模型根据当前上下文决定是否调用工具、调用什么工具，以及何时停止。
+
+LangGraph 的控制中心是 **State Graph**。开发者定义状态、节点和边；模型可以出现在某个节点中，但图的拓扑、条件分支、并行路径和暂停点由应用显式描述。[LangGraph Graph API](https://docs.langchain.com/oss/python/langgraph/graph-api)
+
+这导致两者拥有不同的“默认思维方式”：
+| 问题 | Tau 的默认答案 | LangGraph 的默认答案 |
+|---|---|---|
+| 下一步做什么？ | 让模型根据工具结果继续决定 | 根据边、条件函数或 `Command` 路由 |
+| 状态是什么？ | 消息 transcript 和 Coding Session | 用户定义的结构化 Graph State |
+| 执行单位是什么？ | 一次模型响应或一批工具调用 | 一个 node / task |
+| 如何停止？ | 模型不再产生 tool call | 图到达 `END` 或没有活跃节点 |
+| 主要优化目标 | 简洁、可读、可直接作为 Coding Agent 使用 | 可控、可恢复、适合复杂长流程 |
+
+因此，把 Tau 称为“轻量 LangGraph”并不准确。它更接近一个完整但克制的 Agent Runtime，而不是通用工作流 DSL。
+
+## 2. Tau：把一个 Coding Agent 拆给你看
+
+Tau 继承了 Pi 的三层架构：
+
+```text
+tau_coding  →  tau_agent  →  tau_ai
+```
+
+- `tau_ai` 负责把 OpenAI、Anthropic、Hugging Face、OpenRouter 和 OpenAI-compatible 服务转换成统一的模型事件。
+- `tau_agent` 负责消息、工具、事件、Agent Loop、Harness 和 session primitives。
+- `tau_coding` 负责终端应用、TUI、文件工具、shell、项目指令、skills、provider 配置与磁盘会话。
+
+这套设计最关键的不是目录整齐，而是依赖只能向一个方向流动：核心 Agent 不知道 Textual、Rich、配置目录或终端渲染的存在；前端只消费事件。[Tau 架构说明](https://twotimespi.dev/internals/architecture/)
+
+它的核心执行逻辑可以简化为：
+
+```python
+while not finished:
+    assistant_message = await provider.stream_response(
+        system=system,
+        messages=messages,
+        tools=tools,
+    )
+    messages.append(assistant_message)
+
+    if not assistant_message.tool_calls:
+        break
+
+    for call in assistant_message.tool_calls:
+        result = await execute_tool(call)
+        messages.append(result)
+```
+
+真实代码还处理了 provider retry、streaming delta、取消、未知工具、steering、follow-up queue，以及中断后缺失 tool result 的修复，但主干仍然非常容易追踪。[Tau Agent Loop 源码](https://github.com/huggingface/tau/blob/main/src/tau_agent/loop.py)
+
+这正是 Tau 的教学价值：它没有用一张图隐藏循环，而是把一个可运行 Coding Agent 中“多出来的工程细节”完整展示出来。
+
+## 3. LangGraph：把业务过程变成可恢复的状态机
+
+LangGraph 的核心不是某种 Agent Prompt，而是图执行模型。一个最小 Graph API 示例大致如下：
+
+```python
+from typing_extensions import TypedDict
+from langgraph.graph import StateGraph, START, END
+
+
+class State(TypedDict):
+    request: str
+    draft: str
+    approved: bool
+
+
+def generate(state: State):
+    return {"draft": create_draft(state["request"])}
+
+
+def review(state: State):
+    return {"approved": check_draft(state["draft"])}
+
+
+def route(state: State):
+    return END if state["approved"] else "generate"
+
+
+builder = StateGraph(State)
+builder.add_node("generate", generate)
+builder.add_node("review", review)
+builder.add_edge(START, "generate")
+builder.add_edge("generate", "review")
+builder.add_conditional_edges("review", route)
+
+graph = builder.compile()
+```
+
+这里，LLM 可能只存在于 `generate` 节点中。是否审核、审核失败后回到哪里、什么状态需要保存，都由图明确表达。
+
+LangGraph 的运行时受到 Pregel 模型启发，以离散的 super-step 推进。一个 super-step 内可以运行多个并行节点，然后统一合并状态更新。这使它天然适合：
+
+- 条件路由与循环；
+- map-reduce 和动态 fan-out；
+- 多 Agent 协作；
+- 长时间运行的业务任务；
+- 人工审批与恢复；
+- 失败后从 checkpoint 继续。
+
+换句话说，Tau 把复杂性放在一个 Agent 内部；LangGraph 把复杂性展开为多个可命名、可检查的执行节点。
+
+## 4. 状态模型：Transcript 与 Structured State
+
+这是两者最容易被忽视、也最重要的区别。
+
+### Tau 的状态以对话记录为中心
+
+Tau 的 Agent Harness 拥有消息 transcript。用户消息、AssistantMessage、tool call 和 ToolResult 都依次进入历史。Coding Session 再围绕这段历史提供 JSONL 持久化、恢复、分支和压缩。
+
+这很适合 Coding Agent，因为代码修改过程本来就是一连串“观察—决策—行动—反馈”：
+
+```text
+用户要求
+→ 模型查看文件
+→ 文件内容
+→ 模型修改文件
+→ 修改结果
+→ 模型运行测试
+→ 测试结果
+```
+
+### LangGraph 的状态由应用定义
+
+LangGraph 的 state 可以是 `TypedDict`、dataclass 或 Pydantic model。节点不必返回完整状态，只返回自己产生的更新；reducer 决定这些更新是覆盖、累加还是以其他方式合并。
+
+例如一个合同审核系统可能拥有：
+
+```python
+class ContractState(TypedDict):
+    document_id: str
+    extracted_terms: list[str]
+    risk_level: str
+    legal_comments: list[str]
+    approval_status: str
+```
+
+这些字段比一串聊天消息更适合业务查询、权限控制和审计。
+
+所以选择标准不是“消息状态和图状态谁更先进”，而是你的问题天然长什么样：
+
+- 如果主要状态就是模型的工作上下文，transcript 很自然。
+- 如果状态需要被多个确定性步骤、人员和系统共同读取与修改，结构化 state 更可靠。
+
+## 5. 持久化：都能保存，但保存的语义不同
+
+Tau 和 LangGraph 都提供持久化，但不要被相同的术语迷惑。
+
+Tau 保存的是可检查、追加式的 session 历史。它非常适合回答：模型说了什么、执行过什么工具、如何从某个会话继续。
+
+LangGraph 的 checkpointer 则在每个 super-step 边界保存 graph state，并记录节点级 pending writes。官方持久化层围绕以下能力设计：
+
+- thread memory；
+- human-in-the-loop；
+- time travel 与状态分叉；
+- 故障恢复；
+- 并行节点部分成功后的恢复。
+
+例如同一个 super-step 中，三个并行节点有两个已经完成、一个失败，LangGraph 可以保留成功节点的 pending writes，恢复时不必重复执行它们。[LangGraph Persistence](https://docs.langchain.com/oss/python/langgraph/persistence)
+
+这比“重新加载完整聊天记录，再让模型判断做到哪里”拥有更精确的执行语义，但也引入了 checkpoint schema、thread ID、reducer、幂等性和 graph migration 等新问题。
+
+## 6. 可控性与自主性的交换
+
+Tau 的优势是自主性。给模型四个基础工具：
+
+```text
+read / write / edit / bash
+```
+
+它就能探索陌生仓库、形成计划、修改文件并验证结果。你不需要预先画出“先读哪个文件、再运行哪个测试”的图。
+
+但自主性意味着路径主要存在于模型的决策中。模型为什么先改 A 后改 B，可以从 transcript 观察，却不容易在执行前用程序证明。
+
+LangGraph 的优势是控制。你可以明确规定：
+
+```text
+提取信息
+  ↓
+并行执行风险检查与合规检查
+  ↓
+合并结果
+  ↓
+高风险 → 人工审批
+低风险 → 自动生成结果
+```
+
+代价是开发者必须提前建模。如果流程本身具有很高的不确定性，图可能迅速膨胀成大量边、状态字段与特殊分支，最后只是用代码手动模仿 Agent 的自由探索。
+
+一个实用原则是：
+
+> 不确定性高、路径难以预先枚举时，让 Agent Loop 决策；规则明确、失败成本高时，让 Graph 控制。
+
+## 7. 人机协作：输入队列与持久化中断
+
+Tau 的 Harness 支持两种很实用的交互：
+
+- `steer`：当前 Agent 工作完成一个 turn 或工具批次后，插入新的指导消息；
+- `follow_up`：Agent 原本准备停止时，追加下一项任务。
+
+它还支持取消当前运行。这些能力非常符合终端 Coding Agent 的体验：人可以在模型工作过程中纠正方向。
+
+LangGraph 的 `interrupt` 更接近工作流级暂停。图可以在某个节点暂停，把 state 写入 checkpointer，等待几小时甚至几天后的外部审批，再通过 `Command(resume=...)` 继续。官方 human-in-the-loop 机制还能围绕工具调用表达 approve、edit 和 reject。[LangGraph Human-in-the-loop](https://docs.langchain.com/oss/python/langchain/human-in-the-loop)
+
+两者的区别是：
+
+```text
+Tau：       人正在和 Agent 协作
+LangGraph：人是工作流中的一个持久化节点
+```
+
+## 8. 并行与多 Agent
+
+Tau 当前核心循环会顺序执行同一条 AssistantMessage 中的多个 tool calls。这样更容易保持 transcript 顺序、取消语义和教学可读性，但大量互不依赖的读取或搜索任务无法自动获得并行收益。
+
+LangGraph 允许一条边激活多个下游节点，并把它们放进同一个 super-step 并行执行；`Send` 还能针对运行时产生的数据动态创建 map-reduce 风格任务。
+
+因此，如果需求是“让一个 Agent 独立完成代码任务”，Tau 的顺序循环通常足够。如果需求是“20 个文档并行分析、多个专家 Agent 独立判断、最后合并与审批”，LangGraph 更符合问题结构。
+
+## 9. 复杂度并没有消失，只是被放在不同位置
+
+Tau 的表面代码更少，但 Coding Agent 的复杂度仍然存在于：
+
+- prompt 和工具描述；
+- 模型是否可靠调用工具；
+- 上下文压缩；
+- shell 权限与沙箱；
+- session 恢复；
+- 模型供应商差异。
+
+LangGraph 的复杂度则更显式：
+
+- state schema；
+- node 边界；
+- reducer；
+- conditional edge；
+- checkpoint；
+- interrupt；
+- graph migration；
+- 节点副作用与幂等性。
+
+“显式”通常更适合团队维护和关键业务，但不等于“简单”。对于只有一个模型、四个工具和一个循环的应用，过早引入图可能只是把十五行循环扩展成一套框架配置。
+
+## 10. 工程能力对照
+
+| 维度 | Tau | LangGraph |
+|---|---|---|
+| 核心定位 | 可运行、可阅读的 Coding Agent Harness | 长时间运行的有状态编排框架 |
+| 主要抽象 | Message、Tool、Event、Agent Loop | State、Node、Edge、Command、Checkpoint |
+| 控制权 | 主要交给模型 | 主要交给图，局部可交给模型 |
+| 默认产品形态 | CLI/TUI Coding Agent | 可嵌入服务的执行 Runtime |
+| 状态中心 | 消息 transcript | 用户定义的结构化 state |
+| 持久化粒度 | Session entry / JSONL | Super-step checkpoint 与 task write |
+| 并行 | 核心工具调用偏顺序 | 图节点可并行执行 |
+| 人机协作 | steer、follow-up、cancel | durable interrupt、resume、状态修改 |
+| 多 Agent | 可以在工具或应用层自行扩展 | subgraph、并行节点、路由更自然 |
+| 学习成本 | 低到中，适合阅读源码 | 中到高，需要掌握图执行与状态语义 |
+| 安全边界 | 需要自行补充 shell sandbox 与审批 | 可表达审批流程，但执行工具仍需外部 sandbox |
+| 成熟度 | 0.1.x，快速变化 | 生产导向，生态与部署能力更完整 |
+
+这里尤其需要强调最后一个安全问题：**框架编排能力不等于代码执行隔离。** Tau 的 `bash` 工具和 LangGraph 节点中的 shell、数据库或浏览器操作，最终都会获得宿主进程授予的权限。审批节点可以降低误操作概率，却不能替代容器、文件系统策略、网络策略和凭据隔离。
+
+## 11. 什么时候选择 Tau
+
+以下场景优先考虑 Tau：
+
+- 想从源码理解一个现代 Coding Agent；
+- 需要一个 Python 原生的终端 Coding Agent；
+- 想快速实验自定义模型、工具、事件前端或 session；
+- 工作路径高度开放，难以提前定义完整流程；
+- 团队不希望一开始就承担 Graph State 和 checkpoint 的建模成本。
+
+Tau 目前仍是 0.1.x 项目，API 和功能还在快速变化。它适合学习、实验和可控环境中的二次开发；如果直接进入多租户或高权限生产环境，需要自己补齐权限审批、沙箱、审计、限额和秘密管理。[Tau PyPI](https://pypi.org/project/tau-ai/)
+
+## 12. 什么时候选择 LangGraph
+
+以下场景更适合 LangGraph：
+
+- 流程包含明确的业务阶段和条件分支；
+- 任务可能运行数小时或数天；
+- 必须失败恢复、重试或从 checkpoint 继续；
+- 需要可靠的人工审批；
+- 需要多 Agent、并行任务或 map-reduce；
+- state 必须被数据库、后台页面和多个服务查询；
+- 希望用 LangSmith / Studio 观察、调试和部署图。
+
+LangGraph 官方将自己定义为构建、管理和部署长时间运行、有状态 Agent 的低层编排框架。如果只是快速创建普通 tool-calling agent，官方也建议考虑更高层的 LangChain `create_agent` 或 Deep Agents，而不是所有场景都直接手写图。[LangGraph 官方仓库](https://github.com/langchain-ai/langgraph)
+
+## 13. 更现实的答案：Graph Outside，Agent Inside
+
+两者最有价值的关系可能不是竞争，而是组合：
+
+![Tau 与 LangGraph 的选择及组合方式](/images/tau-vs-langgraph/decision-map.png)
+
+可以让 LangGraph 管理外部确定性流程，把 Tau 风格的 Agent Harness 放进某个需要自主探索的节点：
+
+```text
+LangGraph
+
+接收任务
+  ↓
+权限与风险检查
+  ↓
+Tau-style Coding Agent Node
+  ↓
+运行测试
+  ↓
+人工审查 diff
+  ↓
+发布或回滚
+```
+
+外层 Graph 负责：
+
+- 业务状态；
+- checkpoint；
+- 权限审批；
+- 超时和重试；
+- 多阶段协作；
+- 最终交付条件。
+
+内层 Agent Loop 负责：
+
+- 探索代码库；
+- 自主选择文件和命令；
+- 根据测试失败迭代；
+- 处理无法预先枚举的局部路径。
+
+这是一种很实用的分层：**Graph 管确定性，Agent 管不确定性。**
+
+不过，组合时不要把完整 transcript 不加处理地塞进全局 Graph State。更好的边界是只交换结构化输入输出，例如：
+
+```python
+class CodingTaskResult(TypedDict):
+    status: str
+    changed_files: list[str]
+    test_summary: str
+    risk_notes: list[str]
+    session_id: str
+```
+
+完整 session 留在 Agent 层供调试，Graph 只保存下游节点真正需要的数据。这样可以避免 checkpoint 体积失控，也减少 graph schema 与模型消息格式之间的耦合。
+
+## 14. 最终判断
+
+Tau 和 LangGraph代表了 Agent 工程的两个方向：
+
+```text
+Tau：       如何把一个自主 Agent 做小、做清楚、做成可运行产品
+LangGraph：如何把复杂 Agent 系统做成可控、可恢复的业务流程
+```
+
+如果目的是学习 Agent 内核，Tau 是更好的入口。它让 provider streaming、tool call、event、transcript、cancellation 和 session 这些概念保持可见。
+
+如果目的是交付一个包含审批、并发、恢复和多阶段状态的生产系统，LangGraph 提供了更合适的执行语义。
+
+真正需要避免的是两种误区：
+
+1. 因为 Tau 简单，就让一个无限权限的 Agent Loop 承担所有业务控制；
+2. 因为 LangGraph 功能完整，就把每一个普通 Agent 调用都包装成复杂状态图。
+
+先判断问题的复杂性究竟来自哪里：如果来自模型需要自主探索，用 Harness；如果来自业务步骤需要可靠协作，用 Graph；如果两者都有，就把 Agent 放进 Graph，而不是让其中一个勉强假装成另一个。
+
+## 参考资料
+
+- [Tau 官方仓库](https://github.com/huggingface/tau)
+- [Tau 架构说明](https://twotimespi.dev/internals/architecture/)
+- [Tau Agent Loop](https://github.com/huggingface/tau/blob/main/src/tau_agent/loop.py)
+- [Tau Roadmap](https://github.com/huggingface/tau/issues/1)
+- [LangGraph 官方仓库](https://github.com/langchain-ai/langgraph)
+- [LangGraph Graph API](https://docs.langchain.com/oss/python/langgraph/graph-api)
+- [LangGraph Persistence](https://docs.langchain.com/oss/python/langgraph/persistence)
+- [LangGraph Human-in-the-loop](https://docs.langchain.com/oss/python/langchain/human-in-the-loop)
