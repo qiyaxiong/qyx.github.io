@@ -1,7 +1,8 @@
 ---
 title: CS229 PS2：从训练稳定性到 Kernel
 publishDate: 2026-07-17
-description: 按 PS2 六组题目理解训练稳定性、概率校准、正则化、Kernelized Perceptron 与垃圾邮件分类。
+updatedDate: 2026-07-17
+description: 深入拆解 PS2 六组题目，连接训练稳定性、概率校准、MAP 正则化、Kernelized Perceptron 与垃圾邮件分类。
 category: machine-learning
 tags:
   - cs229
@@ -11,96 +12,811 @@ tags:
 language: zh
 ---
 
-PS2 的主题并不是“再学几个分类器”，而是开始追问：**一个训练集上表现不错的模型，到底值不值得相信？**
+CS229 Problem Set 2 的标题是 Supervised Learning II，但它真正完成的是一次学习视角的转变。
 
-这份作业把数值稳定性、概率校准、正则化、核函数和模型选择放在一起。它们看似分散，其实都在处理同一个问题：训练目标、模型表达能力与真实数据之间怎样保持平衡。
+在 PS1 中，我们主要问“怎样从概率假设推导一个模型”。到了 PS2，问题变成：“即使模型可以训练，我们凭什么相信它？”
 
-![从不稳定的损失地形、概率校准到 Kernel 特征空间](/images/blog/cs229-learning-system/generalization-kernels.webp)
+这个变化很重要。真实机器学习系统的失败，往往不是完全不会预测，而是训练过程不稳定、概率不可信、超参数选择泄漏或数值实现溢出。
 
-## 先建立 PS2 的地图
+另一类常见失败，是把一个漂亮的测试分数误认为可复现的泛化能力。
 
-| 部分                    | 原题在问什么                               | 真正要掌握什么                 |
-| ----------------------- | ------------------------------------------ | ------------------------------ |
-| Training stability      | 为什么两个等价写法会产生完全不同的训练结果 | 可分数据、权重发散与停止条件   |
-| Model calibration       | 输出 0.8 是否真的意味着约 80% 会发生       | 概率预测与分类准确率不是一回事 |
-| Bayesian regularization | L1/L2 为什么能写成 MAP 估计                | 先验假设如何进入目标函数       |
-| Constructing kernels    | 哪些函数一定是合法 Kernel                  | Gram matrix 的半正定性         |
-| Kernelized Perceptron   | 怎样只用内积在高维空间更新                 | dual 表示与 kernel trick       |
-| Spam classification     | Naive Bayes 与 RBF-SVM 怎样落到文本数据    | 平滑、log-space 和验证集选参   |
+PS2 把这些问题分散在六组题里：训练稳定性、模型校准、正则化的 Bayesian 解释、Kernel 构造、Kernelized Perceptron，以及垃圾邮件分类。
 
-原始材料在 [PS2 PDF](https://github.com/maxim5/cs229-2018-autumn/blob/main/problem-sets/PS2/ps2.pdf) 与 [PS2 目录](https://github.com/maxim5/cs229-2018-autumn/tree/main/problem-sets/PS2)。手机上先读完本页，坐到电脑前再运行 Notebook。
+它们看起来像六个主题，实际上共享一条主线：**模型输出由什么约束，评估结论又由什么证据支持？**
 
-## 1. 收敛不等于参数停止变化
+![从训练不稳定、概率校准、正则化约束到 Kernel 特征空间](/images/blog/cs229-learning-system/generalization-kernels.webp)
 
-对线性可分数据，未正则化 Logistic Regression 可以不断增大权重，让训练损失继续接近零。此时决策边界可能已经稳定，参数范数却仍在增长。
+本文不是逐题答案，也不会给出可以直接提交的完整实现。它的目标是让你读懂每道题为什么出现、公式怎样连接、代码应该观察什么，以及完成 PS2 后应该留下哪些可复用能力。
 
-所以“训练是否完成”至少有三种判断：
+## 一、先建立整份 PS2 的知识地图
 
-1. loss 的变化是否足够小；
-2. 参数或梯度是否足够小；
-3. 真正关心的验证指标是否不再改善。
+PS2 的六组题有明确的依赖顺序。训练稳定性先提醒我们“优化过程可能欺骗你”；校准继续提醒“分类正确也不代表概率正确”。
 
-PS2 用一个很小的代码差异展示：停止条件不是无关紧要的实现细节，它隐含了我们怎样定义“解”。遇到训练很慢时，不要先调学习率；先画 loss、梯度范数和参数范数三条曲线。
+正则化回答“怎样向参数加入偏好”；Kernel 再讨论“怎样扩大模型能力而不显式展开特征”。
 
-## 2. 准确率不能代替概率校准
+最后，垃圾邮件分类把数值稳定、概率估计、平滑、模型选择和验证集纪律放进一条完整的数据管线。
 
-分类器可以有很高的准确率，却给出糟糕的概率。如果模型把十个样本都预测为 0.9，那么长期看其中应约有九个为正，才能称为校准良好。
+| 部分                    | 表面任务                           | 深层问题                                 | 完成后的能力                             |
+| ----------------------- | ---------------------------------- | ---------------------------------------- | ---------------------------------------- |
+| Training Stability      | 比较两份 Logistic Regression 训练  | 为什么看似等价的实现会一个收敛、一个不停 | 区分损失收敛、参数收敛与预测收敛         |
+| Model Calibration       | 分析预测概率的可靠程度             | 0.8 的概率是否真的对应约 80% 的发生率    | 区分 discrimination 与 calibration       |
+| Bayesian Regularization | 从 prior 推导惩罚项                | L1/L2 在表达怎样的参数偏好               | 把正则化理解为建模假设                   |
+| Constructing Kernels    | 判断函数是否为合法 Kernel          | 哪些相似度真的对应某个内积空间           | 用 Gram matrix 和闭包性质证明合法性      |
+| Kernelized Perceptron   | 不显式构造高维特征                 | 怎样把 primal 权重改写成样本系数         | 理解 dual representation 与 kernel trick |
+| Spam Classification     | 实现 Naive Bayes 并选择 SVM radius | 怎样完成文本建模和无泄漏选参             | 建立一条可检查的小型分类管线             |
 
-一种直观检查是把预测概率分桶：
+原始题目位于 [PS2 PDF](https://github.com/maxim5/cs229-2018-autumn/blob/main/problem-sets/PS2/ps2.pdf)。
 
-$$
-\text{calibration}(B)=\frac{1}{|B|}\sum_{i\in B}y_i
-\quad\text{对比}\quad
-\frac{1}{|B|}\sum_{i\in B}\hat p_i.
-$$
+代码与 Notebook 位于 [PS2 目录](https://github.com/maxim5/cs229-2018-autumn/tree/main/problem-sets/PS2)。建议手机上先读本文，真正实验时再打开 Notebook。
 
-这提醒我们先问产品到底需要什么：只需要排序、需要一个分类边界，还是要把概率用于风险和成本决策？不同目标对应 AUC、accuracy、log-loss、Brier score 或 calibration curve，不应只保留一个数字。
+## 二、开始前需要固定的四个约定
 
-## 3. 正则化是一个可解释的假设
+PS2 中很多“推导错误”其实来自约定不一致。正式进入题目之前，先固定数据 shape、标签编码、优化方向与评估切分。
 
-最大后验估计写成：
+### 1. 数据 shape
+
+令训练集有 $m$ 个样本、每个样本有 $n$ 个特征：
 
 $$
-\theta_{MAP}=\arg\max_\theta \log p(y\mid X,\theta)+\log p(\theta).
+X\in\mathbb{R}^{m\times n},\qquad
+\theta\in\mathbb{R}^{n},\qquad
+y\in\mathbb{R}^{m}.
 $$
 
-如果参数服从零均值 Gaussian 先验，负对数先验产生 L2 惩罚；如果使用 Laplace 先验，则产生 L1 惩罚。正则化因此不只是“防止过拟合的技巧”，而是在表达我们相信参数应更小或更稀疏。
+这里每一行是一个样本。于是 $X\theta$ 是 $m$ 维 logits，$X^T(y-\hat y)$ 是 $n$ 维梯度。
 
-这也解释了为什么必须标准化特征：同一个惩罚系数作用在不同量纲的参数上，含义并不相同。
+如果代码把样本放在列上，公式也可以成立，但必须从头到尾保持一致。最危险的不是使用哪种约定，而是在 NumPy 广播作用下悄悄混用 `(m,)` 与 `(m,1)`。
 
-## 4. Kernel 的本质是合法的相似度
+### 2. 标签编码
 
-Kernel trick 不是把每个样本真的展开到高维，而是把算法中出现的内积替换为：
+Logistic Regression 常用 $y\in\{0,1\}$，Perceptron 和 SVM 更常用 $y\in\{-1,+1\}$。
+
+看到更新式之前先确认标签编码。否则一个本来正确的 $y_i\phi(x_i)$ 更新，放到 $0/1$ 标签上会让负类样本根本不更新。
+
+### 3. 优化方向
+
+若目标写成 log-likelihood，就执行最大化；若写成 negative log-likelihood 或 cross-entropy，就执行最小化。
+
+两种推导可能只差一个负号，却都正确。错误通常发生在纸面推导采用 ascent，代码更新却按 descent 写。
+
+### 4. 数据切分
+
+训练集用于估计参数，验证集用于选择模型与超参数，测试集只用于最终一次独立评估。
+
+这条纪律会在垃圾邮件分类中反复出现。如果测试集参与了 radius、阈值、词典大小或特征选择，最终分数就不能再作为泛化性能的独立证据。
+
+## 三、题目一：Training Stability 到底不稳定在哪里
+
+训练稳定性题表面上比较两份 Logistic Regression 代码。它真正想让你发现：在某些数据上，模型的预测边界已经几乎不变，但参数仍可以不断增长。
+
+### 1. 从单个样本的似然开始
+
+对二分类问题，Logistic Regression 建模：
+
+$$
+p(y=1\mid x;\theta)=\sigma(\theta^Tx),
+\qquad
+\sigma(z)=\frac{1}{1+e^{-z}}.
+$$
+
+当 $y\in\{0,1\}$ 时，单个样本的 log-likelihood 为：
+
+$$
+\ell_i(\theta)=y_i\log\sigma(\theta^Tx_i)
++(1-y_i)\log\left(1-\sigma(\theta^Tx_i)\right).
+$$
+
+对全部样本求和，就得到需要最大化的目标。若改成最小化 negative log-likelihood，梯度方向相反，但驻点相同。
+
+### 2. 线性可分数据为什么没有有限最优解
+
+假设存在一个方向 $v$，使所有正类满足 $v^Tx_i>0$，所有负类满足 $v^Tx_i<0$。这就是严格线性可分。
+
+现在把参数写成 $\theta=cv$，其中 $c>0$。当 $c$ 不断增大时，正类 logit 越来越大，预测概率趋近 1；负类 logit 越来越小，预测概率趋近 0。
+
+因此训练数据上的 negative log-likelihood 可以不断接近 0，却不在任何有限的 $c$ 上取得最小值。
+
+这意味着优化器不是“找不到一个已经存在的有限解”，而是在沿着分离方向不断放大参数。方向可能稳定，长度却继续增加。
+
+![线性可分数据中边界趋于稳定，但参数范数继续增长](/images/blog/cs229-learning-system/ps2-training-stability.webp)
+
+### 3. 三种收敛不能混为一谈
+
+第一种是目标函数收敛。相邻两次 loss 的差非常小，但 loss 仍可能缓慢下降。
+
+第二种是参数收敛。$\|\theta_{t+1}-\theta_t\|$ 很小，或者梯度范数已经很小。
+
+第三种是预测收敛。决策边界、类别预测或验证集指标基本不再变化。
+
+在线性可分场景里，预测可能最先稳定，loss 随后变化得很慢，但参数范数仍持续增大。只监控其中一个量，会得到完全不同的“是否收敛”结论。
+
+### 4. 为什么一个很小的代码差异会改变结果
+
+常见停止条件使用相对变化：
+
+$$
+\frac{|\ell_{t+1}-\ell_t|}{\max(1,|\ell_t|)}<\varepsilon.
+$$
+
+若某份实现检查参数差，另一份检查 loss 差，它们在可分数据上的行为就会不同。一个可能很快宣布预测已经稳定，另一个可能继续追逐更小的训练损失。
+
+初始值、学习率、是否打乱样本、浮点精度和 sigmoid 的实现方式，也会放大这种差异。
+
+### 5. 正则化怎样恢复有限解
+
+加入 L2 正则化后，目标变成：
+
+$$
+J(\theta)=
+-\sum_{i=1}^m\ell_i(\theta)
++\frac{\lambda}{2}\|\theta\|_2^2.
+$$
+
+第一项希望把样本分得更有把握，第二项惩罚无限增大的参数。两者平衡后，通常会得到有限最优解。
+
+这里的正则化不只是改善测试表现，还改变了优化问题本身：从“下确界存在但没有有限 minimizer”，变成具有有限解的目标。
+
+### 6. 实验时应该画什么
+
+至少同时记录四条曲线：training loss、validation loss、gradient norm 和 parameter norm。
+
+再保存不同迭代次数下的 decision boundary。你会看到边界很早就几乎重合，而参数范数仍在增加。
+
+可以额外构造两组数据：一组严格线性可分，一组加入少量重叠或标签噪声。比较后会发现，少数无法完美分类的点会阻止参数无限增大，因为过度自信会为错误样本带来巨大损失。
+
+### 7. 这一题应留下的结论
+
+“训练不停止”不一定是学习率错误，也不一定是代码死循环。它可能是数据性质与无正则化目标共同造成的合理现象。
+
+以后遇到类似问题，先问四件事：最优解是否有限、停止条件监控什么、预测是否已经稳定、参数范数是否在无约束增长。
+
+## 四、题目二：准确率高，概率就可信么
+
+模型校准讨论的是预测概率与真实频率之间的一致程度。
+
+如果一个模型对大量样本输出 0.8，那么在这些样本中，真实正例比例应大约为 80%。满足这种长期频率解释，才称得上校准良好。
+
+### 1. 分类能力与校准能力是两个维度
+
+分类准确率只看预测是否跨过阈值。假设阈值为 0.5，输出 0.51 和 0.99 都会被判为正类。
+
+但在风险决策中，两者含义完全不同。0.51 表示接近不确定，0.99 表示几乎确信。一个分类正确但过度自信的模型，可能在资源分配、医学风险或金融定价中造成严重后果。
+
+区分能力通常关注正例能否排在负例前面，例如 ROC-AUC。校准能力关注数值概率是否匹配发生频率。一个模型可以排序很好却校准很差，也可以总体校准不错却无法区分个体。
+
+### 2. Reliability Diagram 怎样构造
+
+把预测概率分成若干区间 $B_1,\ldots,B_K$。对每个区间计算平均预测概率：
+
+$$
+\operatorname{conf}(B_k)
+=\frac{1}{|B_k|}\sum_{i\in B_k}\hat p_i.
+$$
+
+再计算实际正例比例：
+
+$$
+\operatorname{acc}(B_k)
+=\frac{1}{|B_k|}\sum_{i\in B_k}y_i.
+$$
+
+把前者放在横轴、后者放在纵轴。理想校准模型落在对角线上。曲线位于对角线下方，通常表示模型过度自信；位于上方，通常表示模型不够自信。
+
+![概率分桶、理想校准线与过度自信模型的差异](/images/blog/cs229-learning-system/ps2-calibration.webp)
+
+### 3. 分桶本身也会影响结论
+
+桶太少会掩盖局部偏差，桶太多则使每个桶样本不足、方差很大。
+
+等宽分桶让概率区间相同，但若大量预测集中在 0 或 1 附近，中间桶可能几乎为空。等频分桶让每个桶样本数接近，但横轴间隔不再一致。
+
+因此 reliability diagram 不是绝对真相。报告时应同时给出样本量、分桶策略和每桶计数。
+
+### 4. ECE 能做摘要，但不能取代图
+
+Expected Calibration Error 常写成：
+
+$$
+\operatorname{ECE}
+=\sum_{k=1}^K\frac{|B_k|}{m}
+\left|\operatorname{acc}(B_k)-\operatorname{conf}(B_k)\right|.
+$$
+
+它把各桶差距加权平均，得到一个容易比较的标量。但 ECE 依赖分桶方式，不同方向的误差也可能被同一个数字掩盖。
+
+所以 ECE 适合做摘要，不适合单独做结论。更稳妥的报告同时包含 reliability diagram、ECE、样本计数和任务相关指标。
+
+### 5. Brier Score 与 Log-loss 看见什么
+
+Brier Score 是概率预测的平方误差：
+
+$$
+\operatorname{Brier}
+=\frac{1}{m}\sum_{i=1}^m(\hat p_i-y_i)^2.
+$$
+
+它同时受到校准与区分能力影响，数值直观，并且不会像 log-loss 那样对极端错误给出无限惩罚。
+
+Log-loss 则对“非常自信但预测错误”特别敏感。若真实标签为 1，而模型给出接近 0 的概率，损失会急剧增大。
+
+两者没有谁绝对更好。选择指标要回到应用：是否需要严厉惩罚灾难性过度自信，还是更关注平均概率误差。
+
+### 6. 为什么 Logistic Regression 常有较好的校准倾向
+
+Logistic Regression 直接最大化条件概率的 likelihood。在模型设定合理、样本充足且正则化适当时，它的概率往往比只优化分类边界的模型更有解释性。
+
+但“往往”不等于保证。特征遗漏、分布漂移、类别采样比例改变、过强正则化或数据可分导致的参数发散，都可能破坏校准。
+
+尤其当训练集为了平衡类别而做过重采样时，模型看到的先验类别比例与真实部署环境不同。即使排序很好，输出概率也需要重新校正。
+
+### 7. 校准不能使用测试集拟合
+
+Temperature scaling、Platt scaling 或 isotonic regression 都需要额外数据拟合。
+
+正确流程是用训练集训练原模型，用独立 calibration/validation 集拟合校准器，最后在从未参与任何选择的测试集上评估。
+
+如果直接在测试集上调整温度，再在同一测试集报告 ECE，结果已经被优化过，不能代表新数据表现。
+
+### 8. 一个值得亲手做的实验
+
+先训练 Logistic Regression、Naive Bayes 和一个 margin-based 分类器。对每个模型同时画 ROC curve 与 reliability diagram。
+
+然后将 logits 乘以不同常数。类别排序与 0.5 阈值附近的预测可能基本不变，但置信度会显著改变。
+
+这个实验能直观证明：准确率相同，不代表概率质量相同；AUC 相同，也不代表校准相同。
+
+## 五、题目三：正则化不是魔法旋钮，而是参数先验
+
+很多教程把正则化解释成“防止过拟合”。这个说法没有错，但不够深。PS2 要求从 Bayesian 角度说明，L1 与 L2 惩罚分别对应怎样的参数先验。
+
+### 1. 从最大似然到最大后验
+
+最大似然估计选择最能解释数据的参数：
+
+$$
+\theta_{MLE}=\arg\max_\theta p(y\mid X,\theta).
+$$
+
+Bayesian 视角还为参数指定 prior $p(\theta)$。由 Bayes 公式：
+
+$$
+p(\theta\mid X,y)
+\propto p(y\mid X,\theta)p(\theta).
+$$
+
+最大后验估计选择 posterior 的众数：
+
+$$
+\theta_{MAP}
+=\arg\max_\theta
+\left[\log p(y\mid X,\theta)+\log p(\theta)\right].
+$$
+
+对数把 likelihood 与 prior 的乘积变成和。把符号改成最小化时，负 log prior 就自然成为正则化项。
+
+### 2. Gaussian Prior 怎样产生 L2
+
+假设各参数独立且服从零均值 Gaussian：
+
+$$
+p(\theta_j)=
+\frac{1}{\sqrt{2\pi\tau^2}}
+\exp\left(-\frac{\theta_j^2}{2\tau^2}\right).
+$$
+
+取负对数并忽略与参数无关的常数：
+
+$$
+-\log p(\theta)
+=\frac{1}{2\tau^2}\sum_j\theta_j^2+C.
+$$
+
+这就是 L2 penalty。$\lambda$ 与 prior variance 成反比：prior 越集中在零附近，对大参数的惩罚越强。
+
+### 3. Laplace Prior 怎样产生 L1
+
+若参数服从零中心 Laplace 分布：
+
+$$
+p(\theta_j)=\frac{1}{2b}
+\exp\left(-\frac{|\theta_j|}{b}\right),
+$$
+
+则负 log prior 为：
+
+$$
+-\log p(\theta)
+=\frac{1}{b}\sum_j|\theta_j|+C.
+$$
+
+因此得到 L1 penalty。Laplace 在零附近更尖，同时尾部比 Gaussian 更厚，表达了“许多参数恰好为零，但少数参数可以较大”的偏好。
+
+![Gaussian/L2 与 Laplace/L1 的先验和约束几何](/images/blog/cs229-learning-system/ps2-regularization.webp)
+
+### 4. 为什么 L1 更容易得到稀疏解
+
+在二维参数空间中，L2 约束区域是圆，L1 约束区域是菱形。优化可以理解为逐渐扩大 loss contour，直到第一次碰到约束边界。
+
+菱形在坐标轴上有尖角，等高线更容易在尖角处相切。尖角对应某个坐标恰好为零，因此 L1 经常产生稀疏解。
+
+这是一种几何直觉，不代表所有问题中 L1 都必然得到唯一稀疏解。高度相关的特征、优化算法和 penalty 大小都会影响具体结果。
+
+### 5. 特征标准化为什么是正则化的一部分
+
+假设一个特征用米表示，另一个用毫米表示。为了产生同样大小的预测贡献，它们需要完全不同量级的参数。
+
+若直接对参数施加同一个 L1 或 L2 penalty，量纲差异会被误认为参数重要性差异。
+
+因此在大多数线性模型中，应只用训练集统计量对特征做中心化和缩放，再把同样的变换应用于验证集与测试集。
+
+如果先在全量数据上计算均值和方差，就让测试集信息进入训练流程，形成轻微但真实的数据泄漏。
+
+### 6. Intercept 是否应该正则化
+
+截距表示整体基准水平，通常不希望因为其他特征很多而被同步压向零。许多库默认不正则化 intercept。
+
+但这不是数学定律。如果业务上也相信基准概率应接近某个先验值，可以对截距单独建模。
+
+关键是明确决定，而不是无意中把 bias 列放进与其他特征相同的 penalty。
+
+### 7. MAP 不是完整 Bayesian 推断
+
+MAP 最终仍只保留一个点估计。它没有保留 posterior 的宽度、多峰结构和参数不确定性。
+
+所以“L2 等于 Gaussian prior”只是在 MAP 目标层面的对应，不意味着训练一个 L2 Logistic Regression 就完成了完整 Bayesian inference。
+
+这个边界非常重要。MAP 能提供有用解释，但不能自动给出 posterior credible interval。
+
+### 8. 怎样选择正则化强度
+
+$\lambda$ 不能根据训练误差选择，因为增大模型自由度通常能降低训练误差。它应在验证集或交叉验证中选择。
+
+搜索时使用对数尺度，例如 $10^{-4},10^{-3},\ldots,10^2$，通常比在线性尺度上均匀搜索更合理。
+
+还要记录均值与方差。如果不同 fold 的最佳 $\lambda$ 差异巨大，说明数据量、切分方式或分布稳定性值得进一步检查。
+
+## 六、题目四：什么函数才是合法 Kernel
+
+Kernel 常被口语化地描述为“相似度函数”，但不是任意相似度都能安全代入 SVM、Perceptron 或 Kernel Ridge Regression。
+
+合法 Kernel 必须对应某个特征映射中的内积：
 
 $$
 K(x,z)=\phi(x)^T\phi(z).
 $$
 
-对任意有限样本，Gram matrix $K_{ij}=K(x^{(i)},x^{(j)})$ 必须半正定。PS2 的 Kernel 构造题最值得保留的不是每个判断答案，而是证明模板：
+### 1. Gram Matrix 是最实用的判断入口
 
-- 能否显式构造一个 feature map；
-- 能否写成已知 Kernel 的非负和或乘积；
-- 若怀疑不合法，能否构造 Gram matrix 使二次型为负。
+给定任意有限样本 $x^{(1)},\ldots,x^{(m)}$，定义 Gram matrix：
 
-Kernelized Perceptron 进一步把权重写成训练样本的线性组合。预测时只需要样本之间的 Kernel 值，不需要显式保存 $\phi(x)$。
+$$
+K_{ij}=K(x^{(i)},x^{(j)}).
+$$
 
-## 5. 垃圾邮件题是一套小型建模流程
+如果 $K$ 来自内积，那么它必须对称，并且对任意 $a\in\mathbb{R}^m$ 满足：
 
-文本分类部分把前面的概念放回真实数据：建立词典、使用 Laplace smoothing、在 log-space 计算 Naive Bayes、找出最有指示性的词，再用验证集选择 RBF-SVM 的 radius。
+$$
+a^TKa\ge 0.
+$$
 
-这里有两个重要习惯：
+这就是 positive semidefinite。将 $K_{ij}=\phi(x^{(i)})^T\phi(x^{(j)})$ 代入，可以得到：
 
-- 极小概率连乘必须改成 log 概率求和；
-- 超参数只能在验证集选择，测试集只用于最后一次报告。
+$$
+a^TKa
+=\left\|\sum_i a_i\phi(x^{(i)})\right\|_2^2
+\ge 0.
+$$
 
-如果测试集参与了 radius 选择，最终分数就不再是对泛化误差的独立估计。
+因此 PSD 不是人为附加的技术条件，而是“确实存在一个内积空间”的直接结果。
 
-## 电脑前的 45 分钟实践
+### 2. 三种常用证明方法
 
-1. 运行训练稳定性 Notebook，同时记录 loss、梯度范数、参数范数；
-2. 为一个分类器画 reliability diagram，而不仅是 accuracy；
-3. 用数值特征值检查一个自定义 Gram matrix 是否半正定；
-4. 对比 linear 与 RBF Kernel 的边界，写下“表达能力增加了什么”；
-5. 在垃圾邮件实验中明确 train、validation、test 各自只做什么。
+第一种是显式构造 feature map。若能写出 $\phi(x)$，再验证 $K(x,z)=\phi(x)^T\phi(z)$，证明最直接。
 
-完成 PS2 的标志，不是记住 RBF 公式，而是遇到一个漂亮的训练结果时，会主动检查：数值稳定吗、概率可信吗、选择过程泄漏了吗、复杂度受约束了吗。
+第二种使用闭包性质。已知 $K_1,K_2$ 合法，则非负加权和 $aK_1+bK_2$ 仍合法；乘积 $K_1K_2$ 也合法；对输入先做变换再应用合法 Kernel 通常仍合法。
+
+第三种从 Gram matrix 出发，证明对任意样本集合都 PSD。若想证明某函数不一定合法，只需要找到一组样本，使 Gram matrix 有负特征值或存在 $a^TKa<0$。
+
+### 3. 常数、线性与多项式 Kernel
+
+Linear Kernel 为：
+
+$$
+K(x,z)=x^Tz.
+$$
+
+它对应恒等 feature map。带非负常数项的 polynomial kernel：
+
+$$
+K(x,z)=(x^Tz+c)^d
+$$
+
+可以展开为不同阶单项式的内积。当 $c\ge0$ 且 $d$ 为合适的非负整数时，这个构造有明确 feature-space 解释。
+
+不要只背公式。理解展开后每一项对应哪些交互特征，才知道 polynomial degree 增加了怎样的表达能力。
+
+### 4. RBF Kernel 表达什么
+
+Radial Basis Function Kernel 为：
+
+$$
+K(x,z)=\exp\left(-\frac{\|x-z\|_2^2}{2\sigma^2}\right).
+$$
+
+距离近的样本相似度接近 1，距离远的样本相似度接近 0。$\sigma$ 控制影响范围。
+
+$\sigma$ 太小，每个样本只影响非常局部的区域，边界容易过度弯曲；$\sigma$ 太大，所有样本看起来都相似，模型接近缺乏表达力的平滑分类器。
+
+所以 radius 不是单纯的运行参数，而是模型复杂度控制器。
+
+### 5. 数值上怎样检查自定义 Kernel
+
+理论证明仍是最终标准，但实现阶段可以先做数值检查。
+
+随机抽取一批样本，计算 Gram matrix，检查 $\|K-K^T\|$ 是否接近零，再计算最小特征值。
+
+由于浮点误差，合法 Kernel 也可能出现很小的负特征值，例如 $-10^{-10}$。要根据矩阵尺度设置容差，而不是机械要求所有数值严格非负。
+
+如果出现明显负特征值，先检查实现是否破坏对称，再检查函数本身是否真的具有 PSD 保证。
+
+## 七、题目五：Kernelized Perceptron 为什么不需要显式高维权重
+
+标准 Perceptron 在误分类样本上更新：
+
+$$
+\theta\leftarrow\theta+y_i x_i,
+$$
+
+这里使用 $y_i\in\{-1,+1\}$。预测为：
+
+$$
+\hat y=\operatorname{sign}(\theta^Tx).
+$$
+
+若先映射到特征空间，更新变成：
+
+$$
+\theta\leftarrow\theta+y_i\phi(x_i).
+$$
+
+问题是 $\phi(x)$ 可能维度极高，甚至是无限维。Kernel trick 的关键，是发现训练过程中 $\theta$ 永远是训练样本映射的线性组合。
+
+### 1. 从 primal 改写成 dual representation
+
+参数从零开始。每次误分类，只会加上某个 $y_i\phi(x_i)$。因此训练若干步后：
+
+$$
+\theta=\sum_{i=1}^m\alpha_i y_i\phi(x_i),
+$$
+
+其中 $\alpha_i$ 是样本被错误更新的次数。
+
+代入预测函数：
+
+$$
+\theta^T\phi(x)
+=\sum_{i=1}^m\alpha_i y_i
+\phi(x_i)^T\phi(x).
+$$
+
+将内积替换为 Kernel：
+
+$$
+f(x)=\sum_{i=1}^m\alpha_i y_iK(x_i,x).
+$$
+
+至此，算法只需要训练样本之间的 Kernel 值，不再需要显式保存或计算 $\phi(x)$。
+
+![从不可分输入、Gram matrix 到可分特征空间的 Kernelized Perceptron](/images/blog/cs229-learning-system/ps2-kernel-perceptron.webp)
+
+### 2. 训练更新怎样写
+
+对第 $i$ 个训练样本，先计算：
+
+$$
+f(x_i)=\sum_{j=1}^m\alpha_jy_jK(x_j,x_i).
+$$
+
+如果 $y_if(x_i)\le0$，说明样本未被正确分类或恰好落在边界上，于是令：
+
+$$
+\alpha_i\leftarrow\alpha_i+1.
+$$
+
+注意这里没有直接更新高维向量。所有学习状态都保存在 $\alpha$ 中。
+
+### 3. 一段不绑定框架的伪代码
+
+```text
+alpha = zeros(m)
+
+repeat for several epochs:
+    for i in training examples:
+        score = sum_j alpha[j] * y[j] * K(x[j], x[i])
+        if y[i] * score <= 0:
+            alpha[i] += 1
+```
+
+实现时应先用 Linear Kernel 验证 kernelized 版本与普通 Perceptron 的行为一致，再切换到 RBF。这样可以把 dual 改写错误与 Kernel 实现错误分开定位。
+
+### 4. Kernel 方法并不是免费午餐
+
+如果预先计算完整 Gram matrix，需要 $O(m^2)$ 存储。预测一个新样本，最坏情况下需要与许多训练样本计算 Kernel。
+
+当数据量很大时，这种成本可能超过显式训练一个线性模型。Kernel 的优势是强表达能力与小中型数据上的便利，不代表它在任何规模都优于神经网络或显式特征。
+
+### 5. Dot-product Kernel 为什么可能失败
+
+若原始数据呈同心圆或其他非线性结构，Linear Kernel 仍然只能产生线性边界。它不是实现坏了，而是 feature space 没有改变。
+
+RBF Kernel 能根据局部距离形成弯曲边界。实验比较时应写清楚：失败来自模型表达限制，还是来自 radius、训练轮数与数值问题。
+
+### 6. 实验应比较哪些结果
+
+至少比较训练错误、验证错误、边界形状、非零 $\alpha$ 数量和预测成本。
+
+若只看训练准确率，极小 radius 的 RBF 可能显得最好；但边界可能围绕每个训练点形成孤岛，验证表现反而更差。
+
+把 $\sigma$ 从小到大画成一组边界图，会直观看到 bias-variance tradeoff：小 radius 高方差，大 radius 高偏差。
+
+## 八、题目六：垃圾邮件分类是一条完整的数据管线
+
+最后一题使用 Naive Bayes 与 SVM 构建 spam classifier。它不是把两个算法拼在一起，而是检查你能否处理文本表示、概率下溢、平滑、特征解释、验证集选参和最终评估。
+
+### 1. 文本怎样变成模型输入
+
+第一步是 tokenizer 与 vocabulary。需要明确大小写、标点、数字、邮件地址和未登录词怎样处理。
+
+词典只能从训练集构造。如果先统计全量数据中最常见的词，再切分训练和测试，测试集的词频信息已经泄漏到特征工程。
+
+Bernoulli Naive Bayes 关注词是否出现，Multinomial Naive Bayes 关注出现次数。选择哪一种应与题目定义和数据表示一致。
+
+### 2. Naive Bayes 的条件独立假设
+
+设类别为 $y$，词特征为 $x_1,\ldots,x_d$。Naive Bayes 假设给定类别后，各特征条件独立：
+
+$$
+p(x\mid y)=\prod_{j=1}^d p(x_j\mid y).
+$$
+
+于是 posterior 满足：
+
+$$
+p(y\mid x)\propto p(y)\prod_jp(x_j\mid y).
+$$
+
+真实语言中的词显然不独立。“free”与“money”经常共同出现。但这个强假设让参数估计极其高效，在文本分类中仍能形成有竞争力的 baseline。
+
+### 3. 为什么必须做 Laplace Smoothing
+
+如果某个词在训练集的 spam 类中从未出现，最大似然估计会给出概率 0。只要测试邮件含这个词，整类 likelihood 的连乘就变成 0。
+
+Laplace smoothing 为每个词增加伪计数。以 Bernoulli 特征为例，可以写成：
+
+$$
+p(x_j=1\mid y=c)
+=\frac{N_{jc}+\alpha}{N_c+2\alpha}.
+$$
+
+$\alpha=1$ 是常见选择，但不是唯一选择。平滑体现了在有限数据下不愿把未观察事件判断为绝对不可能。
+
+### 4. 为什么要在 log-space 计算
+
+高维文本会连乘大量小于 1 的概率。即使每项都合法，乘积也会迅速小到浮点数无法表示。
+
+取对数后，乘积变成求和：
+
+$$
+\log p(y=c\mid x)
+=C+\log p(y=c)+\sum_j\log p(x_j\mid y=c).
+$$
+
+比较类别时，公共常数 $C$ 可以忽略。这样既避免下溢，也让每个词对最终 score 的贡献更容易解释。
+
+### 5. Indicative Tokens 怎样理解
+
+一个词对 spam 的指示性，可以通过 log probability ratio 表示：
+
+$$
+\log\frac{p(x_j=1\mid y=1)}{p(x_j=1\mid y=0)}.
+$$
+
+比值很大，说明该词在 spam 中更常见；比值很小则更偏向 non-spam。
+
+但“指示性强”不等于因果重要。词可能只是某个数据来源、时间阶段或采集规则的代理变量。部署环境改变后，这些词的作用可能迅速失效。
+
+### 6. SVM 的 RBF radius 应怎样选择
+
+题目要求在候选 radius 中选择最佳值。正确方式是在训练集拟合候选模型，在验证集比较，再用选定值重新训练或直接评估最终测试集。
+
+不能用测试集挑 radius。否则你实际上对测试集做了多次尝试，最佳结果包含选择偏差。
+
+如果多个 radius 表现接近，可以优先选择更平滑、计算更稳定的模型，并报告差异是否超过切分噪声，而不是把第三位小数当成确定结论。
+
+### 7. Accuracy 可能掩盖类别不平衡
+
+若 spam 占比很低，一个总预测 non-spam 的模型也可能有很高 accuracy。
+
+因此至少查看 precision、recall、F1 和 confusion matrix。若业务更关心漏掉 spam，recall 权重更大；若误杀正常邮件代价很高，则 precision 与 false-positive rate 更重要。
+
+分类阈值也应根据成本选择，而不是永远固定 0.5。
+
+### 8. 对错误样本做分组
+
+把 false positive 与 false negative 分开，逐条观察内容模式。
+
+常见类别包括：包含促销词的正常订阅邮件、几乎没有正文的 spam、故意拼写变形的词、只包含链接的邮件，以及训练词典未覆盖的新语言内容。
+
+错误分析的目标不是列举笑话式案例，而是决定下一轮最值得改变的是 tokenizer、数据、特征、阈值还是模型。
+
+## 九、把六道题统一到 Bias-Variance 与证据链
+
+PS2 的每道题都在控制一种自由度。
+
+训练稳定性关注参数在无约束目标中能否无限增长；正则化直接限制参数；Kernel 与 radius 控制函数空间复杂度；校准约束概率解释；验证集纪律则限制我们对数据反复试验的自由度。
+
+### 1. Bias 与 Variance 不是两个可直接读取的数字
+
+高 bias 表示模型或假设过于僵硬，无法捕获稳定结构。高 variance 表示模型对训练样本扰动过于敏感。
+
+Linear Kernel 面对同心圆可能有高 bias；极小 radius 的 RBF 可能有高 variance；过强 L2 会增加 bias；过弱正则化会增加 variance。
+
+但这些判断依赖数据生成过程和样本规模，不能脱离实验语境机械贴标签。
+
+### 2. 一条可信结论需要完整证据链
+
+可信的模型结论至少包含：数据来源、切分方式、训练目标、超参数选择规则、数值检查、评估指标、不确定性和失败案例。
+
+只报告“测试准确率 95%”缺少大部分证据。我们不知道测试集是否参与选择、类别是否平衡、概率是否可信，也不知道结果能否从干净环境复现。
+
+### 3. 模型选择也是一种学习
+
+每试一个特征、一个 radius、一个正则化系数，研究者都在根据验证结果更新决策。
+
+如果尝试次数很多，验证集也会被逐渐过拟合。成熟流程会保留最终 holdout，限制无目的试验，并记录所有候选，而不是只保留最好的一次。
+
+## 十、一套两小时的 PS2 实践路线
+
+下面的路线不要求一次写完所有作业答案，但可以建立可靠的理解闭环。
+
+### 第一阶段：训练稳定性，25 分钟
+
+构造一组严格可分的二维数据和一组略有重叠的数据。
+
+训练无正则化 Logistic Regression，同时保存 loss、gradient norm、parameter norm 与 decision boundary。比较两组数据的差异。
+
+然后加入 L2 penalty，观察参数范数是否稳定到有限值。写下一句话解释：正则化究竟改变了泛化，还是也改变了最优解的存在形式。
+
+### 第二阶段：概率校准，25 分钟
+
+训练至少两个分类器。保存 accuracy、log-loss、Brier score、ECE 和 reliability diagram。
+
+对 logits 人为乘以 0.5、1、2、5，观察 accuracy 与 calibration 怎样分别变化。
+
+最后用独立验证集拟合一个简单 temperature，确认测试集没有参与校准。
+
+### 第三阶段：正则化路径，20 分钟
+
+对标准化后的数据训练一组 L1/L2 模型，$\lambda$ 使用对数网格。
+
+画出参数随 $\lambda$ 的变化路径。记录非零参数数量、训练误差与验证误差。
+
+再故意取消标准化，观察哪些特征因为量纲而受到不公平惩罚。
+
+### 第四阶段：Kernel，25 分钟
+
+实现 Linear、Polynomial 与 RBF 三种 Kernel。为随机样本计算 Gram matrix，对称误差和最小特征值。
+
+用同心圆数据比较 Linear 与 RBF Kernelized Perceptron。画出不同 radius 的边界，并记录非零 $\alpha$ 数量。
+
+### 第五阶段：Spam Pipeline，25 分钟
+
+固定 train/validation/test 切分，确认词典只由训练集构造。
+
+实现平滑与 log-space Naive Bayes，输出 top indicative tokens。再在验证集选择 SVM radius，最后一次性评估测试集。
+
+按 false positive 与 false negative 各挑五个样本，写出下一轮改进假设。
+
+## 十一、常见错误与定位顺序
+
+### 错误一：Loss 变成 `nan`
+
+先检查 sigmoid、log 与概率连乘是否稳定。不要直接计算 `log(sigmoid(z))`，应使用稳定的 log-sigmoid 或框架提供的 logits loss。
+
+再检查输入是否包含极端值、特征是否缩放，以及学习率是否导致参数一步爆炸。
+
+### 错误二：参数一直增大
+
+先判断数据是否线性可分，再检查是否缺少正则化。不要一看到参数增长就立刻断言实现错误。
+
+同时观察边界、loss 与 gradient norm，确认增长是在稳定方向上继续放大，还是数值振荡。
+
+### 错误三：Calibration 图非常锯齿
+
+检查每个桶的样本数。若桶内只有几个样本，经验正例率自然方差很大。
+
+尝试等频分桶、减少桶数并显示置信区间，不要为了让图好看而隐藏低样本桶。
+
+### 错误四：自定义 Kernel 的 Gram matrix 不对称
+
+先比较 $K(x,z)$ 与 $K(z,x)$ 的实现。常见问题是归一化只使用一个输入的范数，或数组广播沿错轴。
+
+修复对称性后再检查 PSD。对称只是必要条件，不是充分条件。
+
+### 错误五：Kernelized Perceptron 完全不学习
+
+检查标签是否为 $-1/+1$，误分类条件是否写成 $y_if(x_i)\le0$，以及更新的是 $\alpha_i$ 而不是所有系数。
+
+先用 Linear Kernel 与普通 Perceptron 对齐结果，再切换 RBF。
+
+### 错误六：Naive Bayes 所有分数都是负无穷
+
+检查未做平滑导致的零概率，以及是否在概率空间直接连乘。
+
+使用 log-space，并为出现与未出现两种 Bernoulli 事件都计算稳定概率。
+
+### 错误七：验证集很好，测试集明显下降
+
+检查是否对同一个验证集尝试了大量配置，是否根据验证错误人工改了 tokenizer，以及数据切分是否存在时间或来源差异。
+
+这未必是测试集“坏了”，可能是选择过程已经过拟合验证集。
+
+## 十二、完成 PS2 后的自测题
+
+下面的问题最好合上资料回答。能够口头解释，比背出公式更重要。
+
+1. 为什么严格线性可分数据上的无正则化 Logistic Regression 可能没有有限 MLE？
+2. 决策边界稳定时，参数为什么仍可能继续增大？
+3. Loss convergence、parameter convergence 与 prediction convergence 有什么区别？
+4. 为什么 accuracy 相同的两个模型可以有完全不同的 calibration？
+5. Reliability diagram 的分桶数量怎样影响结论？
+6. Gaussian prior 为什么对应 L2，Laplace prior 为什么对应 L1？
+7. 为什么特征标准化会影响正则化的实际含义？
+8. MAP 与完整 Bayesian inference 有什么区别？
+9. Gram matrix 的 PSD 条件为什么来自 feature-space inner product？
+10. 怎样用一个反例证明某个函数不一定是合法 Kernel？
+11. Kernelized Perceptron 的 $\alpha_i$ 表示什么？
+12. RBF radius 太小或太大分别会产生怎样的边界？
+13. Naive Bayes 为什么需要 smoothing 与 log-space？
+14. 为什么不能在测试集选择 SVM radius？
+15. 如果 spam 数据类别极不平衡，accuracy 为什么可能误导？
+
+## 十三、建议保留的学习产物
+
+完成作业提交并不等于完成学习。建议为 PS2 保留以下产物：
+
+- 一张训练稳定性四曲线图；
+- 一张包含每桶计数的 reliability diagram；
+- 一张 L1/L2 regularization path；
+- 一个自动检查对称性和最小特征值的 Kernel 测试；
+- 一组 Linear/RBF Perceptron 决策边界对比；
+- 一份 train/validation/test 使用规则；
+- 一张 spam confusion matrix 与错误分类表；
+- 一页“本次错误 - 根因 - 证据 - 修复”的实验日志。
+
+这些产物会直接复用到神经网络部分。深度模型同样会遇到参数增长、概率过度自信、正则化、超参数选择与数据泄漏，只是规模更大、定位更困难。
+
+## 十四、读完这一篇，PS2 应该怎样重新理解
+
+PS2 不是 Kernel 技巧合集，也不是两个分类器的编程练习。
+
+它在训练一种更成熟的机器学习判断力：看到 loss 下降时，不急着说训练成功；看到 accuracy 很高时，不急着说概率可信；看到测试分数漂亮时，先追问选择过程是否干净。
+
+训练稳定性告诉我们，优化轨迹与预测结果不是同一件事。校准告诉我们，类别与概率不是同一件事。正则化告诉我们，惩罚项实际在表达参数先验。
+
+Kernel 告诉我们，可以只通过相似度进入高维空间，但表达能力需要付出计算和过拟合风险。垃圾邮件分类则把所有理论放回一条必须可复现的数据管线。
+
+真正完成 PS2 的标志，是你面对任何分类模型，都能连续问出下面这组问题：
+
+```text
+目标函数有有限解吗？
+训练过程数值稳定吗？
+参数受到什么约束？
+输出概率有频率解释吗？
+超参数在哪个数据集上选择？
+测试集是否保持独立？
+错误案例支持什么改进？
+结果能否从干净环境复现？
+```
+
+如果这些问题已经成为习惯，PS2 的价值就不会停留在 2018 年的一份作业里。它会变成以后检查 SVM、神经网络、概率模型和真实生产系统的一套基础框架。

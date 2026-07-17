@@ -1,7 +1,8 @@
 ---
 title: CS229 强化学习：从 Bellman 方程到倒立摆
 publishDate: 2026-07-17
-description: 用 MDP、Bellman 方程、Value/Policy Iteration 和倒立摆实验建立强化学习与控制的完整学习路径。
+updatedDate: 2026-07-17
+description: 深入学习 MDP、Bellman 收缩、Value/Policy Iteration、Off-policy Evaluation、倒立摆控制与项目评估。
 category: machine-learning
 tags:
   - cs229
@@ -11,92 +12,943 @@ tags:
 language: zh
 ---
 
-监督学习从固定数据中寻找预测函数；强化学习则必须在行动会改变未来数据的环境中做决策。CS229 最后的重点不是追逐复杂算法，而是先建立一个可靠的动态规划骨架。
+监督学习处理固定数据集：输入已经收集好，标签也已经给出，模型只需要学习从输入到目标的映射。
 
-![倒立摆状态、动作分支、价值地形与最优策略路径](/images/blog/cs229-learning-system/reinforcement-control.webp)
+强化学习的困难不同。智能体选择的动作会改变下一个状态，也会改变以后能够看到的数据。预测、决策与数据生成不再彼此独立。
 
-建议依次阅读 [MDP 与 Value Iteration 讲义](https://github.com/maxim5/cs229-2018-autumn/blob/main/notes/cs229-notes12.pdf)、[Finite-horizon MDP 与 LQR/LQG](https://github.com/maxim5/cs229-2018-autumn/blob/main/notes/cs229-notes13.pdf)，然后进入 [PS4](https://github.com/maxim5/cs229-2018-autumn/tree/main/problem-sets/PS4) 的 Bellman 证明和倒立摆实验。
+这使强化学习同时面对三个问题：怎样评价一个策略的长期结果，怎样找到更好的策略，以及怎样在模型未知时一边行动一边学习。
 
-## 1. 先把 MDP 五元组说清楚
+CS229 最后一部分没有从复杂深度强化学习开始，而是先建立 Markov Decision Process、Bellman 方程和动态规划的骨架。
 
-一个 Markov Decision Process 包含：状态集合 $S$、动作集合 $A$、转移概率 $P_{sa}$、折扣因子 $\gamma$ 与奖励 $R$。
+这个选择非常正确。没有 Bellman 递归、状态充分性和探索覆盖的基础，再复杂的算法也只是难以检查的黑箱。
 
-“Markov”并不是环境没有历史，而是当前状态已经包含预测未来所需的信息。如果状态遗漏了速度、库存或用户阶段，算法再复杂也可能学不到稳定策略。
+![倒立摆的状态、动作分支、价值地形与最优策略路径](/images/blog/cs229-learning-system/reinforcement-control.webp)
 
-策略 $\pi(a\mid s)$ 指定在状态下如何选动作。它的价值函数是从当前状态开始、继续遵循该策略时的期望折扣回报：
+理论部分主要依据：
+
+- [MDP 与 Value Iteration Notes](https://github.com/maxim5/cs229-2018-autumn/blob/main/notes/cs229-notes12.pdf)
+- [Finite-horizon MDP、LQR 与 LQG Notes](https://github.com/maxim5/cs229-2018-autumn/blob/main/notes/cs229-notes13.pdf)
+
+实验部分对应 [PS4](https://github.com/maxim5/cs229-2018-autumn/tree/main/problem-sets/PS4) 的 Off-policy Evaluation、Bellman 证明与倒立摆实验。
+
+最后还会说明怎样使用仓库中的 [118 份课程项目报告](https://github.com/maxim5/cs229-2018-autumn/tree/main/proj2018)，学习问题定义、baseline、metric 与 failure analysis，而不是只复制模型名字。
+
+## 一、强化学习与监督学习到底差在哪里
+
+监督学习通常假设训练样本来自某个相对固定的分布。一个样本的预测不会改变下一个训练样本。
+
+强化学习中，策略决定动作，动作影响状态转移，新的状态又决定未来可获得的奖励与数据。
+
+因此存在三种耦合：
+
+1. 当前动作影响未来奖励，而不只是当前结果；
+2. 当前策略影响收集到的数据分布；
+3. 为了知道某动作是否好，可能必须先承担尝试它的风险。
+
+这也是为什么强化学习不能只把每个状态动作对当成普通分类样本。目标不是预测一个立即标签，而是最大化长期累计回报。
+
+## 二、先把 MDP 五元组定义准确
+
+一个 Markov Decision Process 通常写成：
 
 $$
-V^\pi(s)=\mathbb{E}\left[\sum_{t=0}^{\infty}\gamma^tR(s_t)\mid s_0=s,\pi\right].
+(S,A,P,R,\gamma).
 $$
 
-## 2. Bellman 方程把长期问题拆成一步
+$S$ 是状态集合，$A$ 是动作集合，$P_{sa}(s')$ 是在状态 $s$ 执行动作 $a$ 后转移到 $s'$ 的概率，$R$ 是奖励，$\gamma\in[0,1)$ 是折扣因子。
 
-对固定策略：
+### 1. State 不是“能观测到的全部字段”
 
-$$
-V^\pi(s)=R(s)+\gamma\sum_{s'}P_{s,\pi(s)}(s')V^\pi(s').
-$$
-
-最优价值则在动作上取最大：
+状态应该包含预测未来所需的信息。Markov property 表示：给定当前状态和动作后，未来与更早历史条件独立。
 
 $$
-V^*(s)=R(s)+\gamma\max_a\sum_{s'}P_{sa}(s')V^*(s').
+p(s_{t+1}\mid s_t,a_t,s_{t-1},a_{t-1},\ldots)
+=p(s_{t+1}\mid s_t,a_t).
 $$
 
-它的力量来自递归：无限长的未来，被分解为当前奖励加上下一个状态的价值。PS4 要证明 Bellman update 是 max-norm 下的 $\gamma$-contraction，因此固定点至多一个，反复更新会收敛。
+这不代表现实没有历史，而是状态已经对相关历史做了充分总结。
 
-## 3. Value Iteration 与 Policy Iteration 的区别
+如果倒立摆状态只有位置，没有速度，相同位置下向左运动和向右运动会产生不同未来。这样的状态不充分，Markov 假设被破坏。
 
-Value Iteration 反复做最优 Bellman backup，再从最终价值函数抽取 greedy policy。Policy Iteration 则交替进行：评估当前策略的价值，再对策略做 greedy improvement。
+### 2. Action 是智能体真正能控制的量
 
-可以这样记：
+动作定义必须与系统控制接口一致。若模型输出一个无法在现实执行的连续控制量，优化出来的策略没有部署意义。
 
-- Value Iteration 每次只近似评估，但立刻考虑最优动作；
-- Policy Iteration 先把一个策略评估清楚，再整体改进；
-- 两者都依赖已知或估计出的环境模型。
+动作还可能受安全、预算或物理约束。把约束留到训练后处理，可能改变最优策略结构。
 
-如果状态巨大或连续，就不能维护完整表格，需要离散化或函数近似。讲义随后进入 fitted value iteration，正是把 Bellman target 变成一个回归问题。
+### 3. Transition 描述环境动力学
 
-## 4. 倒立摆题是一套 model-based RL
+$P_{sa}(s')$ 允许环境随机。相同状态动作可以产生不同后果。
 
-PS4 把连续的 cart-pole 状态离散化。智能体在与模拟器交互时统计转移次数和奖励，估计一个 MDP，再用 Value Iteration 解这个估计模型。
+已知 transition 时，可以直接做 planning；未知时，需要从交互数据估计模型，或使用不显式建模 transition 的 model-free 方法。
 
-完整循环是：
+### 4. Reward 必须对应真实目标
+
+Reward 是算法真正优化的量。若 reward 只是业务目标的代理，智能体可能找到利用代理漏洞的策略。
+
+例如只奖励短期点击，可能牺牲长期留存；只惩罚倒立摆倒下，可能无法鼓励快速稳定。
+
+Reward design 不是最后调参，而是问题定义的一部分。
+
+### 5. Discount Factor 控制未来权重
+
+回报定义为：
+
+$$
+G_t
+=R(s_t)+\gamma R(s_{t+1})
++\gamma^2R(s_{t+2})+\cdots.
+$$
+
+$\gamma$ 越小，策略越看重近期奖励；越接近 1，未来影响越长。
+
+在无限时域中，$\gamma<1$ 也帮助保证回报有限，并使 Bellman operator 具有 contraction 性质。
+
+## 三、Policy、Value 与 Q-function
+
+策略 $\pi(a\mid s)$ 描述状态下选择动作的分布。Deterministic policy 可以写成 $a=\pi(s)$，stochastic policy 则保留动作概率。
+
+### 1. State-value Function
+
+固定策略 $\pi$ 后：
+
+$$
+V^\pi(s)
+=\mathbb{E}_\pi
+\left[
+\sum_{t=0}^{\infty}\gamma^tR(s_t)
+\mid s_0=s
+\right].
+$$
+
+它回答：从状态 $s$ 出发，以后一直遵循 $\pi$，期望长期回报是多少。
+
+### 2. Action-value Function
+
+$$
+Q^\pi(s,a)
+=\mathbb{E}_\pi
+\left[
+\sum_{t=0}^{\infty}\gamma^tR(s_t)
+\mid s_0=s,a_0=a
+\right].
+$$
+
+它固定第一步动作，再从下一步开始遵循策略。
+
+$Q$ 适合直接比较动作。如果已知 $Q^\pi$，可以在每个状态选择最大的动作来改进策略。
+
+### 3. Advantage
+
+$$
+A^\pi(s,a)=Q^\pi(s,a)-V^\pi(s).
+$$
+
+Advantage 衡量动作相对于当前策略平均行为好多少。它会在 policy gradient 中减少不必要的共同 baseline，并帮助解释策略为何偏好某动作。
+
+## 四、Bellman 方程：把无限未来拆成一步
+
+Value function 的递归来自“当前奖励 + 下一状态之后的价值”。
+
+固定策略时：
+
+$$
+V^\pi(s)
+=R(s)+\gamma
+\sum_{s'}P_{s,\pi(s)}(s')V^\pi(s').
+$$
+
+若 reward 依赖状态、动作和下一状态，可以把即时 reward 放进相同的期望中，结构不变。
+
+### 1. Optimal Value Function
+
+定义：
+
+$$
+V^*(s)=\max_\pi V^\pi(s).
+$$
+
+Optimal Bellman equation 为：
+
+$$
+V^*(s)
+=\max_a
+\left[
+R(s,a)+\gamma
+\sum_{s'}P_{sa}(s')V^*(s')
+\right].
+$$
+
+它在每个状态比较所有动作的一步奖励与未来价值。
+
+### 2. Bellman Backup
+
+给定当前价值估计 $V$，一次 optimal Bellman backup 定义：
+
+$$
+(BV)(s)
+=\max_a
+\left[
+R(s,a)+\gamma
+\sum_{s'}P_{sa}(s')V(s')
+\right].
+$$
+
+先对下一状态价值取 transition expectation，再加即时奖励，最后在动作之间取最大。
+
+![一次 Bellman backup：动作、转移、奖励和未来价值向当前状态汇总](/images/blog/cs229-learning-system/rl-bellman-backup.webp)
+
+### 3. 递归不是循环定义的错误
+
+Bellman 方程看起来用 $V$ 定义 $V$，但它实际定义了一个 fixed-point equation。
+
+动态规划算法通过反复应用 Bellman operator 逼近这个固定点。收缩性质会告诉我们固定点是否唯一、迭代是否收敛。
+
+## 五、PS4 的关键证明：Bellman Operator 是 Contraction
+
+PS4 要证明 optimal Bellman update 在 max norm 下是 $\gamma$-contraction。
+
+定义：
+
+$$
+\|V-U\|_\infty
+=\max_s|V(s)-U(s)|.
+$$
+
+我们希望证明：
+
+$$
+\|BV-BU\|_\infty
+\le\gamma\|V-U\|_\infty.
+$$
+
+### 1. 固定一个状态
+
+对状态 $s$，令：
+
+$$
+F_V(a)=R(s,a)+\gamma\sum_{s'}P_{sa}(s')V(s').
+$$
+
+于是：
+
+$$
+(BV)(s)=\max_aF_V(a).
+$$
+
+使用不等式：
+
+$$
+|\max_af(a)-\max_ag(a)|
+\le\max_a|f(a)-g(a)|.
+$$
+
+得到：
+
+$$
+|(BV)(s)-(BU)(s)|
+\le\max_a|F_V(a)-F_U(a)|.
+$$
+
+### 2. Reward 项抵消
+
+$$
+|F_V(a)-F_U(a)|
+=\gamma
+\left|
+\sum_{s'}P_{sa}(s')
+(V(s')-U(s'))
+\right|.
+$$
+
+由 triangle inequality：
+
+$$
+\le\gamma
+\sum_{s'}P_{sa}(s')
+|V(s')-U(s')|.
+$$
+
+又因为每一项差不超过 max norm：
+
+$$
+\le\gamma
+\sum_{s'}P_{sa}(s')
+\|V-U\|_\infty.
+$$
+
+Transition probabilities 求和为 1，所以：
+
+$$
+|F_V(a)-F_U(a)|
+\le\gamma\|V-U\|_\infty.
+$$
+
+对动作取最大、对状态再取最大，就得到 contraction 结论。
+
+### 3. Contraction 为什么重要
+
+第一，它说明 Bellman fixed point 至多一个。
+
+若 $V$ 和 $U$ 都是 fixed point：
+
+$$
+\|V-U\|_\infty
+=\|BV-BU\|_\infty
+\le\gamma\|V-U\|_\infty.
+$$
+
+当 $\gamma<1$ 时，除非距离为 0，否则不等式矛盾。因此 $V=U$。
+
+第二，反复应用 Bellman operator 会几何收敛：
+
+$$
+\|V_k-V^*\|_
+\le\gamma^k\|V_0-V^*\|_.
+$$
+
+这为 Value Iteration 的停止条件和误差上界提供理论基础。
+
+## 六、Value Iteration：不断做 Optimal Backup
+
+初始化任意 $V_0$，重复：
+
+$$
+V_{k+1}(s)
+=\max_a
+\left[
+R(s,a)+\gamma
+\sum_{s'}P_{sa}(s')V_k(s')
+\right].
+$$
+
+收敛后提取 greedy policy：
+
+$$
+\pi(s)
+=\arg\max_a
+\left[
+R(s,a)+\gamma
+\sum_{s'}P_{sa}(s')V(s')
+\right].
+$$
+
+### 1. 一段清晰伪代码
 
 ```text
-观察离散状态
-→ 按当前策略选择动作
-→ 更新转移与奖励统计
-→ 对估计 MDP 做 Value Iteration
-→ 得到新策略并继续采样
+initialize V(s) for every state
+
+repeat:
+    create V_new
+    for each state s:
+        for each action a:
+            compute expected immediate reward plus discounted next value
+        V_new(s) = best action value
+    delta = max absolute difference between V_new and V
+    V = V_new
+until delta is small
+
+extract greedy action in every state
 ```
 
-这道题最值得观察的不是“杆最终立住了”，而是探索如何影响模型估计。若始终采用当前 greedy 动作，一些状态-动作对永远没有数据，估计模型会带着盲区。
+### 2. Synchronous 与 In-place Update
 
-## 5. Off-policy evaluation 为什么困难
+Synchronous update 使用上一轮完整 $V_k$ 计算所有 $V_{k+1}$。
 
-PS4 还从 causal inference 的角度讨论：数据由 behavior policy 产生，但我们想评估另一个 target policy。两者分布不同，不能直接平均观测回报。
+In-place update 立即使用本轮已更新的状态值，类似 Gauss-Seidel，可能更快，但结果会依赖更新顺序。
 
-Importance Sampling 用策略概率比重加权样本，但当概率比很极端时方差会很大。这提示一个普遍规律：策略评估不仅需要模型公式，还需要 **coverage**。如果历史策略几乎从未采取目标策略偏好的动作，数据本身就无法支持可靠判断。
+实现和报告中要说明采用哪一种，不要把两种曲线直接比较却忽略更新规则。
 
-## 6. 用课程项目学习问题定义
+### 3. 停止条件
 
-仓库的 `proj2018/` 保存了 118 份项目报告和海报。它们最适合按“问题结构”阅读，而不是从第一页顺序翻到最后：
+常用：
 
-1. 状态或输入到底怎样定义；
-2. action/target 与 reward/metric 是否对齐真实目标；
-3. baseline 是否足够简单且可信；
-4. 数据切分是否模拟部署场景；
-5. failure cases 是否改变了最终结论。
+$$
+\max_s|V_{k+1}(s)-V_k(s)|<\varepsilon.
+$$
 
-打开 [项目目录](https://github.com/maxim5/cs229-2018-autumn/tree/main/proj2018) 后，先只读标题与摘要，挑三篇问题相近的报告做横向比较。项目的价值不在于复制模型，而在于学习怎样把一个宽泛想法变成可评估的问题。
+若需要策略质量的严格误差界，可以结合 contraction 推导更保守阈值。
 
-## 最后的实践清单
+不要只用固定迭代次数又不检查残差，否则不同 $\gamma$ 和 MDP 规模下难以比较。
 
-- 手写一个只有 3 个状态、2 个动作的 MDP；
-- 同时实现 Value Iteration 与 Policy Iteration，对比迭代过程；
-- 改变 $\gamma$，观察策略何时从短期奖励转向长期收益；
-- 在倒立摆实验中画每轮存活时间与已访问状态数；
-- 从项目报告中提取一个 baseline、一个 metric 和一个 failure case。
+### 4. Terminal State
 
-当你能从状态是否充分、Bellman 递归、探索覆盖和离线评估四个角度检查一个 RL 问题，CS229 最后一部分才算真正完成。
+终止状态通常没有未来回报，或只在进入时获得一次奖励。
+
+若同时在状态 reward 与 transition reward 中重复计入 terminal reward，会让价值偏大。先明确 reward timing，再写 Bellman update。
+
+## 七、Policy Iteration：评估一个策略，再整体改进
+
+Policy Iteration 交替执行 policy evaluation 与 policy improvement。
+
+### 1. Policy Evaluation
+
+固定策略 $\pi$，解线性方程：
+
+$$
+V^\pi=R^\pi+\gamma P^\pi V^\pi.
+$$
+
+有限状态下可写成：
+
+$$
+V^\pi=(I-\gamma P^\pi)^{-1}R^\pi.
+$$
+
+实践中不必显式求逆，可以求解线性系统，或迭代应用 policy Bellman backup。
+
+### 2. Policy Improvement
+
+根据 $V^\pi$ 选择 greedy action：
+
+$$
+\pi_{new}(s)
+=\arg\max_a
+\left[
+R(s,a)+\gamma
+\sum_{s'}P_{sa}(s')V^\pi(s')
+\right].
+$$
+
+Policy Improvement Theorem 保证新策略不会比旧策略差。如果策略不再改变，就达到 optimal policy。
+
+### 3. 与 Value Iteration 的差别
+
+Value Iteration 每轮只做一次近似 evaluation，并立即对动作取最大。
+
+Policy Iteration 会更充分地评估当前策略，再做离散的策略改进。
+
+![Value Iteration 的连续价值更新与 Policy Iteration 的评估/改进循环](/images/blog/cs229-learning-system/rl-value-policy-iteration.webp)
+
+### 4. Modified Policy Iteration
+
+完整 policy evaluation 可能很贵。可以只做有限轮 evaluation，再进行 improvement。
+
+这形成 Value Iteration 与完整 Policy Iteration 之间的连续谱。理解两者共同的 Bellman 结构，比死记算法边界更重要。
+
+## 八、Finite-horizon MDP 与 Dynamic Programming
+
+有限时域有明确终点 $T$，价值函数依赖剩余时间：
+
+$$
+V_t(s)
+=\max_a
+\left[
+R_t(s,a)+
+\sum_{s'}P_t(s'\mid s,a)V_{t+1}(s')
+\right].
+$$
+
+从终点条件 $V_T$ 开始向后递推，这就是 backward induction。
+
+### 1. 为什么策略可能随时间变化
+
+同一个状态在离终点很远时，可以选择长期投入；临近终点时，可能更偏好立即奖励。
+
+所以有限时域 optimal policy 通常是 $\pi_t(s)$，而不是只依赖状态的 stationary policy。
+
+### 2. 与标准 Value Iteration 的关系
+
+无限时域折扣问题可以看作不断重复 Bellman backup。有限时域则每个时间层只需从后向前计算一次，没有 fixed-point iteration。
+
+两者共享“当前决策 + 后续价值”的动态规划结构。
+
+## 九、环境模型未知时：先学模型再 Planning
+
+若 transition 与 reward 未知，可以通过交互统计：
+
+$$
+\hat P_{sa}(s')
+=\frac{N(s,a,s')}{N(s,a)}.
+$$
+
+Reward 可以用同一状态动作下的经验均值估计。
+
+得到 estimated MDP 后，再运行 Value Iteration 或 Policy Iteration。这是 model-based RL。
+
+### 1. 探索为什么不可省略
+
+如果只选择当前估计最好的动作，某些动作永远不会被尝试，模型对它们的 transition 就没有证据。
+
+当前 greedy policy 可能只是因为未知动作被初始化得很差，而不是真的更优。
+
+### 2. Epsilon-greedy
+
+以 $1-\epsilon$ 选择当前 greedy action，以 $\epsilon$ 随机探索。
+
+它简单但不利用 uncertainty：很熟悉和完全未知的动作可能得到相同探索概率。
+
+### 3. Optimism
+
+对未知状态动作赋予乐观初值，鼓励智能体尝试它们。访问后，估计逐渐被真实经验替代。
+
+这把探索变成“验证乐观假设”。但奖励范围和初值必须合理，否则会造成长期无意义探索。
+
+### 4. Count 与 Coverage
+
+训练时记录每个 $(s,a)$ 的访问次数，比只看总 episode reward 更有诊断价值。
+
+高回报可能来自只在狭窄区域反复行动，而模型对其他区域完全未知。
+
+## 十、PS4 倒立摆：一个 Model-based RL 闭环
+
+PS4 的 inverted pendulum 任务要求小车左右移动，让杆保持直立。
+
+真实状态连续，包括位置、速度、角度与角速度。题目通过离散化把连续状态映射到有限 bins，再估计一个离散 MDP。
+
+### 1. 状态离散化
+
+设连续状态为 $x$，通过各维 bin boundary 得到离散状态 $\bar s$。
+
+Bin 太粗，不同动力学状态被合并，Markov approximation 变差；bin 太细，状态数爆炸，每个状态动作访问不足。
+
+这就是 approximation bias 与 sample complexity 的直接权衡。
+
+### 2. 收集 Transition
+
+每次观察 $s_t$、选择 $a_t$、得到 $s_{t+1}$ 与 reward，更新：
+
+$$
+N(s_t,a_t,s_{t+1})
+\leftarrow N(s_t,a_t,s_{t+1})+1.
+$$
+
+再由 count 归一化得到 transition estimate。
+
+未访问过的 $(s,a)$ 分母为零，需要显式的默认策略、平滑或探索处理。
+
+### 3. 重新求解 Estimated MDP
+
+采集一段新数据后，对当前 $\hat P$ 与 $\hat R$ 运行 Value Iteration，得到新的 value 和 policy。
+
+然后继续用新策略与环境交互，再更新模型。
+
+```text
+observe continuous state
+→ discretize state
+→ choose action with exploration
+→ observe next state and reward
+→ update transition/reward statistics
+→ solve estimated MDP with Value Iteration
+→ improve behavior policy
+→ continue collecting data
+```
+
+### 4. Warm Start
+
+每次重新运行 Value Iteration 时，可以使用上一轮 value function 初始化，而不是每次从零开始。
+
+如果 estimated model 变化不大，旧 value 已接近新 fixed point，能减少迭代。
+
+### 5. 收敛判断
+
+题目会根据连续若干次求解没有明显改变来判断学习稳定。
+
+但“策略不变”不一定代表模型已充分探索。还应同时查看访问覆盖、transition estimate 变化和 episode duration。
+
+### 6. 应保存哪些图
+
+至少保存每轮平衡时长、已访问状态数、状态动作访问直方图、Value Iteration 迭代次数和 policy change count。
+
+只展示最终倒立摆视频，会隐藏学习是否稳定、是否依赖随机种子以及探索是否充分。
+
+## 十一、连续状态与 Value Function Approximation
+
+离散化在低维问题中直观，但状态维度增加后，bin 数呈指数增长。
+
+Fitted Value Iteration 使用函数近似器表示 $V(s)$。
+
+### 1. 构造 Bellman Target
+
+对采样状态 $s^{(i)}$：
+
+$$
+y^{(i)}
+=\max_a
+\left[
+R(s^{(i)},a)+\gamma
+\mathbb{E}_{s'}V(s')
+\right].
+$$
+
+再用回归模型拟合 $s^{(i)}\mapsto y^{(i)}$。
+
+反复更新 target 与 value approximator，就得到 fitted iteration。
+
+### 2. Function Approximation 带来新风险
+
+表格 Value Iteration 的 Bellman operator 有清晰 contraction 保证。加入 projection、有限数据和非线性函数近似后，误差可能积累，甚至发散。
+
+因此要区分理论 operator 与实际近似训练流程。
+
+### 3. Distribution Coverage
+
+回归模型只在采样状态分布上可靠。如果 policy 改变后访问新的区域，value extrapolation 可能严重错误。
+
+这与监督学习的 distribution shift 类似，但策略还会被错误 value 引导到更偏的区域，形成反馈。
+
+## 十二、Model-free 方法：Q-learning 的位置
+
+如果不想显式估计 transition，可以直接学习 optimal action value。
+
+Tabular Q-learning 更新：
+
+$$
+Q(s_t,a_t)
+\leftarrow Q(s_t,a_t)
++\alpha
+\left[
+r_t+\gamma\max_{a'}Q(s_{t+1},a')
+-Q(s_t,a_t)
+\right].
+$$
+
+括号内是 temporal-difference error。
+
+### 1. 为什么叫 Off-policy
+
+数据可以由探索行为策略产生，但 target 使用 $\max_{a'}Q$，对应 greedy target policy。
+
+Behavior 与 target 不必相同，因此 Q-learning 是 off-policy 方法。
+
+### 2. 与 Model-based 方法比较
+
+Model-based 方法学习 transition/reward，再利用模型 planning；Q-learning 直接学习长期 action value。
+
+模型可以复用于不同 reward、提供模拟与解释，但模型误差会影响 planning。Model-free 少一层模型偏差，却可能需要更多交互数据。
+
+### 3. 不是看到 Q-learning 就能跳过 MDP
+
+Q-learning 更新本身仍来自 Bellman optimality equation。没有状态、reward、discount 与 coverage 的理解，只背更新式很难诊断失败。
+
+## 十三、Policy Search 与 REINFORCE
+
+Value-based 方法先估计 value，再导出策略。Policy Search 直接参数化 $\pi_\theta(a\mid s)$ 并优化 expected return。
+
+Policy Gradient Theorem 导出：
+
+$$
+\nabla_\theta J(\theta)
+=\mathbb{E}
+\left[
+\nabla_\theta\log\pi_\theta(a\mid s)
+Q^{\pi_\theta}(s,a)
+\right].
+$$
+
+REINFORCE 用 sampled return 估计 $Q$。
+
+### 1. Log-derivative Trick
+
+$$
+\nabla_\theta p_\theta(x)
+=p_\theta(x)\nabla_\theta\log p_\theta(x).
+$$
+
+它把对轨迹分布的梯度转成可由采样轨迹估计的期望。
+
+### 2. Baseline
+
+从 return 中减去只依赖状态的 baseline，不改变期望梯度，却可以降低方差。
+
+使用 $V(s)$ 作为 baseline，就得到 advantage 形式。
+
+### 3. Policy Gradient 的代价
+
+它可以自然处理 stochastic policy 与连续动作，但 Monte Carlo gradient 方差较大，对 reward scale、trajectory length 和采样量敏感。
+
+这再次说明，算法复杂度不能替代实验方差报告。
+
+## 十四、PS4 Off-policy Evaluation 与 Causal Inference
+
+Off-policy Evaluation 的问题是：历史数据由 behavior policy $\mu$ 产生，但我们想估计 target policy $\pi$ 的价值。
+
+这与 causal inference 相似。对同一个状态，我们只观察实际采取动作的结果，无法同时观察其他动作的 counterfactual outcome。
+
+### 1. Importance Sampling
+
+对单步 contextual setting，若数据来自 $\mu$：
+
+$$
+\mathbb{E}_{a\sim\pi}[r]
+=\mathbb{E}_{a\sim\mu}
+\left[
+\frac{\pi(a\mid s)}{\mu(a\mid s)}r
+\right].
+$$
+
+Ratio 把 behavior 分布下样本重加权为 target policy 的分布。
+
+### 2. Sequential Importance Weight
+
+对整条 trajectory，权重会连乘：
+
+$$
+w_{0:T}
+=\prod_{t=0}^{T}
+\frac{\pi(a_t\mid s_t)}
+{\mu(a_t\mid s_t)}.
+$$
+
+时域越长，乘积方差可能越大。某一步 behavior probability 很小，就会产生极端权重。
+
+### 3. Positivity / Coverage Assumption
+
+只要 target policy 在某状态选择动作的概率大于零，behavior policy 也必须以正概率选择该动作：
+
+$$
+\pi(a\mid s)>0
+\Rightarrow
+\mu(a\mid s)>0.
+$$
+
+如果历史策略从未采取某动作，数据中没有关于其结果的证据，Importance Sampling 无法凭空恢复。
+
+![Behavior 与 Target Policy 的重叠、极端权重和 Coverage 缺口](/images/blog/cs229-learning-system/rl-off-policy-coverage.webp)
+
+### 4. Bias-Variance Tradeoff
+
+Ordinary Importance Sampling 在条件成立时可无偏，但方差可能巨大。Self-normalized estimator 限制权重影响，通常降低方差，却引入有限样本偏差。
+
+截断极端权重也会降低方差并引入偏差。报告时应明确采用哪种 estimator，而不是只给最终数值。
+
+### 5. Direct Method
+
+另一条路线是学习 reward/outcome model，再对 target policy 下动作求期望。
+
+它不需要极端 importance weight，但依赖模型设定。未覆盖区域中的 extrapolation 可能非常不可靠。
+
+### 6. Doubly Robust 思想
+
+将 outcome model 与 importance correction 结合，可以在某一部分估计正确时保持一定稳健性。
+
+但“doubly robust”不代表对任意错误都安全。Coverage 严重缺失时，仍然无法用统计技巧创造信息。
+
+### 7. 实际评估应画权重分布
+
+不要只报告 estimated policy value。至少查看最大权重、effective sample size、不同 clipping threshold 的敏感性，以及关键状态动作覆盖。
+
+若结论由极少数轨迹主导，应明确披露，而不是把均值写成高精度数字。
+
+## 十五、LQR 与 LQG：利用控制问题结构
+
+Linear Quadratic Regulation 假设线性动力学：
+
+$$
+s_{t+1}=As_t+Ba_t,
+$$
+
+并使用 quadratic cost：
+
+$$
+c(s_t,a_t)
+=s_t^TQs_t+a_t^TRa_t.
+$$
+
+在这些假设下，optimal policy 是 state 的线性函数：
+
+$$
+a_t=K_ts_t.
+$$
+
+### 1. Riccati Recursion
+
+Value function 保持 quadratic form。通过 backward dynamic programming，可以递推矩阵并得到 feedback gain。
+
+这展示了一个重要原则：利用动力学与 cost 结构，可以获得比通用 RL 更强的解析结果。
+
+### 2. 非线性系统的局部线性化
+
+对非线性 dynamics，可围绕 nominal trajectory 做一阶线性化，再使用局部 LQR。
+
+Differential Dynamic Programming 反复更新 trajectory 与局部控制近似。
+
+### 3. LQG 与部分观测
+
+Linear Quadratic Gaussian 加入 Gaussian process/observation noise，并使用 Kalman Filter 估计 latent state。
+
+在特定条件下，状态估计与控制可以分离设计。这种结构化结论来自明确假设，不应无条件推广到所有 POMDP。
+
+## 十六、怎样阅读 118 份课程项目
+
+仓库 `proj2018/` 保存项目海报、报告和缩略图。最有效的阅读方式不是随机打开一篇从头看到尾，而是用同一模板横向比较三到五篇。
+
+### 1. Problem Formulation
+
+输入、状态、动作、目标或 reward 怎样定义？这个定义是否真的对应作者声称的问题？
+
+### 2. Data Generating Process
+
+数据由谁、在什么策略或规则下产生？训练与部署分布是否一致？
+
+对 RL 或观察性数据，behavior policy 与 coverage 特别重要。
+
+### 3. Baseline
+
+是否有简单、可信的 baseline？复杂模型的提升是否超过随机波动与调参收益？
+
+### 4. Evaluation
+
+Metric 与真实成本是否对齐？数据切分是否模拟时间、用户或设备上的部署？
+
+### 5. Ablation
+
+结果来自模型整体，还是某个数据处理、特征或额外监督？缺少 ablation 时，因果归因应保持谨慎。
+
+### 6. Failure Cases
+
+作者是否展示失败场景？失败是否改变“模型适合什么”的边界？
+
+### 7. Reproducibility
+
+是否给出数据、预处理、超参数、随机性和运行环境？只有模型名称通常不足以复现。
+
+## 十七、强化学习系统的常见失败
+
+### 错误一：Reward 上升，但行为变坏
+
+检查 reward 是否存在漏洞，策略是否找到代理指标的捷径。查看轨迹，而不只看总分。
+
+### 错误二：Value Iteration 不收敛
+
+检查 $\gamma$、transition 是否归一化、terminal reward 是否重复，以及同步更新中是否误用了部分新值。
+
+### 错误三：Value 很大或变成 `nan`
+
+检查 reward scale、$\gamma$ 是否小于 1、transition probability 和未初始化状态。
+
+### 错误四：Policy 很快不再改变，但表现很差
+
+可能是 transition model 在未探索区域使用糟糕默认值，导致策略过早锁定。
+
+查看状态动作访问次数，而不是把 policy stability 当作学习完成。
+
+### 错误五：倒立摆结果对 Seed 极端敏感
+
+运行多个 seed，比较探索覆盖与首次成功时间。单条成功轨迹不代表算法稳定。
+
+### 错误六：离散状态数量爆炸
+
+减少不重要维度、采用非均匀 bins，或转向 function approximation。不要让每一维等宽细分后直接做笛卡尔积。
+
+### 错误七：Off-policy Estimate 极端不稳定
+
+画 importance weight，计算 effective sample size，检查 behavior/target overlap。
+
+不要只通过 clipping 把数字变稳定，却不报告引入的偏差。
+
+### 错误八：Offline Evaluation 很好，Online 失败
+
+检查未建模 confounding、coverage 缺口、reward delay、环境反馈和模型 extrapolation。
+
+Offline estimator 的标准误不能覆盖系统性假设错误。
+
+## 十八、一套五小时的实践路线
+
+### 第一阶段：手写三状态 MDP，40 分钟
+
+定义三个状态、两个动作、transition、reward 与 $\gamma$。手算一个策略的 Bellman 方程。
+
+用线性方程求 $V^\pi$，再与迭代 evaluation 对齐。
+
+### 第二阶段：Value/Policy Iteration，50 分钟
+
+分别实现两种算法。记录每轮 Bellman residual、policy changes 与迭代次数。
+
+改变 $\gamma$，观察策略从短期奖励转向长期奖励。
+
+### 第三阶段：Contraction 数值实验，25 分钟
+
+随机生成两个 value vectors，验证：
+
+$$
+\|BV-BU\|_\infty
+\le\gamma\|V-U\|_\infty.
+$$
+
+这不能替代理论证明，但可以检查 Bellman 实现。
+
+### 第四阶段：估计 MDP，45 分钟
+
+用模拟器采集 transition count，比较真实 $P$ 与估计 $\hat P$。
+
+画误差随访问次数下降的曲线，并观察未覆盖状态动作。
+
+### 第五阶段：倒立摆，60 分钟
+
+实现离散化、count update、model estimation、Value Iteration 与 exploration。
+
+保存 episode duration、visited state count、policy changes 和多个 seed 的结果。
+
+### 第六阶段：Off-policy Evaluation，45 分钟
+
+构造 behavior 与 target policy。比较 ordinary IS、self-normalized IS 与 direct model。
+
+逐渐降低 overlap，观察方差和 effective sample size。
+
+### 第七阶段：项目阅读，35 分钟
+
+选择三篇相近项目，只读摘要、方法图、实验表和 failure discussion。
+
+用统一模板提取 problem、data、baseline、metric、ablation、failure 与 reproducibility。
+
+## 十九、读完后的自测题
+
+1. 强化学习的数据分布为什么会被策略改变？
+2. 一个状态满足 Markov property 意味着什么？
+3. Reward design 为什么属于问题定义？
+4. $V^\pi$、$Q^\pi$ 与 $A^\pi$ 分别回答什么？
+5. Bellman 方程怎样把长期回报拆成一步？
+6. 为什么 max operator 满足证明中使用的不等式？
+7. Transition probabilities 求和为 1 在 contraction 证明中起什么作用？
+8. $\gamma<1$ 为什么保证 fixed point 唯一？
+9. Value Iteration 与 Policy Iteration 的 evaluation 程度有什么不同？
+10. In-place 与 synchronous update 怎样影响迭代？
+11. Finite-horizon policy 为什么可能依赖时间？
+12. Model-based RL 学习哪些量？
+13. 只使用 greedy action 为什么会造成 coverage 缺口？
+14. 倒立摆离散化太粗和太细分别有什么问题？
+15. Warm-start Value Iteration 为什么有效？
+16. Fitted Value Iteration 把 Bellman update 变成什么监督问题？
+17. Q-learning 为什么被称为 off-policy？
+18. REINFORCE 的 gradient estimator 为什么高方差？
+19. Importance Sampling 需要什么 positivity 假设？
+20. Sequential weight 为什么容易爆炸？
+21. Self-normalization 与 clipping 引入了什么权衡？
+22. LQR 利用了怎样的 dynamics 与 cost 结构？
+23. 项目报告中 baseline 和 failure case 为什么同样重要？
+
+## 二十、应该保留的学习产物
+
+建议保留一份三状态 MDP 手算、一份 Bellman contraction 闭卷证明、Value/Policy Iteration 对比曲线、倒立摆访问覆盖图、Off-policy 权重分布，以及三篇项目横向阅读表。
+
+还应保留每次实验的 reward definition、状态定义、探索策略、随机种子和停止条件。
+
+强化学习结果对这些选择高度敏感。没有配置和轨迹，单个最终回报几乎无法被审计。
+
+## 二十一、重新理解强化学习
+
+强化学习不是“让智能体自己尝试，最后学会聪明行为”。
+
+它是一套建立在状态充分性、长期回报、Bellman 递归、数据覆盖与统计评估上的决策方法。
+
+Bellman 方程给出时间上的分解，contraction 给出固定点与收敛保证，动态规划在模型已知时完成 planning，探索与模型估计则处理环境未知。
+
+Off-policy Evaluation 提醒我们：历史数据只覆盖 behavior policy 走过的路径。没有 overlap，就没有可靠 counterfactual evidence。
+
+倒立摆把这些概念放进一个最小闭环：连续状态被离散化，交互数据估计 transition，Value Iteration 求解估计 MDP，探索继续修正模型。
+
+真正完成这一部分的标志，是面对一个新的决策问题，会先问：
+
+```text
+状态是否包含预测未来所需的信息？
+Reward 是否真的对应长期目标？
+Bellman update 的 reward timing 是否一致？
+策略是否充分探索了关键状态动作？
+Value 或 policy 的收敛由什么证据支持？
+Offline 数据是否覆盖 target policy？
+结果是否由少量极端轨迹主导？
+失败案例是否暴露了状态、奖励或模型假设问题？
+```
+
+当这些问题都有可检查答案，强化学习才不是一段会动的演示，而是一套可以推导、验证和复现的控制系统。

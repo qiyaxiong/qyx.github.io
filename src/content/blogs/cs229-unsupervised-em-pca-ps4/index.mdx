@@ -1,7 +1,8 @@
 ---
 title: CS229 无监督学习：从 K-means 到 PCA 与 ICA
 publishDate: 2026-07-17
-description: 用“隐变量与表示”串起 K-means、GMM、EM、Factor Analysis、PCA、ICA 以及 PS3/PS4 的关键实验。
+updatedDate: 2026-07-17
+description: 深入串起 K-means、GMM、EM 下界、半监督 EM、Factor Analysis、PCA、ICA 与 PS3/PS4 实验。
 category: machine-learning
 tags:
   - cs229
@@ -11,79 +12,803 @@ tags:
 language: zh
 ---
 
-无监督学习没有标签告诉我们“对不对”，所以关键不是多背几个算法，而是明确：**我们希望数据中的哪种结构被保留下来？**
+监督学习有标签作为外部标准。无监督学习没有一个现成的正确答案告诉我们，某个 cluster、latent factor 或 principal direction 是否就是“真实结构”。
 
-CS229 从聚类、概率隐变量模型一路走到降维与源分离。把它们串起来的主线是：观测 $x$ 背后是否存在更简单的隐藏表示 $z$？
+因此，无监督学习的第一步不是选择算法，而是明确我们希望保留哪种结构。
+
+K-means 保留到中心的平方距离，Gaussian Mixture Model 描述带不确定性的簇，Factor Analysis 用低维隐变量解释协方差。
+
+PCA 保留最大方差与最小线性重建误差，ICA 则寻找统计独立的非 Gaussian 源。
+
+这些方法都在寻找观测 $x$ 背后的简单表示，却对“简单”给出不同定义。
 
 ![从聚类、软分配和隐变量到 PCA 与独立成分](/images/blog/cs229-learning-system/unsupervised-representation.webp)
 
-原始材料包括 [K-means](https://github.com/maxim5/cs229-2018-autumn/blob/main/notes/cs229-notes7a.pdf)、[GMM 与 EM](https://github.com/maxim5/cs229-2018-autumn/blob/main/notes/cs229-notes7b.pdf)、[一般 EM 推导](https://github.com/maxim5/cs229-2018-autumn/blob/main/notes/cs229-notes8.pdf)、[Factor Analysis](https://github.com/maxim5/cs229-2018-autumn/blob/main/notes/cs229-notes9.pdf)、[PCA](https://github.com/maxim5/cs229-2018-autumn/blob/main/notes/cs229-notes10.pdf) 与 [ICA](https://github.com/maxim5/cs229-2018-autumn/blob/main/notes/cs229-notes11.pdf)。
+聚类与隐变量材料包括：
 
-## 一张表看清算法在保留什么
+- [K-means Notes](https://github.com/maxim5/cs229-2018-autumn/blob/main/notes/cs229-notes7a.pdf)
+- [GMM 与 EM](https://github.com/maxim5/cs229-2018-autumn/blob/main/notes/cs229-notes7b.pdf)
+- [一般 EM 推导](https://github.com/maxim5/cs229-2018-autumn/blob/main/notes/cs229-notes8.pdf)
 
-| 方法            | 隐藏结构                 | 优化或估计目标              | 最容易忽略的问题     |
-| --------------- | ------------------------ | --------------------------- | -------------------- |
-| K-means         | 每个点的硬 cluster id    | 最小化到中心的平方距离      | 初始化与尺度         |
-| GMM + EM        | cluster 的软责任度       | 最大化含隐变量的 likelihood | 局部最优与协方差退化 |
-| Factor Analysis | 低维 Gaussian 因子       | 解释协方差结构              | 与 PCA 的假设不同    |
-| PCA             | 最大方差线性子空间       | 最大方差或最小重建误差      | 必须先中心化         |
-| ICA             | 相互独立的非 Gaussian 源 | 最大化源的独立性            | 尺度、排列歧义       |
+表示学习材料包括：
 
-## 1. K-means 是硬分配与更新中心
+- [Factor Analysis](https://github.com/maxim5/cs229-2018-autumn/blob/main/notes/cs229-notes9.pdf)
+- [PCA](https://github.com/maxim5/cs229-2018-autumn/blob/main/notes/cs229-notes10.pdf)
+- [ICA](https://github.com/maxim5/cs229-2018-autumn/blob/main/notes/cs229-notes11.pdf)
 
-K-means 交替执行：把每个样本分给最近中心，再用簇内均值更新中心。每一步都不会增加 distortion，因此算法会收敛；但只保证到达一个局部最优。
+对应实验分布在 [PS3](https://github.com/maxim5/cs229-2018-autumn/tree/main/problem-sets/PS3) 与 [PS4](https://github.com/maxim5/cs229-2018-autumn/tree/main/problem-sets/PS4)。
 
-PS3 用它做图像压缩：把每个 RGB 像素看成 $\mathbb{R}^3$ 中的点，只保留 16 个颜色中心。这个实验让“聚类”变得具体：压缩效果取决于颜色分布，也会丢失簇内细节。
+PS3 包含半监督 GMM 和 K-means 图像压缩，PS4 则推导 PCA 并实现 ICA。
 
-至少运行三次随机初始化，并记录最终 distortion。若只跑一次，看到的可能只是一次幸运或糟糕的起点。
+## 一、先建立“隐藏结构”的地图
 
-## 2. GMM 把归属变成概率
+无监督方法的差异，可以先从三个问题判断：隐藏变量是什么、目标函数是什么、结果存在哪些不可辨识性。
 
-Gaussian Mixture Model 假设每个样本先选择隐藏类别 $z$，再由该类别的 Gaussian 生成。与 K-means 的硬分配不同，GMM 计算责任度：
+| 方法            | 隐藏或低维结构          | 主要目标                  | 关键假设或风险              |
+| --------------- | ----------------------- | ------------------------- | --------------------------- |
+| K-means         | 每个样本的硬 cluster id | 最小化簇内平方距离        | 球形簇、尺度敏感、局部最优  |
+| GMM             | 每个类别的软责任度      | 最大化 mixture likelihood | Gaussian 形状、协方差退化   |
+| EM              | 隐变量 posterior        | 交替优化 likelihood 下界  | 初始化敏感、只保证局部改进  |
+| Factor Analysis | 低维 Gaussian factor    | 解释观测协方差            | 线性 Gaussian、旋转不唯一   |
+| PCA             | 正交低维子空间          | 最大方差或最小重建误差    | 线性、二阶统计、尺度敏感    |
+| ICA             | 独立的非 Gaussian 源    | 最大化独立性或 likelihood | 尺度与排列歧义、非 Gaussian |
+
+这张表不是为了背诵，而是提醒：算法输出的“结构”由目标与假设共同定义。
+
+如果 K-means 把顾客分成三类，不代表世界里客观存在三种人。它只说明，在当前特征、尺度、距离和 $K$ 下，这组中心给出了较小 distortion。
+
+## 二、无标签时怎样判断结果是否有用
+
+没有标签不等于无法评估，只是评估必须回到任务。
+
+聚类可以查看稳定性、簇内距离、对新数据的 likelihood、下游任务表现和领域可解释性。降维可以查看重建误差、保留方差、下游预测、可视化稳定性与噪声过滤效果。
+
+### 1. Internal Metric 只衡量自己的定义
+
+K-means distortion 变小，说明数据更靠近所分配中心。但它不会告诉你 cluster 是否对应业务上有意义的群体。
+
+Silhouette score 也依赖距离与簇形状。对非凸簇，它可能偏好不符合领域结构的划分。
+
+### 2. Stability 是重要证据
+
+更换随机初始化、抽样部分数据或加入小扰动后，结果是否基本一致？
+
+如果 cluster identity 每次都大幅变化，可能说明目标存在多个近似解、数据没有清晰分组，或特征尺度让某些方向主导。
+
+### 3. Downstream Utility 更接近真实目标
+
+如果降维用于压缩，就测重建质量与存储成本；用于分类，就比较下游验证表现；用于探索，就检查发现是否能被额外数据验证。
+
+不要因为图画得漂亮，就把二维投影中的分离当成可靠科学发现。
+
+### 4. 避免使用标签偷偷指导无监督步骤
+
+若反复根据测试标签选择 cluster 数、PCA 维度或可视化参数，就已经把标签引入模型选择。
+
+最终报告的“无监督结果”会包含监督信息，却没有被正确披露。
+
+## 三、K-means：硬分配与中心更新
+
+给定样本 $x^{(1)},\ldots,x^{(m)}$ 与 $K$ 个中心 $\mu_1,\ldots,\mu_K$，K-means 最小化：
 
 $$
-w_j^{(i)}=p(z^{(i)}=j\mid x^{(i)};\theta).
+J(c,\mu)
+=\sum_{i=1}^m
+\left\|x^{(i)}-\mu_{c^{(i)}}\right\|_2^2.
 $$
 
-E-step 用当前参数估计责任度；M-step 把责任度当作软权重，更新 mixture weight、mean 与 covariance。两步交替，使观测数据 likelihood 不下降。
+$c^{(i)}$ 是样本的 cluster assignment。算法交替优化 assignment 与中心。
 
-真正要理解的是 Jensen's inequality 在这里做了什么：直接优化带 log-sum 的 likelihood 困难，EM 构造一个在当前参数处贴紧的下界，再优化这个下界。
+### 1. Assignment Step
 
-## 3. 半监督 EM 说明标签怎样进入隐变量模型
-
-PS3 的 GMM 题同时给少量有标签样本与大量无标签样本。无标签样本仍使用软责任度；有标签样本的类别已经确定，可以用更高权重直接进入 M-step。
-
-比较时不要只报最终图。还要观察：
-
-- 不同随机初始化下 cluster 是否稳定；
-- 少量标签是否减少 label switching；
-- 哪些区域仍有高不确定性；
-- 权重过大时是否让模型忽视无标签结构。
-
-## 4. PCA 是最优线性重建
-
-数据中心化后，PCA 寻找方差最大的正交方向。PS4 进一步要求证明：第一主成分也最小化样本投影后的平方重建误差。
+固定中心，为每个样本选择最近中心：
 
 $$
-\min_{\|u\|=1}\sum_i\left\|x^{(i)}-uu^Tx^{(i)}\right\|_2^2
+c^{(i)}
+=\arg\min_j\left\|x^{(i)}-\mu_j\right\|_2^2.
 $$
 
-与最大化 $\sum_i(u^Tx^{(i)})^2$ 等价。这一等价关系把几何直觉与压缩目标连接起来。
+对固定中心，这是每个样本独立的最优选择，因此不会增加目标。
 
-使用 PCA 前先标准化是否必要，取决于问题：如果量纲差异没有语义，通常应标准化；如果绝对方差本身就是信息，则盲目标准化可能改变目标。
+### 2. Update Step
 
-## 5. ICA 追求独立，而不是只追求不相关
+固定 assignment，对每个 cluster 更新：
 
-PCA 让分量正交、不相关；ICA 进一步寻找统计独立的非 Gaussian 源。经典例子是多个麦克风接收到不同说话者的线性混合，ICA 尝试恢复源信号。
+$$
+\mu_j
+=\frac{\sum_i\mathbf{1}\{c^{(i)}=j\}x^{(i)}}
+{\sum_i\mathbf{1}\{c^{(i)}=j\}}.
+$$
 
-Gaussian 源会带来不可辨识性：旋转后的联合 Gaussian 仍可能有相同分布。ICA 还存在尺度与排列歧义，因此评估时不能要求恢复结果与原源逐项完全相同。
+簇内均值是平方距离和的 minimizer，所以这一步也不会增加目标。
 
-## 移动端复习清单
+两步交替后，distortion 单调不增。由于 assignment 组合有限，算法最终会停在某个局部解。
 
-- K-means 的一次迭代为何不增加 distortion？
-- EM 的 E-step 估计了哪个 posterior？
-- EM 为什么只保证局部最优？
-- PCA 最大方差与最小重建误差为何等价？
-- ICA 比 PCA 多用了什么统计假设？
+### 3. 为什么只保证局部最优
 
-能回答这五个问题，再去运行 PS3 的 GMM/K-means 与 PS4 的 PCA/ICA，仓库里的题目就会从零散算法变成一条“发现隐藏表示”的路线。
+K-means 的联合目标对 assignment 和中心不是凸的。不同初始中心会进入不同 basin。
+
+因此标准做法是运行多次随机初始化，比较最终 distortion，再检查解的稳定性。
+
+只跑一次并画出一张漂亮图，无法证明结果具有代表性。
+
+### 4. K-means++ 的作用
+
+完全随机选择初始中心，可能让多个中心落在同一密集区域。
+
+K-means++ 倾向选择远离已有中心的点作为新中心，提高覆盖范围。它改善初始化，但不会消除局部最优，也不会自动选择正确的 $K$。
+
+### 5. 空 Cluster 怎样处理
+
+某次 assignment 后，可能没有样本分给某个中心，均值分母为零。
+
+可以把该中心重新放到当前误差最大的样本、随机样本或最大簇附近。无论采用哪种策略，都要显式记录，避免 `nan` 静默传播。
+
+### 6. 特征尺度为什么决定结果
+
+Euclidean distance 对量纲敏感。一个范围在几千的特征，会压倒范围在 0 到 1 的特征。
+
+是否标准化取决于语义。如果每个维度应被平等对待，通常应标准化；如果绝对量级本身重要，则需要有意识地定义距离。
+
+### 7. K-means 隐含怎样的簇形状
+
+最近中心划分形成 Voronoi cells，偏好大小和方差相近的近似球形簇。
+
+对长条形、不同密度、环形或强重叠结构，它可能给出几何上不自然的切割。
+
+算法失败不一定是实现问题，也可能是目标函数与数据结构不匹配。
+
+## 四、PS3 的 K-means 图像压缩
+
+PS3 把每个 RGB 像素视为 $\mathbb{R}^3$ 中的点，用 K-means 找到 16 个颜色中心。
+
+压缩时，每个像素不再保存完整颜色，而只保存最近中心的索引。中心表加上索引图，就近似重建原图。
+
+### 1. 这个实验为什么很适合学习 K-means
+
+Cluster center 变成调色板颜色，assignment 变成每个像素选择哪种颜色，distortion 直接对应颜色重建误差。
+
+抽象聚类因此变成可见压缩：天空中相近蓝色会合并，细微渐变会出现色带，小面积独特色彩可能被舍弃。
+
+### 2. 为什么训练可以使用部分像素
+
+高分辨率图像包含大量重复或相近颜色。可以从像素中采样训练中心，再把完整图像分配给这些中心。
+
+这减少计算，但采样必须覆盖重要颜色。若一个关键小物体占比很低，随机样本可能完全错过它。
+
+### 3. 评估不能只看 Distortion
+
+均方颜色误差较小，不代表人眼感知质量一定好。视觉对边缘、结构和某些颜色变化更敏感。
+
+因此同时查看压缩率、重建误差与图像。算法指标与感知目标不完全一致。
+
+## 五、从 K-means 到 GMM：把硬归属改成概率
+
+K-means 要求每个样本只属于一个 cluster。Gaussian Mixture Model 允许一个样本对多个成分具有不同 posterior responsibility。
+
+生成过程为：先采样隐藏类别 $z$，再从该类别的 Gaussian 采样 $x$。
+
+$$
+p(z=j)=\phi_j,
+\qquad
+x\mid z=j\sim\mathcal{N}(\mu_j,\Sigma_j).
+$$
+
+边缘分布是：
+
+$$
+p(x)=\sum_{j=1}^K
+\phi_j\mathcal{N}(x;\mu_j,\Sigma_j).
+$$
+
+### 1. Responsibility
+
+根据 Bayes 公式：
+
+$$
+w_j^{(i)}
+=p(z^{(i)}=j\mid x^{(i)};\theta)
+$$
+
+$$
+=\frac{
+\phi_j\mathcal{N}(x^{(i)};\mu_j,\Sigma_j)
+}{
+\sum_l\phi_l\mathcal{N}(x^{(i)};\mu_l,\Sigma_l)
+}.
+$$
+
+$w_j^{(i)}$ 介于 0 与 1，且对所有 $j$ 求和为 1。重叠区域的样本可以同时对多个成分有较大责任度。
+
+![K-means 的硬 Voronoi 分配与 GMM 的软责任度](/images/blog/cs229-learning-system/unsupervised-hard-soft-clustering.webp)
+
+### 2. GMM 怎样表达非球形簇
+
+每个成分有 covariance $\Sigma_j$。完整 covariance 可以表达椭圆方向与相关性，对角 covariance 只表达各维方差，spherical covariance 则更接近 K-means 假设。
+
+更灵活 covariance 需要更多参数，也更容易在小样本下不稳定。
+
+### 3. K-means 与 GMM 的关系
+
+当各 Gaussian 使用相同、很小的 spherical covariance 时，posterior responsibility 会变得接近 one-hot。
+
+此时软分配趋近最近中心分配，GMM 与 K-means 的联系变得清楚。
+
+但两者目标仍不同：K-means 最小化距离，GMM 最大化概率 likelihood。
+
+### 4. Covariance Collapse
+
+如果某个 Gaussian 均值落在一个样本上，并让 covariance 趋近零，该样本 density 可以变得非常大，likelihood 可能出现退化。
+
+实践中会限制最小方差、加 covariance regularization 或使用先验。出现极小 determinant 时，不应只增加迭代次数。
+
+## 六、为什么 GMM 的最大似然不容易直接优化
+
+观测数据 log-likelihood 为：
+
+$$
+\ell(\theta)
+=\sum_{i=1}^m
+\log\sum_{z^{(i)}}p(x^{(i)},z^{(i)};\theta).
+$$
+
+困难来自 log 外面的求和。若隐藏类别已知，参数估计很简单；但隐藏类别恰好没有观测。
+
+EM 的思路不是强行对原式一次优化，而是引入对隐藏变量的分布 $Q_i(z^{(i)})$，构造一个容易优化的 lower bound。
+
+## 七、Jensen's Inequality 与 EM 下界
+
+对 concave 的 $\log$ 函数：
+
+$$
+\log\mathbb{E}[X]
+\ge\mathbb{E}[\log X].
+$$
+
+对单个样本：
+
+$$
+\log p(x;\theta)
+=\log\sum_z p(x,z;\theta).
+$$
+
+乘除任意分布 $Q(z)$：
+
+$$
+\log p(x;\theta)
+=\log\sum_z Q(z)
+\frac{p(x,z;\theta)}{Q(z)}.
+$$
+
+由 Jensen：
+
+$$
+\log p(x;\theta)
+\ge
+\sum_z Q(z)
+\log\frac{p(x,z;\theta)}{Q(z)}.
+$$
+
+右侧就是 Evidence Lower Bound，可写为：
+
+$$
+\mathcal{L}(Q,\theta)
+=\mathbb{E}_{Q(z)}[\log p(x,z;\theta)]
++H(Q).
+$$
+
+### 1. E-step 做什么
+
+固定当前参数 $\theta^{(t)}$，选择：
+
+$$
+Q(z)=p(z\mid x;\theta^{(t)}).
+$$
+
+这个选择使 Jensen 下界在当前参数处与真实 log-likelihood 相等，也就是“把下界贴紧”。
+
+对 GMM，它就是计算每个样本对每个成分的 responsibility。
+
+### 2. M-step 做什么
+
+固定 $Q$，选择新参数：
+
+$$
+\theta^{(t+1)}
+=\arg\max_\theta\mathcal{L}(Q,\theta).
+$$
+
+因为下界在旧参数处贴紧，而新参数不会降低下界，所以新的真实 likelihood 也不会低于旧值。
+
+![EM 交替贴紧下界并改进参数，形成单调上升过程](/images/blog/cs229-learning-system/unsupervised-em-lower-bound.webp)
+
+### 3. 单调不下降不等于全局最优
+
+EM 保证每次迭代不降低观测 likelihood，但 likelihood 可能有多个局部峰与鞍点。
+
+不同初始化会收敛到不同解。因此需要多次初始化、比较 likelihood，并检查结果稳定性。
+
+### 4. 何时停止
+
+可以监控 log-likelihood 的绝对或相对变化，也可以限制最大迭代次数。
+
+如果 likelihood 下降，通常是实现错误、数值问题，或者 M-step 没有真正增加下界。
+
+记录每次迭代 likelihood 是 EM 最基本的单元测试。
+
+## 八、GMM 的 E-step 与 M-step
+
+E-step 使用当前参数计算 $w_j^{(i)}$。
+
+M-step 更新 mixture weight：
+
+$$
+\phi_j
+=\frac{1}{m}\sum_{i=1}^m w_j^{(i)}.
+$$
+
+更新均值：
+
+$$
+\mu_j
+=\frac{\sum_iw_j^{(i)}x^{(i)}}
+{\sum_iw_j^{(i)}}.
+$$
+
+更新 covariance：
+
+$$
+\Sigma_j
+=\frac{
+\sum_iw_j^{(i)}
+(x^{(i)}-\mu_j)(x^{(i)}-\mu_j)^T
+}{
+\sum_iw_j^{(i)}}.
+$$
+
+这些式子与带权均值和带权 covariance 一致。Responsibility 越大，样本对该成分参数贡献越大。
+
+### 数值稳定性
+
+计算 Gaussian density 与分母求和时容易下溢。实践中使用 log-density 与 log-sum-exp。
+
+Covariance 还需要保持对称和正定。可以在对角线上加入小的 regularizer，并使用 Cholesky decomposition 检查。
+
+## 九、PS3 的 Semi-supervised EM
+
+PS3 同时提供大量无标签样本与少量有标签样本。无标签样本的隐藏类别未知，使用普通 responsibility；有标签样本的类别已知，不需要 E-step 猜测。
+
+目标可理解为无标签 likelihood 加上带权监督 likelihood：
+
+$$
+\ell_{semi}(\theta)
+=\ell_{unlabeled}(\theta)
++\alpha\ell_{labeled}(\theta).
+$$
+
+$\alpha$ 控制少量标签的影响。
+
+### 1. E-step
+
+只为无标签样本计算 soft responsibility。
+
+有标签样本的责任度是已知 one-hot：真实类别为 1，其余类别为 0。
+
+### 2. M-step
+
+更新参数时，同时累加无标签 soft count 与有标签 weighted hard count。
+
+标签样本较少时，较大的 $\alpha$ 能让它们对 cluster identity 产生明显影响。
+
+### 3. Label Switching
+
+纯 GMM 的成分编号没有固有语义。交换两个成分编号，likelihood 不变。
+
+少量标签可以把成分与类别语义对齐，减少不同初始化下的 label switching。
+
+但如果模型成分与真实类别不是一一对应，强行用少量标签固定成分也可能造成偏差。
+
+### 4. 应比较哪些结果
+
+PS3 不应只比较一张最终散点图。至少比较无监督与半监督版本的 likelihood、分类准确率、不同初始化稳定性，以及每类 responsibility 的不确定区域。
+
+还要改变 $\alpha$。权重太小，标签几乎不起作用；权重太大，模型可能忽略无标签数据的密度结构。
+
+## 十、Factor Analysis：用低维因子解释协方差
+
+Factor Analysis 假设高维观测由低维 latent factor 线性生成，再叠加各维独立噪声：
+
+$$
+z\sim\mathcal{N}(0,I),
+$$
+
+$$
+x=\mu+\Lambda z+\epsilon,
+\qquad
+\epsilon\sim\mathcal{N}(0,\Psi).
+$$
+
+$z\in\mathbb{R}^k$，通常 $k\ll n$。$\Lambda$ 是 loading matrix，$\Psi$ 常为对角矩阵。
+
+### 1. 它怎样解释观测 covariance
+
+因为 $z$ 与 $\epsilon$ 独立：
+
+$$
+\operatorname{Cov}(x)
+=\Lambda\Lambda^T+\Psi.
+$$
+
+$\Lambda\Lambda^T$ 解释变量之间的共享相关结构，$\Psi$ 解释各维独立噪声。
+
+### 2. 为什么需要 EM
+
+Latent factor $z$ 没有观测。若 $z$ 已知，估计 loading 很像线性回归；但实际只能看到 $x$。
+
+E-step 计算 $p(z\mid x)$ 的均值与二阶矩。M-step 使用这些期望更新 $\Lambda$ 与 $\Psi$。
+
+这里不只需要 $\mathbb{E}[z\mid x]$，还需要 $\mathbb{E}[zz^T\mid x]$，因为 complete-data likelihood 包含二次项。
+
+### 3. Rotation Ambiguity
+
+若 $R$ 是正交矩阵，把 $\Lambda$ 变成 $\Lambda R$，同时把 latent factor 旋转，观测 covariance 不变。
+
+因此 factor orientation 通常不唯一。解释某个 factor 的语义时，应谨慎区分模型稳定结构与任意旋转选择。
+
+### 4. 与 PCA 的区别
+
+Factor Analysis 是显式概率模型，包含独立观测噪声 $\Psi$。PCA 则直接寻找解释最大总方差的正交子空间。
+
+两者都做线性低维表示，但目标和噪声假设不同，不能简单说成同一个算法。
+
+## 十一、PCA：最大方差与最小重建误差
+
+PCA 的第一步是中心化：
+
+$$
+\tilde x^{(i)}=x^{(i)}-\mu,
+\qquad
+\mu=\frac{1}{m}\sum_i x^{(i)}.
+$$
+
+如果不中心化，第一主成分可能主要指向数据均值，而不是变化方向。
+
+### 1. 最大方差视角
+
+寻找单位向量 $u$，使投影方差最大：
+
+$$
+\max_{\|u\|=1}
+\frac{1}{m}\sum_i(u^T\tilde x^{(i)})^2.
+$$
+
+定义 covariance matrix：
+
+$$
+\Sigma
+=\frac{1}{m}\sum_i
+\tilde x^{(i)}\tilde x^{(i)T}.
+$$
+
+目标变成：
+
+$$
+\max_{\|u\|=1}u^T\Sigma u.
+$$
+
+由 Rayleigh quotient，最优 $u$ 是最大特征值对应的 eigenvector。
+
+### 2. 最小重建误差视角
+
+投影到 $u$ 后，重建为：
+
+$$
+\hat x^{(i)}=uu^T\tilde x^{(i)}.
+$$
+
+PS4 要证明：
+
+$$
+\min_{\|u\|=1}
+\sum_i\left\|
+\tilde x^{(i)}-uu^T\tilde x^{(i)}
+\right\|_2^2
+$$
+
+与最大化投影方差等价。
+
+展开平方范数：
+
+$$
+\|x-uu^Tx\|^2
+=\|x\|^2-(u^Tx)^2,
+$$
+
+因为 $u$ 为单位向量。总能量 $\sum_i\|x^{(i)}\|^2$ 固定，所以最小化残差等价于最大化投影能量。
+
+![PCA 的最大方差/最小重建与 ICA 的独立源分离](/images/blog/cs229-learning-system/unsupervised-pca-ica.webp)
+
+### 3. 多个主成分
+
+取 covariance 最大的前 $k$ 个 orthonormal eigenvectors，组成矩阵 $U_k$。
+
+低维表示：
+
+$$
+z^{(i)}=U_k^T\tilde x^{(i)}.
+$$
+
+重建：
+
+$$
+\hat x^{(i)}=U_kz^{(i)}+\mu.
+$$
+
+前 $k$ 个 eigenvectors 给出所有 $k$ 维线性子空间中的最小平方重建误差。
+
+### 4. SVD 实现
+
+把中心化数据写成矩阵 $X$。对 $X$ 做 singular value decomposition，右 singular vectors 或左 singular vectors 的选择取决于样本放在行还是列。
+
+SVD 通常比显式构造高维 covariance 更稳定，也避免 covariance 平方放大 condition number。
+
+实现前一定要固定矩阵约定，不要机械复制公式。
+
+### 5. 怎样选择维度 $k$
+
+Explained variance ratio：
+
+$$
+\frac{\sum_{j=1}^k\lambda_j}
+{\sum_{j=1}^n\lambda_j}.
+$$
+
+可以选择达到 90%、95% 等阈值的最小 $k$，但阈值应与压缩和下游任务成本对应。
+
+如果 PCA 用于预测管线，$k$ 最好通过验证集下游表现选择，而不是只看累计方差。
+
+### 6. Standardization 是否必要
+
+PCA 会优先保留方差大的维度。如果特征量纲不同，最大方差可能只是单位差异。
+
+当每个特征应被平等比较时，通常先标准化；当绝对方差本身有意义时，标准化会改变问题。
+
+均值、标准差与 PCA basis 都必须只在训练集拟合，再应用于验证和测试。
+
+### 7. PCA 不保证类别分离
+
+PCA 不使用标签，只保留总体方差。区分类别的重要方向可能方差很小，因此被丢弃。
+
+二维 PCA 图中类别重叠，不代表原数据不可分类；明显分离也不代表新数据一定保持这种结构。
+
+## 十二、ICA：寻找独立源，而不只是正交方向
+
+Independent Component Analysis 假设观测是若干独立源的线性混合：
+
+$$
+x=As.
+$$
+
+$s$ 是未知独立源，$A$ 是未知 mixing matrix。目标是估计 unmixing matrix $W=A^{-1}$，使：
+
+$$
+s=Wx.
+$$
+
+### 1. 经典鸡尾酒会问题
+
+多个麦克风同时录到多个说话者，每个麦克风收到不同线性混合。
+
+ICA 尝试只从混合信号恢复独立源。它使用的不是标签，而是源之间的统计独立性与非 Gaussian 性。
+
+### 2. 不相关不等于独立
+
+PCA 让输出分量正交并不相关。对于一般非 Gaussian 变量，零相关只约束二阶统计，不代表 joint distribution 可以分解。
+
+ICA 寻找更强的独立性，因此目标不只是把 covariance 对角化。
+
+### 3. 为什么 Gaussian Source 不可辨识
+
+多维 spherical Gaussian 经过任意正交旋转，分布不变。只观察混合后的 Gaussian 数据，无法判断哪一个旋转才是原始独立源。
+
+因此 ICA 需要非 Gaussian 假设。非 Gaussian 结构为方向提供了额外信息。
+
+### 4. 两种不可避免的歧义
+
+第一是排列歧义。交换源顺序并相应交换 mixing matrix 的列，观测不变。
+
+第二是尺度歧义。把一个源乘以常数、同时把对应 mixing coefficient 除以该常数，观测仍不变。
+
+所以评估恢复结果时，应允许 permutation 与 scaling，而不是逐项要求完全相同。
+
+### 5. Likelihood 的来源
+
+若 $s=Wx$，density transformation 给出：
+
+$$
+p_x(x)
+=p_s(Wx)|\det W|.
+$$
+
+若源独立：
+
+$$
+p_s(s)=\prod_jp_{s_j}(s_j).
+$$
+
+因此 log-likelihood 包含源 density 项与 $\log|\det W|$。后者来自线性变换的 volume change，不能遗漏。
+
+### 6. 为什么选择非 Gaussian Source Model
+
+PS4 讨论 Gaussian source 会导致问题，并使用 Laplace 等非 Gaussian 假设推导更新。
+
+不同 source density 对应不同 score function。算法不是“神奇分离”，而是在最大化一组明确的概率假设。
+
+### 7. Whitening 与 ICA
+
+实践中常先中心化与 whitening，使观测 covariance 变成 identity。
+
+Whitening 消除尺度和二阶相关，缩小 ICA 需要搜索的变换空间。但 whitening 本身只做到不相关，真正的独立方向仍由高阶非 Gaussian 信息决定。
+
+## 十三、把六种方法放到同一坐标系
+
+### K-means 与 GMM
+
+K-means 是硬分配、平方距离、近似球形结构。GMM 是软分配、概率 likelihood，并可使用不同 covariance。
+
+### GMM 与 Factor Analysis
+
+GMM 的 latent variable 通常是离散类别。Factor Analysis 的 latent variable 是连续低维 Gaussian factor。
+
+两者都可使用 EM，但 E-step 计算的 posterior 形式不同。
+
+### Factor Analysis 与 PCA
+
+两者都寻找线性低维结构。Factor Analysis 显式建模独立噪声，PCA 直接优化投影方差或重建误差。
+
+### PCA 与 ICA
+
+PCA 关注 orthogonality、uncorrelatedness 与 variance；ICA 关注 independence 与 non-Gaussianity。
+
+PCA 的主成分按方差排序，ICA 的源通常没有天然排序，并存在尺度和排列歧义。
+
+## 十四、常见错误与调试证据
+
+### 错误一：K-means 每次结果差异很大
+
+运行多次初始化，检查 distortion 分布。再检查特征尺度、$K$ 是否合理，以及数据是否真的有清晰球形簇。
+
+不要只固定一个随机种子隐藏不稳定性。
+
+### 错误二：出现空 Cluster
+
+显式检测分母为零，并定义重新初始化策略。记录发生频率，它可能说明 $K$ 过大或初始化糟糕。
+
+### 错误三：EM likelihood 下降
+
+先验证 E-step responsibility 每行和为 1，再验证 M-step weighted sums 与 denominator。
+
+使用 log-sum-exp 计算 likelihood，检查 covariance 是否正定。
+
+### 错误四：Responsibility 全是 0 或 1
+
+可能是 covariance 太小、特征尺度极端或数值下溢。也可能数据确实分离得非常清楚。
+
+通过 log probability 和不同初始化区分数值问题与真实结构。
+
+### 错误五：Covariance 变成奇异矩阵
+
+检查某成分有效样本数是否太少。加入最小对角 regularizer，限制 covariance 结构，或重新初始化退化成分。
+
+### 错误六：PCA 第一方向很奇怪
+
+检查是否忘记中心化，特征量纲是否主导，以及样本矩阵方向是否弄反。
+
+### 错误七：重建误差随 $k$ 增大反而上升
+
+理论上使用按 eigenvalue 排序的嵌套主子空间时，训练重建误差不应上升。
+
+若出现上升，检查 component 排序、矩阵转置、重建时是否加回均值。
+
+### 错误八：ICA 输出与原信号顺序不同
+
+这通常不是错误，而是 permutation ambiguity。先通过相关性匹配源，再允许符号与尺度调整。
+
+### 错误九：ICA 对 Gaussian 模拟数据失败
+
+这是理论预期。Gaussian 源旋转不可辨识，算法没有足够信息恢复唯一方向。
+
+## 十五、一套四小时实践路线
+
+### 第一阶段：K-means，35 分钟
+
+在二维合成数据上实现 assignment/update。每轮记录 distortion，验证单调不增。
+
+运行十个初始化，比较最终解。加入不同尺度特征，观察标准化前后变化。
+
+### 第二阶段：图像压缩，30 分钟
+
+从图像像素采样训练 16 个颜色中心，重建完整图像。
+
+比较不同 $K$ 的压缩率、MSE 与视觉结果。
+
+### 第三阶段：GMM 与 EM，60 分钟
+
+实现 log-space responsibility 和 weighted M-step。每轮记录 likelihood、最小 covariance eigenvalue 与有效成分样本数。
+
+对同一数据运行多个初始化，比较局部最优。
+
+### 第四阶段：Semi-supervised EM，35 分钟
+
+加入少量标签和不同 $\alpha$。比较准确率、likelihood、稳定性和不确定区域。
+
+### 第五阶段：PCA，40 分钟
+
+手推最大方差与最小重建等价。使用 SVD 实现 PCA，画 explained variance 与 reconstruction curve。
+
+确认均值和 basis 只在训练集拟合。
+
+### 第六阶段：ICA，40 分钟
+
+生成非 Gaussian 独立源，随机混合后尝试恢复。评估时允许 permutation、sign 与 scaling。
+
+再换成 Gaussian 源，观察不可辨识性。
+
+## 十六、读完后的自测题
+
+1. K-means 的两步为什么都不会增加 distortion？
+2. 为什么 K-means 只保证局部最优？
+3. 特征尺度怎样改变 Euclidean 聚类？
+4. 图像压缩中 center、assignment 与 distortion 分别代表什么？
+5. GMM responsibility 的概率含义是什么？
+6. GMM 怎样比 K-means 表达更复杂簇形状？
+7. 为什么观测 likelihood 中的 log-sum 难以直接优化？
+8. Jensen's inequality 怎样产生 EM lower bound？
+9. E-step 为什么让下界在当前参数处贴紧？
+10. EM 单调改进为什么不代表全局最优？
+11. Semi-supervised EM 中有标签样本怎样进入 M-step？
+12. GMM 的 label switching 是什么？
+13. Factor Analysis 怎样分解观测 covariance？
+14. 为什么 Factor Analysis 需要 $E[zz^T\mid x]$？
+15. PCA 最大方差与最小重建为什么等价？
+16. 为什么 PCA 前必须中心化？
+17. 什么时候应该先标准化再 PCA？
+18. PCA 为什么不保证保留分类信息？
+19. ICA 比 PCA 使用了什么更强假设？
+20. Gaussian source 为什么不能由 ICA 唯一恢复？
+21. ICA 的 permutation 与 scaling ambiguity 怎样影响评估？
+22. Whitening 完成了什么，还没有完成什么？
+
+## 十七、应该保留的学习产物
+
+建议保留十次 K-means 初始化结果、一张图像压缩对比、一条 EM likelihood 曲线、一张 responsibility 可视化，以及一组半监督权重实验。
+
+还应保留 PCA explained-variance/reconstruction 曲线与 ICA source recovery 对比。
+
+还应记录每个方法的目标、隐藏变量、不可辨识性和失败条件。
+
+这张对比表比记住更新式更重要，因为它决定新问题出现时，你是否知道该选哪种结构假设。
+
+## 十八、重新理解无监督学习
+
+无监督学习不是“把没有标签的数据丢给算法，让它自己发现真相”。
+
+算法只能发现由特征、距离、分布假设和目标函数定义的结构。K-means 看到中心，GMM 看到密度成分，PCA 看到最大方差子空间，ICA 看到非 Gaussian 独立源。
+
+EM 提供了一种通用优化框架：当完整数据容易、隐藏变量困难时，先估计隐藏 posterior，再优化期望 complete-data likelihood。
+
+但 EM 的单调性不消除局部最优，概率模型也不自动赋予结果真实语义。
+
+真正完成这一章的标志，是面对新的无标签数据时，会先问：
+
+```text
+我希望保留的结构到底是什么？
+这个目标函数偏好怎样的解？
+结果对初始化和抽样稳定吗？
+隐藏变量是否可辨识？
+数值实现是否保持单调性与正定性？
+降维统计量是否只在训练数据上拟合？
+结果怎样通过下游任务或额外数据验证？
+```
+
+当这些问题被明确回答，无监督学习才从漂亮图形变成可以被检查、比较和使用的建模工具。
