@@ -1,0 +1,106 @@
+---
+title: CS229 PS2：从训练稳定性到 Kernel
+publishDate: 2026-07-17
+description: 按 PS2 六组题目理解训练稳定性、概率校准、正则化、Kernelized Perceptron 与垃圾邮件分类。
+category: machine-learning
+tags:
+  - cs229
+  - machine-learning
+  - problem-set
+  - kernels
+language: zh
+---
+
+PS2 的主题并不是“再学几个分类器”，而是开始追问：**一个训练集上表现不错的模型，到底值不值得相信？**
+
+这份作业把数值稳定性、概率校准、正则化、核函数和模型选择放在一起。它们看似分散，其实都在处理同一个问题：训练目标、模型表达能力与真实数据之间怎样保持平衡。
+
+![从不稳定的损失地形、概率校准到 Kernel 特征空间](/images/blog/cs229-learning-system/generalization-kernels.webp)
+
+## 先建立 PS2 的地图
+
+| 部分                    | 原题在问什么                               | 真正要掌握什么                 |
+| ----------------------- | ------------------------------------------ | ------------------------------ |
+| Training stability      | 为什么两个等价写法会产生完全不同的训练结果 | 可分数据、权重发散与停止条件   |
+| Model calibration       | 输出 0.8 是否真的意味着约 80% 会发生       | 概率预测与分类准确率不是一回事 |
+| Bayesian regularization | L1/L2 为什么能写成 MAP 估计                | 先验假设如何进入目标函数       |
+| Constructing kernels    | 哪些函数一定是合法 Kernel                  | Gram matrix 的半正定性         |
+| Kernelized Perceptron   | 怎样只用内积在高维空间更新                 | dual 表示与 kernel trick       |
+| Spam classification     | Naive Bayes 与 RBF-SVM 怎样落到文本数据    | 平滑、log-space 和验证集选参   |
+
+原始材料在 [PS2 PDF](https://github.com/maxim5/cs229-2018-autumn/blob/main/problem-sets/PS2/ps2.pdf) 与 [PS2 目录](https://github.com/maxim5/cs229-2018-autumn/tree/main/problem-sets/PS2)。手机上先读完本页，坐到电脑前再运行 Notebook。
+
+## 1. 收敛不等于参数停止变化
+
+对线性可分数据，未正则化 Logistic Regression 可以不断增大权重，让训练损失继续接近零。此时决策边界可能已经稳定，参数范数却仍在增长。
+
+所以“训练是否完成”至少有三种判断：
+
+1. loss 的变化是否足够小；
+2. 参数或梯度是否足够小；
+3. 真正关心的验证指标是否不再改善。
+
+PS2 用一个很小的代码差异展示：停止条件不是无关紧要的实现细节，它隐含了我们怎样定义“解”。遇到训练很慢时，不要先调学习率；先画 loss、梯度范数和参数范数三条曲线。
+
+## 2. 准确率不能代替概率校准
+
+分类器可以有很高的准确率，却给出糟糕的概率。如果模型把十个样本都预测为 0.9，那么长期看其中应约有九个为正，才能称为校准良好。
+
+一种直观检查是把预测概率分桶：
+
+$$
+\text{calibration}(B)=\frac{1}{|B|}\sum_{i\in B}y_i
+\quad\text{对比}\quad
+\frac{1}{|B|}\sum_{i\in B}\hat p_i.
+$$
+
+这提醒我们先问产品到底需要什么：只需要排序、需要一个分类边界，还是要把概率用于风险和成本决策？不同目标对应 AUC、accuracy、log-loss、Brier score 或 calibration curve，不应只保留一个数字。
+
+## 3. 正则化是一个可解释的假设
+
+最大后验估计写成：
+
+$$
+\theta_{MAP}=\arg\max_\theta \log p(y\mid X,\theta)+\log p(\theta).
+$$
+
+如果参数服从零均值 Gaussian 先验，负对数先验产生 L2 惩罚；如果使用 Laplace 先验，则产生 L1 惩罚。正则化因此不只是“防止过拟合的技巧”，而是在表达我们相信参数应更小或更稀疏。
+
+这也解释了为什么必须标准化特征：同一个惩罚系数作用在不同量纲的参数上，含义并不相同。
+
+## 4. Kernel 的本质是合法的相似度
+
+Kernel trick 不是把每个样本真的展开到高维，而是把算法中出现的内积替换为：
+
+$$
+K(x,z)=\phi(x)^T\phi(z).
+$$
+
+对任意有限样本，Gram matrix $K_{ij}=K(x^{(i)},x^{(j)})$ 必须半正定。PS2 的 Kernel 构造题最值得保留的不是每个判断答案，而是证明模板：
+
+- 能否显式构造一个 feature map；
+- 能否写成已知 Kernel 的非负和或乘积；
+- 若怀疑不合法，能否构造 Gram matrix 使二次型为负。
+
+Kernelized Perceptron 进一步把权重写成训练样本的线性组合。预测时只需要样本之间的 Kernel 值，不需要显式保存 $\phi(x)$。
+
+## 5. 垃圾邮件题是一套小型建模流程
+
+文本分类部分把前面的概念放回真实数据：建立词典、使用 Laplace smoothing、在 log-space 计算 Naive Bayes、找出最有指示性的词，再用验证集选择 RBF-SVM 的 radius。
+
+这里有两个重要习惯：
+
+- 极小概率连乘必须改成 log 概率求和；
+- 超参数只能在验证集选择，测试集只用于最后一次报告。
+
+如果测试集参与了 radius 选择，最终分数就不再是对泛化误差的独立估计。
+
+## 电脑前的 45 分钟实践
+
+1. 运行训练稳定性 Notebook，同时记录 loss、梯度范数、参数范数；
+2. 为一个分类器画 reliability diagram，而不仅是 accuracy；
+3. 用数值特征值检查一个自定义 Gram matrix 是否半正定；
+4. 对比 linear 与 RBF Kernel 的边界，写下“表达能力增加了什么”；
+5. 在垃圾邮件实验中明确 train、validation、test 各自只做什么。
+
+完成 PS2 的标志，不是记住 RBF 公式，而是遇到一个漂亮的训练结果时，会主动检查：数值稳定吗、概率可信吗、选择过程泄漏了吗、复杂度受约束了吗。

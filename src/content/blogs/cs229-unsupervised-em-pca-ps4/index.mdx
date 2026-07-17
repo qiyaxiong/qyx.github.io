@@ -1,0 +1,89 @@
+---
+title: CS229 无监督学习：从 K-means 到 PCA 与 ICA
+publishDate: 2026-07-17
+description: 用“隐变量与表示”串起 K-means、GMM、EM、Factor Analysis、PCA、ICA 以及 PS3/PS4 的关键实验。
+category: machine-learning
+tags:
+  - cs229
+  - machine-learning
+  - unsupervised-learning
+  - em
+language: zh
+---
+
+无监督学习没有标签告诉我们“对不对”，所以关键不是多背几个算法，而是明确：**我们希望数据中的哪种结构被保留下来？**
+
+CS229 从聚类、概率隐变量模型一路走到降维与源分离。把它们串起来的主线是：观测 $x$ 背后是否存在更简单的隐藏表示 $z$？
+
+![从聚类、软分配和隐变量到 PCA 与独立成分](/images/blog/cs229-learning-system/unsupervised-representation.webp)
+
+原始材料包括 [K-means](https://github.com/maxim5/cs229-2018-autumn/blob/main/notes/cs229-notes7a.pdf)、[GMM 与 EM](https://github.com/maxim5/cs229-2018-autumn/blob/main/notes/cs229-notes7b.pdf)、[一般 EM 推导](https://github.com/maxim5/cs229-2018-autumn/blob/main/notes/cs229-notes8.pdf)、[Factor Analysis](https://github.com/maxim5/cs229-2018-autumn/blob/main/notes/cs229-notes9.pdf)、[PCA](https://github.com/maxim5/cs229-2018-autumn/blob/main/notes/cs229-notes10.pdf) 与 [ICA](https://github.com/maxim5/cs229-2018-autumn/blob/main/notes/cs229-notes11.pdf)。
+
+## 一张表看清算法在保留什么
+
+| 方法            | 隐藏结构                 | 优化或估计目标              | 最容易忽略的问题     |
+| --------------- | ------------------------ | --------------------------- | -------------------- |
+| K-means         | 每个点的硬 cluster id    | 最小化到中心的平方距离      | 初始化与尺度         |
+| GMM + EM        | cluster 的软责任度       | 最大化含隐变量的 likelihood | 局部最优与协方差退化 |
+| Factor Analysis | 低维 Gaussian 因子       | 解释协方差结构              | 与 PCA 的假设不同    |
+| PCA             | 最大方差线性子空间       | 最大方差或最小重建误差      | 必须先中心化         |
+| ICA             | 相互独立的非 Gaussian 源 | 最大化源的独立性            | 尺度、排列歧义       |
+
+## 1. K-means 是硬分配与更新中心
+
+K-means 交替执行：把每个样本分给最近中心，再用簇内均值更新中心。每一步都不会增加 distortion，因此算法会收敛；但只保证到达一个局部最优。
+
+PS3 用它做图像压缩：把每个 RGB 像素看成 $\mathbb{R}^3$ 中的点，只保留 16 个颜色中心。这个实验让“聚类”变得具体：压缩效果取决于颜色分布，也会丢失簇内细节。
+
+至少运行三次随机初始化，并记录最终 distortion。若只跑一次，看到的可能只是一次幸运或糟糕的起点。
+
+## 2. GMM 把归属变成概率
+
+Gaussian Mixture Model 假设每个样本先选择隐藏类别 $z$，再由该类别的 Gaussian 生成。与 K-means 的硬分配不同，GMM 计算责任度：
+
+$$
+w_j^{(i)}=p(z^{(i)}=j\mid x^{(i)};\theta).
+$$
+
+E-step 用当前参数估计责任度；M-step 把责任度当作软权重，更新 mixture weight、mean 与 covariance。两步交替，使观测数据 likelihood 不下降。
+
+真正要理解的是 Jensen's inequality 在这里做了什么：直接优化带 log-sum 的 likelihood 困难，EM 构造一个在当前参数处贴紧的下界，再优化这个下界。
+
+## 3. 半监督 EM 说明标签怎样进入隐变量模型
+
+PS3 的 GMM 题同时给少量有标签样本与大量无标签样本。无标签样本仍使用软责任度；有标签样本的类别已经确定，可以用更高权重直接进入 M-step。
+
+比较时不要只报最终图。还要观察：
+
+- 不同随机初始化下 cluster 是否稳定；
+- 少量标签是否减少 label switching；
+- 哪些区域仍有高不确定性；
+- 权重过大时是否让模型忽视无标签结构。
+
+## 4. PCA 是最优线性重建
+
+数据中心化后，PCA 寻找方差最大的正交方向。PS4 进一步要求证明：第一主成分也最小化样本投影后的平方重建误差。
+
+$$
+\min_{\|u\|=1}\sum_i\left\|x^{(i)}-uu^Tx^{(i)}\right\|_2^2
+$$
+
+与最大化 $\sum_i(u^Tx^{(i)})^2$ 等价。这一等价关系把几何直觉与压缩目标连接起来。
+
+使用 PCA 前先标准化是否必要，取决于问题：如果量纲差异没有语义，通常应标准化；如果绝对方差本身就是信息，则盲目标准化可能改变目标。
+
+## 5. ICA 追求独立，而不是只追求不相关
+
+PCA 让分量正交、不相关；ICA 进一步寻找统计独立的非 Gaussian 源。经典例子是多个麦克风接收到不同说话者的线性混合，ICA 尝试恢复源信号。
+
+Gaussian 源会带来不可辨识性：旋转后的联合 Gaussian 仍可能有相同分布。ICA 还存在尺度与排列歧义，因此评估时不能要求恢复结果与原源逐项完全相同。
+
+## 移动端复习清单
+
+- K-means 的一次迭代为何不增加 distortion？
+- EM 的 E-step 估计了哪个 posterior？
+- EM 为什么只保证局部最优？
+- PCA 最大方差与最小重建误差为何等价？
+- ICA 比 PCA 多用了什么统计假设？
+
+能回答这五个问题，再去运行 PS3 的 GMM/K-means 与 PS4 的 PCA/ICA，仓库里的题目就会从零散算法变成一条“发现隐藏表示”的路线。

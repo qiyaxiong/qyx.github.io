@@ -1,0 +1,102 @@
+---
+title: CS229 强化学习：从 Bellman 方程到倒立摆
+publishDate: 2026-07-17
+description: 用 MDP、Bellman 方程、Value/Policy Iteration 和倒立摆实验建立强化学习与控制的完整学习路径。
+category: machine-learning
+tags:
+  - cs229
+  - machine-learning
+  - reinforcement-learning
+  - control
+language: zh
+---
+
+监督学习从固定数据中寻找预测函数；强化学习则必须在行动会改变未来数据的环境中做决策。CS229 最后的重点不是追逐复杂算法，而是先建立一个可靠的动态规划骨架。
+
+![倒立摆状态、动作分支、价值地形与最优策略路径](/images/blog/cs229-learning-system/reinforcement-control.webp)
+
+建议依次阅读 [MDP 与 Value Iteration 讲义](https://github.com/maxim5/cs229-2018-autumn/blob/main/notes/cs229-notes12.pdf)、[Finite-horizon MDP 与 LQR/LQG](https://github.com/maxim5/cs229-2018-autumn/blob/main/notes/cs229-notes13.pdf)，然后进入 [PS4](https://github.com/maxim5/cs229-2018-autumn/tree/main/problem-sets/PS4) 的 Bellman 证明和倒立摆实验。
+
+## 1. 先把 MDP 五元组说清楚
+
+一个 Markov Decision Process 包含：状态集合 $S$、动作集合 $A$、转移概率 $P_{sa}$、折扣因子 $\gamma$ 与奖励 $R$。
+
+“Markov”并不是环境没有历史，而是当前状态已经包含预测未来所需的信息。如果状态遗漏了速度、库存或用户阶段，算法再复杂也可能学不到稳定策略。
+
+策略 $\pi(a\mid s)$ 指定在状态下如何选动作。它的价值函数是从当前状态开始、继续遵循该策略时的期望折扣回报：
+
+$$
+V^\pi(s)=\mathbb{E}\left[\sum_{t=0}^{\infty}\gamma^tR(s_t)\mid s_0=s,\pi\right].
+$$
+
+## 2. Bellman 方程把长期问题拆成一步
+
+对固定策略：
+
+$$
+V^\pi(s)=R(s)+\gamma\sum_{s'}P_{s,\pi(s)}(s')V^\pi(s').
+$$
+
+最优价值则在动作上取最大：
+
+$$
+V^*(s)=R(s)+\gamma\max_a\sum_{s'}P_{sa}(s')V^*(s').
+$$
+
+它的力量来自递归：无限长的未来，被分解为当前奖励加上下一个状态的价值。PS4 要证明 Bellman update 是 max-norm 下的 $\gamma$-contraction，因此固定点至多一个，反复更新会收敛。
+
+## 3. Value Iteration 与 Policy Iteration 的区别
+
+Value Iteration 反复做最优 Bellman backup，再从最终价值函数抽取 greedy policy。Policy Iteration 则交替进行：评估当前策略的价值，再对策略做 greedy improvement。
+
+可以这样记：
+
+- Value Iteration 每次只近似评估，但立刻考虑最优动作；
+- Policy Iteration 先把一个策略评估清楚，再整体改进；
+- 两者都依赖已知或估计出的环境模型。
+
+如果状态巨大或连续，就不能维护完整表格，需要离散化或函数近似。讲义随后进入 fitted value iteration，正是把 Bellman target 变成一个回归问题。
+
+## 4. 倒立摆题是一套 model-based RL
+
+PS4 把连续的 cart-pole 状态离散化。智能体在与模拟器交互时统计转移次数和奖励，估计一个 MDP，再用 Value Iteration 解这个估计模型。
+
+完整循环是：
+
+```text
+观察离散状态
+→ 按当前策略选择动作
+→ 更新转移与奖励统计
+→ 对估计 MDP 做 Value Iteration
+→ 得到新策略并继续采样
+```
+
+这道题最值得观察的不是“杆最终立住了”，而是探索如何影响模型估计。若始终采用当前 greedy 动作，一些状态-动作对永远没有数据，估计模型会带着盲区。
+
+## 5. Off-policy evaluation 为什么困难
+
+PS4 还从 causal inference 的角度讨论：数据由 behavior policy 产生，但我们想评估另一个 target policy。两者分布不同，不能直接平均观测回报。
+
+Importance Sampling 用策略概率比重加权样本，但当概率比很极端时方差会很大。这提示一个普遍规律：策略评估不仅需要模型公式，还需要 **coverage**。如果历史策略几乎从未采取目标策略偏好的动作，数据本身就无法支持可靠判断。
+
+## 6. 用课程项目学习问题定义
+
+仓库的 `proj2018/` 保存了 118 份项目报告和海报。它们最适合按“问题结构”阅读，而不是从第一页顺序翻到最后：
+
+1. 状态或输入到底怎样定义；
+2. action/target 与 reward/metric 是否对齐真实目标；
+3. baseline 是否足够简单且可信；
+4. 数据切分是否模拟部署场景；
+5. failure cases 是否改变了最终结论。
+
+打开 [项目目录](https://github.com/maxim5/cs229-2018-autumn/tree/main/proj2018) 后，先只读标题与摘要，挑三篇问题相近的报告做横向比较。项目的价值不在于复制模型，而在于学习怎样把一个宽泛想法变成可评估的问题。
+
+## 最后的实践清单
+
+- 手写一个只有 3 个状态、2 个动作的 MDP；
+- 同时实现 Value Iteration 与 Policy Iteration，对比迭代过程；
+- 改变 $\gamma$，观察策略何时从短期奖励转向长期收益；
+- 在倒立摆实验中画每轮存活时间与已访问状态数；
+- 从项目报告中提取一个 baseline、一个 metric 和一个 failure case。
+
+当你能从状态是否充分、Bellman 递归、探索覆盖和离线评估四个角度检查一个 RL 问题，CS229 最后一部分才算真正完成。

@@ -1,0 +1,97 @@
+---
+title: CS229 神经网络：把 Backprop 真正走一遍
+publishDate: 2026-07-17
+description: 从两层网络、向量化与计算图出发，理解 Backprop 的局部梯度、初始化、正则化和 PS3/PS4 实验入口。
+category: machine-learning
+tags:
+  - cs229
+  - machine-learning
+  - neural-networks
+  - backpropagation
+language: zh
+---
+
+神经网络最容易造成一种错觉：会调用框架，就等于理解了训练。CS229 的价值恰好在于把网络缩小到足以手算，让你看见每一层究竟保存了什么、梯度为什么能反向传递。
+
+![神经网络的前向计算、局部导数与反向梯度流](/images/blog/cs229-learning-system/neural-backprop.webp)
+
+原始入口是 [Deep Learning Notes](https://github.com/maxim5/cs229-2018-autumn/blob/main/notes/cs229-notes-deep_learning.pdf)、[Backprop 补充讲义](https://github.com/maxim5/cs229-2018-autumn/blob/main/notes/cs229-notes-backprop.pdf)、[PS3](https://github.com/maxim5/cs229-2018-autumn/tree/main/problem-sets/PS3) 和 [PS4](https://github.com/maxim5/cs229-2018-autumn/tree/main/problem-sets/PS4)。PS3 先分析简单网络，PS4 再实现 MNIST 卷积分类器。
+
+## 网络只是在重复两个操作
+
+第 $l$ 层的前向传播可以统一写成：
+
+$$
+Z^{[l]}=W^{[l]}A^{[l-1]}+b^{[l]},\qquad
+A^{[l]}=g^{[l]}(Z^{[l]}).
+$$
+
+线性变换负责混合上一层特征，非线性激活负责让多层组合不退化成一个线性模型。学习时先把每个张量的 shape 写在纸上，比背框架 API 更重要。
+
+假设样本放在列上：
+
+$$
+A^{[l-1]}\in\mathbb{R}^{n_{l-1}\times m},
+\quad W^{[l]}\in\mathbb{R}^{n_l\times n_{l-1}},
+\quad b^{[l]}\in\mathbb{R}^{n_l\times 1}.
+$$
+
+由此可立即判断输出 $Z^{[l]}$ 的维度，以及 bias 应沿哪个轴广播。
+
+## Backprop 是计算图上的链式法则
+
+反向传播不是一种新的微积分。它只是从最终 loss 开始，把上游梯度乘以每个节点的局部导数，并缓存重复使用的中间量。
+
+对一层网络，核心关系是：
+
+$$
+dZ^{[l]}=dA^{[l]}\odot g'^{[l]}(Z^{[l]}),
+$$
+
+$$
+dW^{[l]}=\frac{1}{m}dZ^{[l]}A^{[l-1]T},
+\qquad
+db^{[l]}=\frac{1}{m}\sum_i dZ_i^{[l]}.
+$$
+
+然后用 $W^{[l]T}dZ^{[l]}$ 把梯度继续送回上一层。真正理解的检验是：不看答案，能根据 shape 重新拼出这组式子。
+
+## PS3 的简单网络题在检查表达能力
+
+PS3 第一题给出一个很小的网络和二维数据，要求判断某些权重与激活能否形成需要的决策区域。这比直接训练大模型更有价值，因为你必须把隐藏单元理解为“切出一个区域的特征”，再看输出层怎样组合这些特征。
+
+建议手动画四幅图：每个隐藏单元的直线、激活后的半平面、输出层组合结果、最终分类区域。这样会直观看到深度带来的不是神秘能力，而是可复用的分段变换。
+
+## 四个训练故障要能主动识别
+
+### 1. 对称初始化
+
+若同一层所有神经元权重相同，它们会得到相同梯度并一直学成同一个特征。权重需要随机打破对称；bias 通常可以从零开始。
+
+### 2. 激活饱和
+
+sigmoid 在绝对值很大的区域导数接近零，梯度会逐层衰减。检查激活直方图与梯度范数，比只看总 loss 更容易定位问题。
+
+### 3. 数值不稳定
+
+softmax 与 cross-entropy 应直接从 logits 使用稳定实现。先算很小的概率再取 log，会制造 `nan` 或 `inf`。
+
+### 4. 过拟合
+
+训练误差下降而验证误差回升时，应从数据量、正则化、网络容量和 early stopping 排查，而不是继续增加 epoch。
+
+## 从全连接到卷积：参数共享
+
+讲义把卷积网络放在“参数共享”之后介绍。相同的局部检测器在图像不同位置重复使用，因此参数量更少，并编码了空间平移的先验。
+
+PS4 的 MNIST 题适合检查完整训练管线：卷积、非线性、分类头、cross-entropy、mini-batch 与评估。这里不要只追准确率；至少同时保存 train/validation loss、混淆样例和一次 gradient check。
+
+## 一次可完成的学习闭环
+
+1. 手推一个两层网络的 forward 与 backward shape；
+2. 对五个随机参数做 finite-difference gradient check；
+3. 故意把所有权重初始化成同一个值，观察隐藏单元是否保持一致；
+4. 记录每层 activation 与 gradient 的均值、方差；
+5. 在 MNIST 中找出十个高置信度错误，按原因分组。
+
+做到这里，Backprop 就不再是一串框架自动完成的黑箱，而是一套可以检查、定位和解释的计算过程。
