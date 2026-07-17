@@ -59,6 +59,28 @@ const collectionSchema = ({ image }: { image: () => any }) =>
     description_en: z.string().optional(),
     /** Optional source repository shown on the collection landing page */
     repository: z.string().url().optional(),
+    courseIntro: z.string().optional(),
+    courseStats: z
+      .array(
+        z.object({
+          value: z.string(),
+          label: z.string()
+        })
+      )
+      .default([]),
+    courseModules: z
+      .array(
+        z.object({
+          phase: z.string(),
+          title: z.string(),
+          description: z.string(),
+          topics: z.array(z.string()).default([]),
+          href: z.string().optional(),
+          source: z.string().url(),
+          status: z.enum(['ready', 'building', 'source']).default('source')
+        })
+      )
+      .default([]),
     heroImage: z
       .object({
         src: image(),

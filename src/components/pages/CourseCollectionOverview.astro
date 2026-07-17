@@ -1,0 +1,108 @@
+---
+import type { CollectionEntry } from 'astro:content'
+
+interface Props {
+  collection: CollectionEntry<'postCollections'>
+}
+
+const { collection } = Astro.props
+const { courseIntro, courseStats, courseModules } = collection.data
+
+const statusLabel = {
+  ready: '已有中文导读',
+  building: '正在整理',
+  source: '先读原始资料'
+} as const
+---
+
+<section class='mb-10 space-y-8' aria-label='CS229 课程地图'>
+  {
+    courseIntro && (
+      <div class='rounded-2xl border border-border bg-muted/35 p-5 sm:p-6'>
+        <p class='m-0 text-sm leading-7 text-foreground sm:text-base'>{courseIntro}</p>
+      </div>
+    )
+  }
+
+  {
+    courseStats.length > 0 && (
+      <dl class='grid grid-cols-2 gap-3 sm:grid-cols-4'>
+        {courseStats.map((stat) => (
+          <div class='rounded-xl border border-border bg-background p-4'>
+            <dt class='text-xs text-muted-foreground'>{stat.label}</dt>
+            <dd class='mb-0 mt-1 text-2xl font-semibold tracking-tight'>{stat.value}</dd>
+          </div>
+        ))}
+      </dl>
+    )
+  }
+
+  <div>
+    <div class='mb-4 flex items-end justify-between gap-4'>
+      <div>
+        <p class='mb-1 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground'>
+          Course map
+        </p>
+        <h2 class='m-0 text-2xl font-medium'>按主题阅读，不按文件夹翻资料</h2>
+      </div>
+      <span class='hidden text-xs text-muted-foreground sm:block'>手机端建议一次只完成一个模块</span
+      >
+    </div>
+
+    <ol class='grid gap-4 lg:grid-cols-2'>
+      {
+        courseModules.map((module) => (
+          <li class='flex min-h-64 flex-col rounded-2xl border border-border bg-background p-5 transition-colors hover:bg-muted/40 sm:p-6'>
+            <div class='mb-4 flex items-start justify-between gap-4'>
+              <span class='rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground'>
+                {module.phase}
+              </span>
+              <span
+                class:list={[
+                  'rounded-full px-2.5 py-1 text-xs',
+                  module.status === 'ready'
+                    ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                    : module.status === 'building'
+                      ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                      : 'bg-muted text-muted-foreground'
+                ]}
+              >
+                {statusLabel[module.status]}
+              </span>
+            </div>
+
+            <h3 class='my-0 text-xl font-medium'>{module.title}</h3>
+            <p class='mb-4 mt-2 text-sm leading-6 text-muted-foreground'>{module.description}</p>
+
+            <ul class='mb-5 flex flex-wrap gap-2' aria-label={`${module.title} topics`}>
+              {module.topics.map((topic) => (
+                <li class='rounded-md border border-border px-2 py-1 text-xs text-muted-foreground'>
+                  {topic}
+                </li>
+              ))}
+            </ul>
+
+            <div class='mt-auto flex flex-col gap-2 min-[420px]:flex-row'>
+              {module.href && (
+                <a
+                  class='inline-flex min-h-11 flex-1 items-center justify-center rounded-lg bg-foreground px-3 py-2 text-center text-sm text-background no-underline transition-opacity hover:opacity-85'
+                  href={module.href}
+                >
+                  阅读中文内容
+                </a>
+              )}
+              <a
+                class='inline-flex min-h-11 flex-1 items-center justify-center rounded-lg border border-border px-3 py-2 text-center text-sm no-underline transition-colors hover:bg-muted'
+                href={module.source}
+                rel='noopener noreferrer'
+                target='_blank'
+              >
+                查看仓库原始资料 ↗
+              </a>
+            </div>
+          </li>
+        ))
+      }
+    </ol>
+  </div>
+</section>

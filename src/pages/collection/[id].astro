@@ -1,8 +1,9 @@
 ---
 import { getCollection } from 'astro:content'
 import { getPostsForCollection } from '@/server'
+
 import PageLayout from '@/layouts/BaseLayout.astro'
-import { PostPreview, CollectionHeader } from '@/components/pages'
+import { CollectionHeader, CourseCollectionOverview, PostPreview } from '@/components/pages'
 
 export const prerender = true
 
@@ -20,7 +21,9 @@ const posts = await getPostsForCollection(collection)
 const isEn = Astro.currentLocale === 'en'
 const title = isEn && collection.data.title_en ? collection.data.title_en : collection.data.title
 const description =
-  isEn && collection.data.description_en ? collection.data.description_en : collection.data.description
+  isEn && collection.data.description_en
+    ? collection.data.description_en
+    : collection.data.description
 
 const meta = {
   title,
@@ -30,18 +33,23 @@ const meta = {
 
 <PageLayout {meta}>
   <main class='mt-6 lg:mt-10'>
-     <CollectionHeader {collection} />
+    <CollectionHeader {collection} />
 
-     <section aria-label='Collection posts list' class='animate'>
-        {posts.length > 0 ? (
-            <ul class='flex flex-col gap-y-4 text-start'>
-              {posts.map((post) => (
-                <PostPreview {post} detailed />
-              ))}
-            </ul>
+    {!isEn && collection.data.courseModules.length > 0 && <CourseCollectionOverview {collection} />}
+
+    <section aria-label='Collection posts list' class='animate'>
+      {posts.length > 0 && <h2 class='mb-4 text-2xl font-medium'>系列文章</h2>}
+      {
+        posts.length > 0 ? (
+          <ul class='flex flex-col gap-y-4 text-start'>
+            {posts.map((post) => (
+              <PostPreview {post} detailed />
+            ))}
+          </ul>
         ) : (
-            <p>No posts found in this collection.</p>
-        )}
-     </section>
+          <p>No posts found in this collection.</p>
+        )
+      }
+    </section>
   </main>
 </PageLayout>
