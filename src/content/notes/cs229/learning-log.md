@@ -37,6 +37,20 @@ language: zh
 - 复习矩阵 shape、条件概率、链式法则和对数似然；
 - 建立数值梯度检查函数。
 
+## 当前状态
+
+知识入口和主题目录已经建立。第一轮学习从 Logistic Regression 开始，目标不是“看完视频”，而是独立写出似然函数、梯度，并用数值梯度检查实现。
+
+相关材料：
+
+- [公式速查表](/notes/cs229/formula-sheet)
+- [Logistic Regression](/notes/cs229/logistic-regression)
+- [GDA 与 Logistic Regression](/notes/cs229/gda-and-logistic-regression)
+
+## 下一次记录
+
+下一次打开电脑后的第一步：不看讲义，写出 Bernoulli 条件分布与对数似然；卡住的位置原样记录，再回到讲义定位缺失前提。
+
 ## 待回答的问题
 
 - 第一遍每个主题投入多少时间，才能保持完整闭环？

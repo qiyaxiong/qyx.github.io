@@ -238,7 +238,10 @@ async function getLocalNotesByLang(lang: NotionLang): Promise<NoteEntry[]> {
 }
 
 async function getNotesByLang(lang: NotionLang): Promise<NoteEntry[]> {
-  const notionNotes = (await getNotionNotes()).filter((note) => note.lang === lang).map(toNoteEntry)
+  const hiddenNotePaths = new Set(['test'])
+  const notionNotes = (await getNotionNotes())
+    .filter((note) => note.lang === lang && !hiddenNotePaths.has(note.slug))
+    .map(toNoteEntry)
 
   const notionPaths = new Set(notionNotes.map((note) => note.path))
   const localNotes = (await getLocalNotesByLang(lang)).filter((note) => !notionPaths.has(note.path))

@@ -1,8 +1,6 @@
 ---
 import type { MarkdownHeading } from 'astro'
-
 import { getNotionPageContent } from '@/lib/notion'
-import NotesView from '@/components/pages/NotesView.astro'
 import {
   buildNoteTree,
   flattenNoteTree,
@@ -10,6 +8,8 @@ import {
   getNoteNode,
   getNotesCollection
 } from '@/server'
+
+import NotesView from '@/components/pages/NotesView.astro'
 import { getDescriptionFromMarkdown, renderNotionMarkdown } from '@/utils/notion-markdown'
 
 export const prerender = true
@@ -42,7 +42,7 @@ const breadcrumbs = getNoteAncestors(root, currentPath).map((node, index) => ({
 
 let html: string | undefined
 let headings: MarkdownHeading[] = []
-let description = `Browse notes inside ${currentNode.page?.title || currentNode.title}.`
+let description = `浏览“${currentNode.page?.title || currentNode.title}”专题中的笔记与学习路径。`
 
 if (currentNode.page) {
   const markdown =
@@ -62,9 +62,10 @@ const title = currentNode.page?.title || currentNode.title
 <NotesView
   {title}
   {description}
+  language='zh'
   basePath='/notes'
   {currentPath}
-  rootTitle='NOTEBOOK'
+  rootTitle='知识地图'
   {flatTree}
   {breadcrumbs}
   childNodes={currentNode.children}

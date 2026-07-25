@@ -1,8 +1,6 @@
 ---
 import type { MarkdownHeading } from 'astro'
-
 import { getNotionPageContent } from '@/lib/notion'
-import NotesView from '@/components/pages/NotesView.astro'
 import {
   buildNoteTree,
   flattenNoteTree,
@@ -10,6 +8,8 @@ import {
   getNoteNode,
   getNotesCollectionEn
 } from '@/server'
+
+import NotesView from '@/components/pages/NotesView.astro'
 import { getDescriptionFromMarkdown, renderNotionMarkdown } from '@/utils/notion-markdown'
 
 export const prerender = true
@@ -62,6 +62,7 @@ const title = currentNode.page?.title || currentNode.title
 <NotesView
   {title}
   {description}
+  language='en'
   basePath='/en/notes'
   {currentPath}
   rootTitle='NOTEBOOK'
