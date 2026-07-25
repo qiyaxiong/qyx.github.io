@@ -3,7 +3,9 @@ import type { MarkdownHeading } from 'astro'
 
 import ContentLayout from '@/layouts/ContentLayout.astro'
 import { TOC } from '@/components/pages'
+import Cs229BilingualReader from '@/components/pages/Cs229BilingualReader.astro'
 import { Icon } from '@/components/user'
+import { getCs229ReaderConfig } from '@/utils/cs229-reader'
 import type { FlatNoteTreeNode, NoteTreeNode } from '@/utils/server'
 
 interface BreadcrumbItem {
@@ -38,6 +40,7 @@ const {
   headings = [],
   html
 } = Astro.props
+const cs229ReaderConfig = getCs229ReaderConfig(currentPath)
 
 const copy =
   language === 'zh'
@@ -149,7 +152,14 @@ function countDescendants(node: NoteTreeNode): number {
     )
   }
 
-  {html && <Fragment set:html={html} />}
+  {
+    html &&
+      (cs229ReaderConfig ? (
+        <Cs229BilingualReader config={cs229ReaderConfig} {html} />
+      ) : (
+        <Fragment set:html={html} />
+      ))
+  }
 
   {
     !!childNodes.length && (

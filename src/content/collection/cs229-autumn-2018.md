@@ -26,7 +26,7 @@ courseModules:
     title: '监督学习与线性分类器'
     description: '从线性回归进入 Logistic Regression、GDA、Naive Bayes、GLM、SVM 和 Kernel，第一次走完“假设—目标—优化—实现”。'
     topics: ['Linear Regression', 'Logistic Regression', 'GDA', 'SVM', 'Kernels']
-    href: '/blog/cs229-problem-set-1-review'
+    href: '/notes/cs229/course/linear-regression'
     source: 'https://github.com/maxim5/cs229-2018-autumn/tree/main/problem-sets/PS1'
     status: 'ready'
   - phase: 'Lecture 8–9 · PS2'

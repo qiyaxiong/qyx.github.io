@@ -44,6 +44,7 @@
     "node-html-parser": "^7.0.2",
     "notion-to-md": "^3.1.9",
     "pagefind": "^1.4.0",
+    "pdfjs-dist": "^6.1.200",
     "rehype-external-links": "^3.0.0",
     "rehype-katex": "^7.0.1",
     "remark-gfm": "^4.0.1",
