@@ -396,6 +396,621 @@ ICA 和现代生成模型都会使用这个密度变换规则。
 - 区分参数估计与预测不确定性；
 - 评估概率输出时检查校准，而不只看准确率。
 
+## 联合分布、边缘分布与条件分布
+
+两个离散随机变量的联合分布是：
+
+$$
+p(x,y)
+$$
+
+对另一个变量求和得到边缘分布：
+
+$$
+p(x)
+=
+\sum_y p(x,y)
+$$
+
+条件分布定义为：
+
+$$
+p(y\mid x)
+=
+\frac{p(x,y)}{p(x)}
+$$
+
+因此联合分布可以分解为：
+
+$$
+p(x,y)
+=
+p(x)p(y\mid x)
+=
+p(y)p(x\mid y)
+$$
+
+对于连续变量，把求和换成积分。生成式分类器建模 $p(x\mid y)p(y)$，再用 Bayes 公式得到 $p(y\mid x)$。
+
+## 一个 Bayes 诊断例子
+
+某疾病患病率为 $1\%$。检测在患者中的阳性率为 $95\%$，在健康者中的假阳性率为 $5\%$。
+
+关心的是阳性后真正患病的概率：
+
+$$
+p(D\mid +)
+=
+\frac{
+p(+\mid D)p(D)
+}{
+p(+\mid D)p(D)
++
+p(+\mid \neg D)p(\neg D)
+}
+$$
+
+代入：
+
+$$
+p(D\mid +)
+=
+\frac{0.95\times0.01}
+{0.95\times0.01+0.05\times0.99}
+\approx0.161
+$$
+
+检测本身并不差，但由于先验患病率低，大多数阳性仍是假阳性。
+
+这个例子说明不能把 $p(+\mid D)$ 与 $p(D\mid +)$ 混淆，也说明类别基率会强烈影响后验概率。
+
+## 全期望公式
+
+若 $Y$ 是随机变量，$X$ 是条件变量：
+
+$$
+\mathbb E[Y]
+=
+\mathbb E_X
+\left[
+\mathbb E[Y\mid X]
+\right]
+$$
+
+可以理解为先在每个 $X$ 分组内求平均，再对各组平均。
+
+全方差公式为：
+
+$$
+\operatorname{Var}(Y)
+=
+\mathbb E_X
+\left[
+\operatorname{Var}(Y\mid X)
+\right]
++
+\operatorname{Var}_X
+\left(
+\mathbb E[Y\mid X]
+\right)
+$$
+
+总方差等于组内不确定性加组间均值差异。
+
+这两个公式在 EM、Gaussian 混合、强化学习回报分析和误差分解中都会出现。
+
+## 协方差矩阵
+
+对向量随机变量 $X\in\mathbb R^n$，均值为：
+
+$$
+\mu=\mathbb E[X]
+$$
+
+协方差矩阵为：
+
+$$
+\Sigma
+=
+\mathbb E
+\left[
+(X-\mu)(X-\mu)^\top
+\right]
+$$
+
+对角元素是每个变量的方差，非对角元素描述两个变量共同变化的方向。
+
+协方差矩阵必然半正定，因为对任意 $a$：
+
+$$
+a^\top\Sigma a
+=
+\operatorname{Var}(a^\top X)
+\ge0
+$$
+
+若 $\Sigma$ 奇异，说明至少有一个线性组合没有方差，变量之间存在确定的线性约束。
+
+相关系数是标准化后的协方差：
+
+$$
+\rho_{ij}
+=
+\frac{\Sigma_{ij}}
+{\sqrt{\Sigma_{ii}\Sigma_{jj}}}
+$$
+
+零协方差一般不代表独立；只有在某些特殊分布族中，例如联合 Gaussian，才可以推出独立。
+
+## 多元 Gaussian 的结构
+
+多元 Gaussian 密度为：
+
+$$
+p(x)
+=
+\frac{1}
+{(2\pi)^{n/2}|\Sigma|^{1/2}}
+\exp\left(
+-\frac12
+(x-\mu)^\top
+\Sigma^{-1}
+(x-\mu)
+\right)
+$$
+
+指数项中的二次型是 Mahalanobis 距离。协方差大的方向惩罚较小，协方差小的方向惩罚较大。
+
+$|\Sigma|$ 描述分布椭球体积。协方差接近奇异时，体积趋近零，密度计算和矩阵求逆都会不稳定。
+
+实现对数密度时应使用 Cholesky 分解和 `logdet`，不要直接计算行列式和逆矩阵。
+
+## MLE 的两个完整例子
+
+### Bernoulli 参数
+
+设 $y^{(i)}\in\{0,1\}$，$p(y=1)=\phi$。似然：
+
+$$
+L(\phi)
+=
+\prod_{i=1}^{m}
+\phi^{y^{(i)}}
+(1-\phi)^{1-y^{(i)}}
+$$
+
+对数似然求导并令零：
+
+$$
+\hat\phi
+=
+\frac1m\sum_{i=1}^{m}y^{(i)}
+$$
+
+即正样本比例。
+
+### Gaussian 均值
+
+设方差已知、样本独立：
+
+$$
+x^{(i)}\sim\mathcal N(\mu,\sigma^2)
+$$
+
+忽略与 $\mu$ 无关的项：
+
+$$
+\ell(\mu)
+=
+-\frac{1}{2\sigma^2}
+\sum_i(x^{(i)}-\mu)^2
+$$
+
+令导数为零：
+
+$$
+\hat\mu
+=
+\frac1m\sum_i x^{(i)}
+$$
+
+样本均值既是直觉上的中心，也是 Gaussian 均值的最大似然估计。
+
+## MAP 与先验
+
+最大后验估计：
+
+$$
+\theta_{\text{MAP}}
+=
+\arg\max_\theta
+p(\theta\mid\mathcal D)
+$$
+
+由 Bayes 公式：
+
+$$
+p(\theta\mid\mathcal D)
+\propto
+p(\mathcal D\mid\theta)p(\theta)
+$$
+
+取负对数：
+
+$$
+\theta_{\text{MAP}}
+=
+\arg\min_\theta
+\left[
+-\log p(\mathcal D\mid\theta)
+-\log p(\theta)
+\right]
+$$
+
+若参数先验是零均值 Gaussian，$-\log p(\theta)$ 对应 $L_2$ 正则；若是 Laplace 先验，对应 $L_1$ 正则。
+
+因此正则化既可以看成控制复杂度，也可以看成加入参数先验。
+
+## 数值概率计算
+
+许多小概率相乘会下溢为零，应在对数空间计算：
+
+$$
+\log\prod_i p_i
+=
+\sum_i\log p_i
+$$
+
+计算：
+
+$$
+\log\sum_j e^{z_j}
+$$
+
+时使用 LogSumExp：
+
+$$
+\operatorname{LSE}(z)
+=
+a+\log\sum_j e^{z_j-a},
+\qquad
+a=\max_j z_j
+$$
+
+减去最大值避免指数溢出。这一技巧会在 Softmax、Naive Bayes、GMM 和 HMM 中反复使用。
+
+## 练习与答案思路
+
+### 练习 1：条件独立
+
+若 $X\perp Y\mid Z$，联合条件分布如何分解？
+
+答案：
+
+$$
+p(x,y\mid z)=p(x\mid z)p(y\mid z)
+$$
+
+### 练习 2：期望线性
+
+$X$ 与 $Y$ 不独立时，是否仍有 $\mathbb E[X+Y]=\mathbb E[X]+\mathbb E[Y]$？
+
+答案：仍然成立。期望的线性不要求独立；方差相加才需要协方差为零。
+
+### 练习 3：方差缩放
+
+若 $Z=aX+b$，写出期望与方差。
+
+答案：
+
+$$
+\mathbb E[Z]=a\mathbb E[X]+b,
+\qquad
+\operatorname{Var}(Z)=a^2\operatorname{Var}(X)
+$$
+
+### 练习 4：MLE 与 MAP
+
+数据很少时，为什么 MAP 往往比 MLE 稳定？
+
+答案思路：先验提供额外约束，防止参数被少量偶然样本推到极端值；数据增加后似然逐渐主导。
+
+## 条件 Gaussian
+
+将联合 Gaussian 分块：
+
+$$
+\begin{bmatrix}
+x_A\\x_B
+\end{bmatrix}
+\sim
+\mathcal N
+\left(
+\begin{bmatrix}
+\mu_A\\\mu_B
+\end{bmatrix},
+\begin{bmatrix}
+\Sigma_{AA}&\Sigma_{AB}\\
+\Sigma_{BA}&\Sigma_{BB}
+\end{bmatrix}
+\right)
+$$
+
+条件分布：
+
+$$
+x_A\mid x_B
+\sim
+\mathcal N(\mu_{A\mid B},\Sigma_{A\mid B})
+$$
+
+条件均值：
+
+$$
+\mu_{A\mid B}
+=
+\mu_A
++
+\Sigma_{AB}
+\Sigma_{BB}^{-1}
+(x_B-\mu_B)
+$$
+
+条件协方差：
+
+$$
+\Sigma_{A\mid B}
+=
+\Sigma_{AA}
+-
+\Sigma_{AB}
+\Sigma_{BB}^{-1}
+\Sigma_{BA}
+$$
+
+观察 $x_B$ 后，$x_A$ 的均值按相关关系调整，不确定性通常下降。
+
+这个公式会在 Factor Analysis 的隐因子后验、Gaussian Process 和 Kalman Filter 中反复出现。
+
+## Gaussian 的线性变换
+
+若：
+
+$$
+x\sim\mathcal N(\mu,\Sigma)
+$$
+
+且：
+
+$$
+y=Ax+b
+$$
+
+则：
+
+$$
+y
+\sim
+\mathcal N
+\left(
+A\mu+b,
+A\Sigma A^\top
+\right)
+$$
+
+均值通过线性函数变换，协方差左右分别乘 $A$ 与 $A^\top$。
+
+若再加独立 Gaussian 噪声：
+
+$$
+\epsilon\sim\mathcal N(0,Q)
+$$
+
+则：
+
+$$
+y=Ax+b+\epsilon
+$$
+
+有：
+
+$$
+\operatorname{Cov}(y)
+=
+A\Sigma A^\top+Q
+$$
+
+这正是 Kalman Filter 预测协方差公式。
+
+## 协方差与独立
+
+若 $X,Y$ 独立：
+
+$$
+\mathbb E[XY]
+=
+\mathbb E[X]\mathbb E[Y]
+$$
+
+所以：
+
+$$
+\operatorname{Cov}(X,Y)=0
+$$
+
+反方向一般不成立。
+
+例如令 $X$ 关于零对称，$Y=X^2$。则：
+
+$$
+\operatorname{Cov}(X,Y)
+=
+\mathbb E[X^3]
+-
+\mathbb E[X]\mathbb E[X^2]
+=0
+$$
+
+但 $Y$ 完全由 $X$ 决定，显然不独立。
+
+联合 Gaussian 是重要例外：零协方差能够推出独立。
+
+## 变量变换与 Jacobian
+
+若一维单调变换：
+
+$$
+y=g(x)
+$$
+
+则：
+
+$$
+p_Y(y)
+=
+p_X(g^{-1}(y))
+\left|
+\frac{d}{dy}g^{-1}(y)
+\right|
+$$
+
+多维可逆变换 $y=g(x)$：
+
+$$
+p_Y(y)
+=
+p_X(g^{-1}(y))
+\left|
+\det
+\frac{\partial g^{-1}(y)}
+{\partial y}
+\right|
+$$
+
+Jacobian 行列式补偿空间体积的拉伸或压缩。
+
+ICA 的似然中出现 $|\det W|$，Normalizing Flow 也建立在同一公式上。
+
+## Beta-Bernoulli 共轭更新
+
+对 Bernoulli 参数 $\phi$ 使用 Beta 先验：
+
+$$
+\phi
+\sim
+\operatorname{Beta}(\alpha,\beta)
+$$
+
+观察 $s$ 次成功、$f$ 次失败后，后验：
+
+$$
+\phi\mid\mathcal D
+\sim
+\operatorname{Beta}
+(\alpha+s,\beta+f)
+$$
+
+先验参数可以理解为伪计数。
+
+后验均值：
+
+$$
+\mathbb E[\phi\mid\mathcal D]
+=
+\frac{\alpha+s}
+{\alpha+\beta+s+f}
+$$
+
+数据少时受先验影响大，数据多时由观察比例主导。
+
+这为拉普拉斯平滑提供概率解释。
+
+## 期望、概率与采样估计
+
+若：
+
+$$
+X_1,\ldots,X_N
+\overset{iid}{\sim}p(x)
+$$
+
+则 Monte Carlo 估计：
+
+$$
+\mathbb E_p[f(X)]
+\approx
+\frac1N
+\sum_{i=1}^{N}
+f(X_i)
+$$
+
+大数定律保证样本均值收敛到期望。
+
+中心极限定理说明在适当条件下：
+
+$$
+\sqrt N
+\left(
+\bar f-\mathbb E[f]
+\right)
+$$
+
+近似 Gaussian，标准误随 $1/\sqrt N$ 下降。
+
+要把 Monte Carlo 误差减半，通常需要约四倍独立样本。
+
+强化学习 rollout、模拟积分和 Bootstrap 都依赖采样估计思想。
+
+## 概率模型调试
+
+检查分布是否归一化：
+
+$$
+\sum_y p(y)=1
+$$
+
+或：
+
+$$
+\int p(x)\,dx=1
+$$
+
+检查参数范围，例如概率在 $[0,1]$、方差为正、协方差半正定。
+
+在合成数据上验证 MLE 是否能随样本增加恢复真实参数。
+
+对数空间实现与直接实现应在小数值范围内一致。
+
+检查采样统计量是否接近理论均值和方差。
+
+## 补充练习
+
+### 练习 5：线性 Gaussian
+
+若 $x\sim\mathcal N(0,I)$，$y=Ax$，$y$ 的协方差是什么？
+
+答案：
+
+$$
+AA^\top
+$$
+
+### 练习 6：共轭更新
+
+先验 $\operatorname{Beta}(2,2)$，观察 8 次成功、2 次失败，后验是什么？
+
+答案：
+
+$$
+\operatorname{Beta}(10,4)
+$$
+
+### 练习 7：Monte Carlo
+
+希望标准误缩小到原来的三分之一，样本量约需多少倍？
+
+答案：九倍，因为标准误与 $1/\sqrt N$ 成正比。
+
 ## 本节检查
 
 - 能从条件概率推出 Bayes 公式；
