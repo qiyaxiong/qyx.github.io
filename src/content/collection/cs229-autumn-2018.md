@@ -1,13 +1,13 @@
 ---
 title: 'CS229 Autumn 2018 移动学习站'
 title_en: 'CS229 Autumn 2018 Learning Series'
-description: '把 618 个仓库文件整理成六个课程模块：手机上先读中文导读，再进入讲义、Notebook、作业与项目案例。'
+description: '按 B 站 28 个分集逐课整理：每节视频对应独立中文讲解、课堂讲义、Slides、Notebook 与作业。'
 description_en: 'A practical system that connects CS229 lectures, derivations, assignments, notes, and reproducible code.'
 repository: 'https://github.com/maxim5/cs229-2018-autumn'
-courseIntro: '这个页面不是仓库目录的复制品。每个模块只保留四样东西：你要理解的问题、适合手机阅读的中文解释、对应作业，以及需要时才打开的原始 PDF 或 Notebook。第一次学习按顺序走；复习时直接进入某个主题。'
+courseIntro: '课程主线严格对应 B 站 CS229 Autumn 2018 的 28 个分集：20 个具名 Lecture、1 个按日期保留的原始课堂录像和 7 个 Discussion Section。每节都有独立页面、对应讲义与作业；第一次学习按 P1–P28 顺序走。'
 courseStats:
-  - value: '20'
-    label: '课程 Lectures'
+  - value: '28'
+    label: '逐课视频页面'
   - value: 'PS0–PS4'
     label: 'Problem Sets'
   - value: '13'

@@ -10,7 +10,7 @@ language: zh
 
 ## 建议阅读顺序
 
-1. [双语完整课程（19 章）](/notes/cs229/course)：从线性回归走到强化学习与控制，每章都能在中文、英文原版与中英对照模式之间切换。
+1. [逐课完整课程（B 站 28 个分集）](/notes/cs229/course)：每个分集对应独立页面、课堂讲义、Slides、作业和中文完整讲解。
 2. [公式速查表](/notes/cs229/formula-sheet)：统一符号、维度与常用微分结果。
 3. [专题：Logistic Regression](/notes/cs229/logistic-regression)：从概率假设走到对数似然和梯度。
 4. [专题：GDA 与 Logistic Regression](/notes/cs229/gda-and-logistic-regression)：比较生成式与判别式建模。
