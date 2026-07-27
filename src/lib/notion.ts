@@ -106,7 +106,7 @@ function loadEnvFile(): Record<string, string> {
     const value = trimmed
       .slice(separatorIndex + 1)
       .trim()
-      .replace(/^['"]|['"]$/g, '')
+      .replace(/^['"]+|['"]+$/g, '')
 
     if (key) {
       acc[key] = value

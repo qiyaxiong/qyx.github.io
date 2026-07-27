@@ -1,6 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-
 import { Client } from '@notionhq/client'
 
 import minimist from './libs/minimist.cjs'
@@ -52,7 +51,7 @@ function loadEnvFile() {
       const value = trimmed
         .slice(separatorIndex + 1)
         .trim()
-        .replace(/^['"]|['"]$/g, '')
+        .replace(/^['"]+|['"]+$/g, '')
 
       if (key) acc[key] = value
       return acc
