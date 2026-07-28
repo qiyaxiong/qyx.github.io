@@ -139,7 +139,7 @@ const base = (body, subject, options = {}) => `<?xml version="1.0" encoding="UTF
   </defs>
   <rect width="100%" height="100%" fill="#FFFFFF"/>
   ${body}
-  ${text(800, 978, `${subject}@五道口纳什`, { size: 17, weight: 450, fill: '#98A1AF' })}
+  ${text(800, 978, subject, { size: 17, weight: 450, fill: '#98A1AF' })}
 </svg>`
 
 function piFourLayers() {
