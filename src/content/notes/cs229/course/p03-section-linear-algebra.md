@@ -54,6 +54,8 @@ $$
 AB\in\mathbb R^{m\times p}
 $$
 
+![矩阵乘法的收缩轴：左矩阵的一行与右矩阵的一列进行内积](/images/notes/cs229/tikz/p03-matrix-multiplication.png)
+
 矩阵乘法通常不交换：
 
 $$
@@ -290,6 +292,8 @@ P^\top=P,
 P^2=P
 $$
 
+![正交投影的分析与合成：先求子空间坐标，再用基向量重建投影](/images/notes/cs229/tikz/p03-orthogonal-projection.png)
+
 最小二乘可以理解为把目标向量 $y$ 投影到 $X$ 的列空间。
 
 ## 梯度与 Hessian
@@ -518,6 +522,8 @@ $V$ 的列给出输入空间方向，$U$ 的列给出输出空间方向，奇异
 $$
 A^+=V\Sigma^+U^\top
 $$
+
+![SVD 与伪逆：旋转、按奇异方向缩放，以及在可辨识方向上取倒数](/images/notes/cs229/tikz/p03-svd-pseudoinverse.png)
 
 $\Sigma^+$ 把非零奇异值取倒数，并对零奇异值保留零。实际数值库还会设置阈值，避免对极小奇异值放大噪声。
 

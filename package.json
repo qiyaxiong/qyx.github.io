@@ -11,6 +11,7 @@
     "build:cloudflare": "astro check && astro build",
     "build:github": "astro check && astro build",
     "preview": "astro preview",
+    "viz:cs229": "node src/scripts/generate-cs229-tikz-diagrams.mjs",
     "sync": "astro sync",
     "check": "astro check",
     "astro": "astro",

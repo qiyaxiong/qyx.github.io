@@ -93,6 +93,8 @@ $$
 z^\top Kz\ge0
 $$
 
+![Kernel Gram 矩阵：隐式特征内积形成对称半正定的样本相似度矩阵](/images/notes/cs229/tikz/p10-kernel-gram.png)
+
 Mercer 条件为核函数对应某个特征空间内积提供判据。
 
 ## 核的组合
@@ -186,6 +188,8 @@ $$
 f(x)
 =\sum_i\alpha_i y^{(i)}K(x^{(i)},x)+b
 $$
+
+![Kernel SVM 预测：由对偶系数筛选支持向量，再计算核值并加权归约](/images/notes/cs229/tikz/p10-kernel-svm-prediction.png)
 
 只需保存非零 $\alpha_i$ 对应的支持向量。
 

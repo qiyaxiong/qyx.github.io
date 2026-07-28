@@ -1,0 +1,111 @@
+
+\documentclass[tikz,border=10pt]{standalone}
+\usepackage[UTF8,fontset=fandol]{ctex}
+\usepackage{amsmath,amssymb}
+\usetikzlibrary{arrows.meta,backgrounds,calc,fit,positioning}
+\definecolor{roleTeal}{HTML}{4F8FA5}
+\definecolor{roleOrange}{HTML}{EE995B}
+\definecolor{roleCoral}{HTML}{C95B5B}
+\definecolor{roleViolet}{HTML}{8A74B5}
+\definecolor{roleGray}{HTML}{85898F}
+\tikzset{
+  flow/.style={-{Latex[length=2.4mm,width=1.8mm]}, line width=.7pt, draw=black!58},
+  op/.style={font=\Large, text=black!70},
+  stage/.style={font=\small\bfseries, text=black!55},
+  symbol/.style={font=\small, text=black!84, align=center},
+  dimlabel/.style={font=\scriptsize, text=black!52, align=center},
+  note/.style={rounded corners=2pt, fill=black!2, draw=black!14, line width=.5pt,
+    inner xsep=10pt, inner ysep=8pt, text width=27.2cm, align=left, font=\small},
+  tag/.style={rounded corners=2pt, fill=black!4, draw=black!18, inner sep=4pt,
+    font=\scriptsize, text=black!65}
+}
+\newcommand{\cellsize}{0.46}
+\newcommand{\DenseBlock}[8]{%
+  \begin{scope}[shift={(#2,#3)}]
+    \pgfmathtruncatemacro{\R}{#4}
+    \pgfmathtruncatemacro{\C}{#5}
+    \foreach \r in {1,...,\R}{
+      \foreach \c in {1,...,\C}{
+        \pgfmathtruncatemacro{\tone}{mod(7*\r+11*\c+3*\r*\c,3)}
+        \ifcase\tone\def\mix{38}\or\def\mix{58}\or\def\mix{76}\fi
+        \fill[rounded corners=.7pt,#6!\mix]
+          ({(\c-1)*\cellsize},{-(\r-1)*\cellsize})
+          rectangle ++({.39},{-.39});
+      }
+    }
+    \draw[black!55,line width=.65pt]
+      (-.11,.09) -- (-.19,.09) -- (-.19,{-\R*\cellsize+.07}) -- (-.11,{-\R*\cellsize+.07});
+    \draw[black!55,line width=.65pt]
+      ({\C*\cellsize-.07},.09) -- ({\C*\cellsize+.01},.09)
+      -- ({\C*\cellsize+.01},{-\R*\cellsize+.07}) -- ({\C*\cellsize-.07},{-\R*\cellsize+.07});
+    \coordinate (#1-west) at (-.19,{-\R*\cellsize/2+.035});
+    \coordinate (#1-east) at ({\C*\cellsize+.01},{-\R*\cellsize/2+.035});
+    \coordinate (#1-center) at ({\C*\cellsize/2-.035},{-\R*\cellsize/2+.035});
+    \node[symbol] (#1-label) at ({\C*\cellsize/2-.035},{-\R*\cellsize-.28}) {#7};
+    \node[dimlabel] at ({\C*\cellsize/2-.035},{-\R*\cellsize-.65}) {#8};
+  \end{scope}
+}
+\newcommand{\DiagBlock}[8]{%
+  \begin{scope}[shift={(#2,#3)}]
+    \pgfmathtruncatemacro{\R}{#4}
+    \pgfmathtruncatemacro{\C}{#5}
+    \foreach \r in {1,...,\R}{
+      \foreach \c in {1,...,\C}{
+        \ifnum\r=\c
+          \fill[rounded corners=.7pt,#6!68]
+            ({(\c-1)*\cellsize},{-(\r-1)*\cellsize}) rectangle ++({.39},{-.39});
+        \else
+          \draw[rounded corners=.7pt,black!10,line width=.35pt]
+            ({(\c-1)*\cellsize},{-(\r-1)*\cellsize}) rectangle ++({.39},{-.39});
+        \fi
+      }
+    }
+    \draw[black!55,line width=.65pt]
+      (-.11,.09) -- (-.19,.09) -- (-.19,{-\R*\cellsize+.07}) -- (-.11,{-\R*\cellsize+.07});
+    \draw[black!55,line width=.65pt]
+      ({\C*\cellsize-.07},.09) -- ({\C*\cellsize+.01},.09)
+      -- ({\C*\cellsize+.01},{-\R*\cellsize+.07}) -- ({\C*\cellsize-.07},{-\R*\cellsize+.07});
+    \coordinate (#1-west) at (-.19,{-\R*\cellsize/2+.035});
+    \coordinate (#1-east) at ({\C*\cellsize+.01},{-\R*\cellsize/2+.035});
+    \coordinate (#1-center) at ({\C*\cellsize/2-.035},{-\R*\cellsize/2+.035});
+    \node[symbol] at ({\C*\cellsize/2-.035},{-\R*\cellsize-.28}) {#7};
+    \node[dimlabel] at ({\C*\cellsize/2-.035},{-\R*\cellsize-.65}) {#8};
+  \end{scope}
+}
+\newcommand{\MeaningBox}[3]{%
+  \node[note,anchor=north west] (meaning) at (-13.6,-6.0) {%
+    \begin{minipage}{26.5cm}
+      \textbf{轴}\quad #1\\[5pt]
+      \textbf{对象}\quad #2\\[5pt]
+      \textbf{机制}\quad #3
+    \end{minipage}};
+}
+\newcommand{\Identity}[1]{%
+  \node[font=\scriptsize,text=black!42,anchor=north] at (0,-8.15) {#1};
+}
+
+\begin{document}
+\begin{tikzpicture}[x=1cm,y=1cm,background rectangle/.style={fill=white},show background rectangle]
+
+\node[font=\large] at (0,0) {$A=U\Sigma V^\top,\qquad A^+=V\Sigma^+U^\top$};
+\node[stage] at (0,-.75) {SVD 把线性变换拆成：旋转坐标 $\rightarrow$ 按方向缩放 $\rightarrow$ 旋转到输出空间};
+\DenseBlock{Vt}{-11.6}{-1.45}{3}{3}{roleTeal}{$V^\top$}{$n\times n$}
+\DiagBlock{S}{-8.45}{-1.45}{4}{3}{roleOrange}{$\Sigma$}{$m\times n$}
+\DenseBlock{U}{-5.3}{-1.45}{4}{4}{roleViolet}{$U$}{$m\times m$}
+\node[op] at (-9.25,-2.2) {$\rightarrow$};
+\node[op] at (-6.1,-2.2) {$\rightarrow$};
+\node[symbol] at (-7.2,-4.65) {正向：$x\mapsto V^\top x\mapsto\Sigma V^\top x\mapsto Ax$};
+\node[op] at (0,-2.2) {$\Longleftrightarrow$};
+\DenseBlock{Ut}{2.0}{-1.45}{4}{4}{roleViolet}{$U^\top$}{$m\times m$}
+\DiagBlock{Sp}{5.75}{-1.45}{3}{4}{roleOrange}{$\Sigma^+$}{$n\times m$}
+\DenseBlock{V}{8.9}{-1.45}{3}{3}{roleTeal}{$V$}{$n\times n$}
+\node[op] at (4.9,-2.2) {$\rightarrow$};
+\node[op] at (8.05,-2.2) {$\rightarrow$};
+\node[symbol] at (6.9,-4.65) {逆向：只对可辨识方向取 $1/\sigma_i$};
+\MeaningBox{$m,n$ 是输出/输入空间维度；对角线方向代表奇异方向，示意单元格表达结构而非字面维数。}
+{$U,V$ 是正交基变换，$\Sigma$ 的非零对角元 $\sigma_i$ 是缩放强度，$\Sigma^+$ 对其取倒数。}
+{零奇异值保持为零；很小的 $\sigma_i$ 会放大噪声，因此数值库用阈值截断，得到稳定的最小二乘解。}
+\Identity{SVD 与伪逆的方向分解}
+
+\end{tikzpicture}
+\end{document}

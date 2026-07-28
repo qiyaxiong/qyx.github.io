@@ -181,6 +181,8 @@ $$
 \theta-\alpha X^\top(X\theta-y)
 $$
 
+![线性回归向量化梯度：从设计矩阵、参数、预测和残差到梯度的形状传播](/images/notes/cs229/tikz/p02-vectorized-gradient.png)
+
 若目标除以 $m$，梯度也要除以 $m$。
 
 ## 随机与小批量梯度下降
@@ -255,6 +257,8 @@ $$
 $$
 
 这就是正规方程。
+
+![最小二乘正规方程：样本轴消去后形成参数空间中的线性系统](/images/notes/cs229/tikz/p02-normal-equation.png)
 
 实际实现不要显式计算逆矩阵。应使用线性方程求解、QR、SVD 或伪逆：
 
@@ -394,6 +398,8 @@ X^\top X\hat\theta=X^\top y
 $$
 
 这就是正规方程。它不仅是“令梯度等于零”的代数结果，也表达了投影误差与所有特征方向正交。
+
+![最小二乘的正交投影：预测位于列空间，残差与列空间正交](/images/notes/cs229/tikz/p02-least-squares-projection.png)
 
 如果特征列线性相关，$X^\top X$ 不可逆。此时预测向量可能仍然唯一，但产生该预测的参数不一定唯一。
 

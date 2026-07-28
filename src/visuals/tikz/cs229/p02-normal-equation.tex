@@ -1,0 +1,114 @@
+
+\documentclass[tikz,border=10pt]{standalone}
+\usepackage[UTF8,fontset=fandol]{ctex}
+\usepackage{amsmath,amssymb}
+\usetikzlibrary{arrows.meta,backgrounds,calc,fit,positioning}
+\definecolor{roleTeal}{HTML}{4F8FA5}
+\definecolor{roleOrange}{HTML}{EE995B}
+\definecolor{roleCoral}{HTML}{C95B5B}
+\definecolor{roleViolet}{HTML}{8A74B5}
+\definecolor{roleGray}{HTML}{85898F}
+\tikzset{
+  flow/.style={-{Latex[length=2.4mm,width=1.8mm]}, line width=.7pt, draw=black!58},
+  op/.style={font=\Large, text=black!70},
+  stage/.style={font=\small\bfseries, text=black!55},
+  symbol/.style={font=\small, text=black!84, align=center},
+  dimlabel/.style={font=\scriptsize, text=black!52, align=center},
+  note/.style={rounded corners=2pt, fill=black!2, draw=black!14, line width=.5pt,
+    inner xsep=10pt, inner ysep=8pt, text width=27.2cm, align=left, font=\small},
+  tag/.style={rounded corners=2pt, fill=black!4, draw=black!18, inner sep=4pt,
+    font=\scriptsize, text=black!65}
+}
+\newcommand{\cellsize}{0.46}
+\newcommand{\DenseBlock}[8]{%
+  \begin{scope}[shift={(#2,#3)}]
+    \pgfmathtruncatemacro{\R}{#4}
+    \pgfmathtruncatemacro{\C}{#5}
+    \foreach \r in {1,...,\R}{
+      \foreach \c in {1,...,\C}{
+        \pgfmathtruncatemacro{\tone}{mod(7*\r+11*\c+3*\r*\c,3)}
+        \ifcase\tone\def\mix{38}\or\def\mix{58}\or\def\mix{76}\fi
+        \fill[rounded corners=.7pt,#6!\mix]
+          ({(\c-1)*\cellsize},{-(\r-1)*\cellsize})
+          rectangle ++({.39},{-.39});
+      }
+    }
+    \draw[black!55,line width=.65pt]
+      (-.11,.09) -- (-.19,.09) -- (-.19,{-\R*\cellsize+.07}) -- (-.11,{-\R*\cellsize+.07});
+    \draw[black!55,line width=.65pt]
+      ({\C*\cellsize-.07},.09) -- ({\C*\cellsize+.01},.09)
+      -- ({\C*\cellsize+.01},{-\R*\cellsize+.07}) -- ({\C*\cellsize-.07},{-\R*\cellsize+.07});
+    \coordinate (#1-west) at (-.19,{-\R*\cellsize/2+.035});
+    \coordinate (#1-east) at ({\C*\cellsize+.01},{-\R*\cellsize/2+.035});
+    \coordinate (#1-center) at ({\C*\cellsize/2-.035},{-\R*\cellsize/2+.035});
+    \node[symbol] (#1-label) at ({\C*\cellsize/2-.035},{-\R*\cellsize-.28}) {#7};
+    \node[dimlabel] at ({\C*\cellsize/2-.035},{-\R*\cellsize-.65}) {#8};
+  \end{scope}
+}
+\newcommand{\DiagBlock}[8]{%
+  \begin{scope}[shift={(#2,#3)}]
+    \pgfmathtruncatemacro{\R}{#4}
+    \pgfmathtruncatemacro{\C}{#5}
+    \foreach \r in {1,...,\R}{
+      \foreach \c in {1,...,\C}{
+        \ifnum\r=\c
+          \fill[rounded corners=.7pt,#6!68]
+            ({(\c-1)*\cellsize},{-(\r-1)*\cellsize}) rectangle ++({.39},{-.39});
+        \else
+          \draw[rounded corners=.7pt,black!10,line width=.35pt]
+            ({(\c-1)*\cellsize},{-(\r-1)*\cellsize}) rectangle ++({.39},{-.39});
+        \fi
+      }
+    }
+    \draw[black!55,line width=.65pt]
+      (-.11,.09) -- (-.19,.09) -- (-.19,{-\R*\cellsize+.07}) -- (-.11,{-\R*\cellsize+.07});
+    \draw[black!55,line width=.65pt]
+      ({\C*\cellsize-.07},.09) -- ({\C*\cellsize+.01},.09)
+      -- ({\C*\cellsize+.01},{-\R*\cellsize+.07}) -- ({\C*\cellsize-.07},{-\R*\cellsize+.07});
+    \coordinate (#1-west) at (-.19,{-\R*\cellsize/2+.035});
+    \coordinate (#1-east) at ({\C*\cellsize+.01},{-\R*\cellsize/2+.035});
+    \coordinate (#1-center) at ({\C*\cellsize/2-.035},{-\R*\cellsize/2+.035});
+    \node[symbol] at ({\C*\cellsize/2-.035},{-\R*\cellsize-.28}) {#7};
+    \node[dimlabel] at ({\C*\cellsize/2-.035},{-\R*\cellsize-.65}) {#8};
+  \end{scope}
+}
+\newcommand{\MeaningBox}[3]{%
+  \node[note,anchor=north west] (meaning) at (-13.6,-6.0) {%
+    \begin{minipage}{26.5cm}
+      \textbf{轴}\quad #1\\[5pt]
+      \textbf{对象}\quad #2\\[5pt]
+      \textbf{机制}\quad #3
+    \end{minipage}};
+}
+\newcommand{\Identity}[1]{%
+  \node[font=\scriptsize,text=black!42,anchor=north] at (0,-8.15) {#1};
+}
+
+\begin{document}
+\begin{tikzpicture}[x=1cm,y=1cm,background rectangle/.style={fill=white},show background rectangle]
+
+\node[font=\large] at (0,0) {$X^\top X\hat\theta=X^\top y,\qquad
+\hat\theta=(X^\top X)^{-1}X^\top y$};
+\node[stage] at (0,-.75) {令梯度为零后，样本轴被消去，只留下参数空间中的线性系统};
+\DenseBlock{Xt}{-11.8}{-1.4}{3}{5}{roleTeal}{$X^\top$}{$n\times m$}
+\DenseBlock{X}{-8.1}{-1.4}{5}{3}{roleTeal}{$X$}{$m\times n$}
+\node[op] at (-9.15,-2.1) {$\times$};
+\node[op] at (-5.95,-2.1) {$=$};
+\DenseBlock{gram}{-4.75}{-1.4}{3}{3}{roleViolet}{$X^\top X$}{$n\times n$}
+\DenseBlock{theta}{-1.6}{-1.4}{3}{1}{roleOrange}{$\hat\theta$}{$n\times1$}
+\node[op] at (-2.55,-2.1) {$\times$};
+\node[op] at (-.1,-2.1) {$=$};
+\DenseBlock{Xtr}{1.1}{-1.4}{3}{5}{roleTeal}{$X^\top$}{$n\times m$}
+\DenseBlock{y}{4.85}{-1.4}{5}{1}{roleCoral}{$y$}{$m\times1$}
+\node[op] at (3.8,-2.1) {$\times$};
+\node[op] at (6.35,-2.1) {$=$};
+\DenseBlock{rhs}{7.6}{-1.4}{3}{1}{roleCoral}{$X^\top y$}{$n\times1$}
+\node[tag] at (-9.4,-4.25) {沿 $m$ 聚合};
+\node[tag] at (3.1,-4.25) {沿 $m$ 聚合};
+\MeaningBox{$X^\top X$ 是 $n\times n$ 方阵；左右两端最终都落在参数空间 $\mathbb R^n$。}
+{$X^\top X$ 是特征 Gram 矩阵，$X^\top y$ 是特征与目标的相关量，$\hat\theta$ 是线性系统的解。}
+{正规方程不是必须显式求逆；实现中优先用 QR、SVD 或线性求解器，避免放大条件数与数值误差。}
+\Identity{最小二乘的正规方程}
+
+\end{tikzpicture}
+\end{document}

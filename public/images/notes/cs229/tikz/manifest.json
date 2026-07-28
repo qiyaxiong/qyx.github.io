@@ -1,0 +1,54 @@
+{
+  "generator": "src/scripts/generate-cs229-tikz-diagrams.mjs",
+  "renderer": "Tectonic + TikZ",
+  "diagrams": [
+    {
+      "id": "p02-vectorized-gradient",
+      "source": "src/visuals/tikz/cs229/p02-vectorized-gradient.tex",
+      "pdf": "public/images/notes/cs229/tikz/p02-vectorized-gradient.pdf",
+      "png": "public/images/notes/cs229/tikz/p02-vectorized-gradient.png"
+    },
+    {
+      "id": "p02-normal-equation",
+      "source": "src/visuals/tikz/cs229/p02-normal-equation.tex",
+      "pdf": "public/images/notes/cs229/tikz/p02-normal-equation.pdf",
+      "png": "public/images/notes/cs229/tikz/p02-normal-equation.png"
+    },
+    {
+      "id": "p02-least-squares-projection",
+      "source": "src/visuals/tikz/cs229/p02-least-squares-projection.tex",
+      "pdf": "public/images/notes/cs229/tikz/p02-least-squares-projection.pdf",
+      "png": "public/images/notes/cs229/tikz/p02-least-squares-projection.png"
+    },
+    {
+      "id": "p03-matrix-multiplication",
+      "source": "src/visuals/tikz/cs229/p03-matrix-multiplication.tex",
+      "pdf": "public/images/notes/cs229/tikz/p03-matrix-multiplication.pdf",
+      "png": "public/images/notes/cs229/tikz/p03-matrix-multiplication.png"
+    },
+    {
+      "id": "p03-orthogonal-projection",
+      "source": "src/visuals/tikz/cs229/p03-orthogonal-projection.tex",
+      "pdf": "public/images/notes/cs229/tikz/p03-orthogonal-projection.pdf",
+      "png": "public/images/notes/cs229/tikz/p03-orthogonal-projection.png"
+    },
+    {
+      "id": "p03-svd-pseudoinverse",
+      "source": "src/visuals/tikz/cs229/p03-svd-pseudoinverse.tex",
+      "pdf": "public/images/notes/cs229/tikz/p03-svd-pseudoinverse.pdf",
+      "png": "public/images/notes/cs229/tikz/p03-svd-pseudoinverse.png"
+    },
+    {
+      "id": "p10-kernel-gram",
+      "source": "src/visuals/tikz/cs229/p10-kernel-gram.tex",
+      "pdf": "public/images/notes/cs229/tikz/p10-kernel-gram.pdf",
+      "png": "public/images/notes/cs229/tikz/p10-kernel-gram.png"
+    },
+    {
+      "id": "p10-kernel-svm-prediction",
+      "source": "src/visuals/tikz/cs229/p10-kernel-svm-prediction.tex",
+      "pdf": "public/images/notes/cs229/tikz/p10-kernel-svm-prediction.pdf",
+      "png": "public/images/notes/cs229/tikz/p10-kernel-svm-prediction.png"
+    }
+  ]
+}

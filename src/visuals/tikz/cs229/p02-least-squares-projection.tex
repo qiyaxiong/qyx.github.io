@@ -1,0 +1,111 @@
+
+\documentclass[tikz,border=10pt]{standalone}
+\usepackage[UTF8,fontset=fandol]{ctex}
+\usepackage{amsmath,amssymb}
+\usetikzlibrary{arrows.meta,backgrounds,calc,fit,positioning}
+\definecolor{roleTeal}{HTML}{4F8FA5}
+\definecolor{roleOrange}{HTML}{EE995B}
+\definecolor{roleCoral}{HTML}{C95B5B}
+\definecolor{roleViolet}{HTML}{8A74B5}
+\definecolor{roleGray}{HTML}{85898F}
+\tikzset{
+  flow/.style={-{Latex[length=2.4mm,width=1.8mm]}, line width=.7pt, draw=black!58},
+  op/.style={font=\Large, text=black!70},
+  stage/.style={font=\small\bfseries, text=black!55},
+  symbol/.style={font=\small, text=black!84, align=center},
+  dimlabel/.style={font=\scriptsize, text=black!52, align=center},
+  note/.style={rounded corners=2pt, fill=black!2, draw=black!14, line width=.5pt,
+    inner xsep=10pt, inner ysep=8pt, text width=27.2cm, align=left, font=\small},
+  tag/.style={rounded corners=2pt, fill=black!4, draw=black!18, inner sep=4pt,
+    font=\scriptsize, text=black!65}
+}
+\newcommand{\cellsize}{0.46}
+\newcommand{\DenseBlock}[8]{%
+  \begin{scope}[shift={(#2,#3)}]
+    \pgfmathtruncatemacro{\R}{#4}
+    \pgfmathtruncatemacro{\C}{#5}
+    \foreach \r in {1,...,\R}{
+      \foreach \c in {1,...,\C}{
+        \pgfmathtruncatemacro{\tone}{mod(7*\r+11*\c+3*\r*\c,3)}
+        \ifcase\tone\def\mix{38}\or\def\mix{58}\or\def\mix{76}\fi
+        \fill[rounded corners=.7pt,#6!\mix]
+          ({(\c-1)*\cellsize},{-(\r-1)*\cellsize})
+          rectangle ++({.39},{-.39});
+      }
+    }
+    \draw[black!55,line width=.65pt]
+      (-.11,.09) -- (-.19,.09) -- (-.19,{-\R*\cellsize+.07}) -- (-.11,{-\R*\cellsize+.07});
+    \draw[black!55,line width=.65pt]
+      ({\C*\cellsize-.07},.09) -- ({\C*\cellsize+.01},.09)
+      -- ({\C*\cellsize+.01},{-\R*\cellsize+.07}) -- ({\C*\cellsize-.07},{-\R*\cellsize+.07});
+    \coordinate (#1-west) at (-.19,{-\R*\cellsize/2+.035});
+    \coordinate (#1-east) at ({\C*\cellsize+.01},{-\R*\cellsize/2+.035});
+    \coordinate (#1-center) at ({\C*\cellsize/2-.035},{-\R*\cellsize/2+.035});
+    \node[symbol] (#1-label) at ({\C*\cellsize/2-.035},{-\R*\cellsize-.28}) {#7};
+    \node[dimlabel] at ({\C*\cellsize/2-.035},{-\R*\cellsize-.65}) {#8};
+  \end{scope}
+}
+\newcommand{\DiagBlock}[8]{%
+  \begin{scope}[shift={(#2,#3)}]
+    \pgfmathtruncatemacro{\R}{#4}
+    \pgfmathtruncatemacro{\C}{#5}
+    \foreach \r in {1,...,\R}{
+      \foreach \c in {1,...,\C}{
+        \ifnum\r=\c
+          \fill[rounded corners=.7pt,#6!68]
+            ({(\c-1)*\cellsize},{-(\r-1)*\cellsize}) rectangle ++({.39},{-.39});
+        \else
+          \draw[rounded corners=.7pt,black!10,line width=.35pt]
+            ({(\c-1)*\cellsize},{-(\r-1)*\cellsize}) rectangle ++({.39},{-.39});
+        \fi
+      }
+    }
+    \draw[black!55,line width=.65pt]
+      (-.11,.09) -- (-.19,.09) -- (-.19,{-\R*\cellsize+.07}) -- (-.11,{-\R*\cellsize+.07});
+    \draw[black!55,line width=.65pt]
+      ({\C*\cellsize-.07},.09) -- ({\C*\cellsize+.01},.09)
+      -- ({\C*\cellsize+.01},{-\R*\cellsize+.07}) -- ({\C*\cellsize-.07},{-\R*\cellsize+.07});
+    \coordinate (#1-west) at (-.19,{-\R*\cellsize/2+.035});
+    \coordinate (#1-east) at ({\C*\cellsize+.01},{-\R*\cellsize/2+.035});
+    \coordinate (#1-center) at ({\C*\cellsize/2-.035},{-\R*\cellsize/2+.035});
+    \node[symbol] at ({\C*\cellsize/2-.035},{-\R*\cellsize-.28}) {#7};
+    \node[dimlabel] at ({\C*\cellsize/2-.035},{-\R*\cellsize-.65}) {#8};
+  \end{scope}
+}
+\newcommand{\MeaningBox}[3]{%
+  \node[note,anchor=north west] (meaning) at (-13.6,-6.0) {%
+    \begin{minipage}{26.5cm}
+      \textbf{轴}\quad #1\\[5pt]
+      \textbf{对象}\quad #2\\[5pt]
+      \textbf{机制}\quad #3
+    \end{minipage}};
+}
+\newcommand{\Identity}[1]{%
+  \node[font=\scriptsize,text=black!42,anchor=north] at (0,-8.15) {#1};
+}
+
+\begin{document}
+\begin{tikzpicture}[x=1cm,y=1cm,background rectangle/.style={fill=white},show background rectangle]
+
+\node[font=\large] at (0,0) {$y=X\hat\theta+r,\qquad X^\top r=0$};
+\node[stage] at (0,-.75) {目标向量被分成“可由特征解释的部分”和“与全部特征正交的残差”};
+\DenseBlock{y}{-10.8}{-1.5}{5}{1}{roleCoral}{$y$}{$m\times1$}
+\node[op] at (-9.2,-2.3) {$=$};
+\DenseBlock{X}{-7.65}{-1.5}{5}{3}{roleTeal}{$X$}{$m\times n$}
+\DenseBlock{theta}{-4.05}{-1.5}{3}{1}{roleOrange}{$\hat\theta$}{$n\times1$}
+\node[op] at (-5.05,-2.3) {$\times$};
+\node[op] at (-2.6,-2.3) {$+$};
+\DenseBlock{res}{-1.25}{-1.5}{5}{1}{roleCoral}{$r$}{$m\times1$}
+\draw[roleTeal,line width=1.2pt,fill=roleTeal!8] (3.2,-4.4) -- (10.7,-4.4) -- (8.25,-1.3) -- cycle;
+\node[dimlabel] at (7.3,-4.75) {$\operatorname{Col}(X)$：可表达的预测子空间};
+\draw[flow,draw=roleViolet] (5.05,-3.65) -- node[above,sloped,font=\small] {$\hat y=X\hat\theta$} (8.15,-2.35);
+\draw[flow,draw=roleCoral] (8.15,-2.35) -- node[right,font=\small] {$r$} (8.15,-.95);
+\draw[black!50,line width=.55pt] (7.82,-2.48) -- (7.82,-2.15) -- (8.15,-2.02);
+\node[symbol] at (9.65,-1.05) {$r\perp\operatorname{Col}(X)$};
+\MeaningBox{$m$ 是观测空间维度；$X$ 的 $n$ 个列向量张成预测可达到的子空间。}
+{$\hat y=X\hat\theta$ 是 $y$ 在列空间上的正交投影，$r=y-\hat y$ 是无法被当前特征解释的部分。}
+{$X^\top r=0$ 表示残差与每个特征列都正交；把它展开，恰好得到 $X^\top X\hat\theta=X^\top y$。}
+\Identity{最小二乘的正交投影}
+
+\end{tikzpicture}
+\end{document}
