@@ -135,6 +135,8 @@ $$
 
 ## 批量梯度下降
 
+![批量梯度下降从预测、残差、梯度聚合到参数更新的完整形状链](/images/notes/cs229/tikz/concept-gradient-descent-update.png)
+
 批量梯度下降每轮使用全部训练样本：
 
 $$

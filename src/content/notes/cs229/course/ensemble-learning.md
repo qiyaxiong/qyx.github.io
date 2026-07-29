@@ -27,6 +27,8 @@ $$
 
 ## Bagging
 
+![Bagging 如何通过 Bootstrap 和模型轴平均降低预测方差](/images/notes/cs229/tikz/p13-bagging-variance-reduction.png)
+
 Bootstrap 从原训练集有放回抽样，生成与原数据同样大小的重采样集。每个基学习器在不同 Bootstrap 样本上训练。
 
 回归取平均：
@@ -80,6 +82,8 @@ $$
 
 ## AdaBoost
 
+![AdaBoost 如何根据错分掩码提高困难样本的权重](/images/notes/cs229/tikz/p13-adaboost-weight-update.png)
+
 AdaBoost 维护样本权重。每轮：
 
 1. 用当前权重训练弱分类器 $G_m$；
@@ -107,6 +111,8 @@ AdaBoost 可解释为逐步最小化指数损失。错误样本会获得指数�
 > 原版对应：PDF 第 5–6 页，AdaBoost。
 
 ## 梯度提升
+
+![Gradient Boosting 计算函数空间负梯度、拟合弱学习器并更新集成分数](/images/notes/cs229/tikz/concept-gradient-boosting-residual.png)
 
 Gradient Boosting 把“关注错误样本”推广为函数空间梯度下降。
 

@@ -24,6 +24,8 @@ $$
 
 ## Jensen 不等式
 
+![观测证据、ELBO 与辅助分布到真实后验之间的 KL 缺口](/images/notes/cs229/tikz/concept-jensen-elbo-gap.png)
+
 对凹函数 $f$：
 
 $$
@@ -83,6 +85,8 @@ KL 为零，下界与当前对数似然贴紧。
 
 ## E 步与 M 步
 
+![EM 在辅助后验和模型参数两个坐标上交替提高 ELBO](/images/notes/cs229/tikz/p20-em-elbo-coordinate-ascent.png)
+
 E 步固定参数 $\theta^{(t)}$，选择：
 
 $$
@@ -127,6 +131,8 @@ $$
 > 原版对应：PDF 第 4–6 页，Monotonic likelihood improvement。
 
 ## 高斯混合重访
+
+![GMM 责任度沿样本轴形成软计数和加权均值更新](/images/notes/cs229/tikz/concept-gmm-em-updates.png)
 
 GMM 的 E 步责任度就是：
 

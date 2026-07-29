@@ -252,6 +252,8 @@ ICA 通常假设至多一个源为 Gaussian，并利用非 Gaussian 性识别独
 
 ## 变量变换与似然
 
+![ICA 解混、源密度与变量变换 Jacobian 行列式的完整似然链](/images/notes/cs229/tikz/concept-ica-change-of-variables.png)
+
 若：
 
 $$

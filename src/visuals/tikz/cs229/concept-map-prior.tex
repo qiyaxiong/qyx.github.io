@@ -1,0 +1,120 @@
+
+\documentclass[tikz,border=10pt]{standalone}
+\usepackage[UTF8,fontset=fandol]{ctex}
+\usepackage{amsmath,amssymb}
+\usetikzlibrary{arrows.meta,backgrounds,calc,fit,positioning}
+\definecolor{roleTeal}{HTML}{4F8FA5}
+\definecolor{roleOrange}{HTML}{EE995B}
+\definecolor{roleCoral}{HTML}{C95B5B}
+\definecolor{roleViolet}{HTML}{8A74B5}
+\definecolor{roleGray}{HTML}{85898F}
+\tikzset{
+  flow/.style={-{Latex[length=2.4mm,width=1.8mm]}, line width=.7pt, draw=black!58},
+  op/.style={font=\Large, text=black!70},
+  stage/.style={font=\small\bfseries, text=black!55},
+  symbol/.style={font=\small, text=black!84, align=center},
+  dimlabel/.style={font=\scriptsize, text=black!52, align=center},
+  note/.style={rounded corners=2pt, fill=black!2, draw=black!14, line width=.5pt,
+    inner xsep=10pt, inner ysep=8pt, text width=27.2cm, align=left, font=\small},
+  tag/.style={rounded corners=2pt, fill=black!4, draw=black!18, inner sep=4pt,
+    font=\scriptsize, text=black!65}
+}
+\newcommand{\cellsize}{0.46}
+\newcommand{\DenseBlock}[8]{%
+  \begin{scope}[shift={(#2,#3)}]
+    \pgfmathtruncatemacro{\R}{#4}
+    \pgfmathtruncatemacro{\C}{#5}
+    \foreach \r in {1,...,\R}{
+      \foreach \c in {1,...,\C}{
+        \pgfmathtruncatemacro{\tone}{mod(7*\r+11*\c+3*\r*\c,3)}
+        \ifcase\tone\def\mix{38}\or\def\mix{58}\or\def\mix{76}\fi
+        \fill[rounded corners=.7pt,#6!\mix]
+          ({(\c-1)*\cellsize},{-(\r-1)*\cellsize})
+          rectangle ++({.39},{-.39});
+      }
+    }
+    \draw[black!55,line width=.65pt]
+      (-.11,.09) -- (-.19,.09) -- (-.19,{-\R*\cellsize+.07}) -- (-.11,{-\R*\cellsize+.07});
+    \draw[black!55,line width=.65pt]
+      ({\C*\cellsize-.07},.09) -- ({\C*\cellsize+.01},.09)
+      -- ({\C*\cellsize+.01},{-\R*\cellsize+.07}) -- ({\C*\cellsize-.07},{-\R*\cellsize+.07});
+    \coordinate (#1-west) at (-.19,{-\R*\cellsize/2+.035});
+    \coordinate (#1-east) at ({\C*\cellsize+.01},{-\R*\cellsize/2+.035});
+    \coordinate (#1-center) at ({\C*\cellsize/2-.035},{-\R*\cellsize/2+.035});
+    \node[symbol] (#1-label) at ({\C*\cellsize/2-.035},{-\R*\cellsize-.28}) {#7};
+    \node[dimlabel] at ({\C*\cellsize/2-.035},{-\R*\cellsize-.65}) {#8};
+  \end{scope}
+}
+\newcommand{\DiagBlock}[8]{%
+  \begin{scope}[shift={(#2,#3)}]
+    \pgfmathtruncatemacro{\R}{#4}
+    \pgfmathtruncatemacro{\C}{#5}
+    \foreach \r in {1,...,\R}{
+      \foreach \c in {1,...,\C}{
+        \ifnum\r=\c
+          \fill[rounded corners=.7pt,#6!68]
+            ({(\c-1)*\cellsize},{-(\r-1)*\cellsize}) rectangle ++({.39},{-.39});
+        \else
+          \draw[rounded corners=.7pt,black!10,line width=.35pt]
+            ({(\c-1)*\cellsize},{-(\r-1)*\cellsize}) rectangle ++({.39},{-.39});
+        \fi
+      }
+    }
+    \draw[black!55,line width=.65pt]
+      (-.11,.09) -- (-.19,.09) -- (-.19,{-\R*\cellsize+.07}) -- (-.11,{-\R*\cellsize+.07});
+    \draw[black!55,line width=.65pt]
+      ({\C*\cellsize-.07},.09) -- ({\C*\cellsize+.01},.09)
+      -- ({\C*\cellsize+.01},{-\R*\cellsize+.07}) -- ({\C*\cellsize-.07},{-\R*\cellsize+.07});
+    \coordinate (#1-west) at (-.19,{-\R*\cellsize/2+.035});
+    \coordinate (#1-east) at ({\C*\cellsize+.01},{-\R*\cellsize/2+.035});
+    \coordinate (#1-center) at ({\C*\cellsize/2-.035},{-\R*\cellsize/2+.035});
+    \node[symbol] at ({\C*\cellsize/2-.035},{-\R*\cellsize-.28}) {#7};
+    \node[dimlabel] at ({\C*\cellsize/2-.035},{-\R*\cellsize-.65}) {#8};
+  \end{scope}
+}
+\newcommand{\ScalarBlock}[8]{%
+  \begin{scope}[shift={(#2,#3)}]
+    \fill[rounded corners=2pt,#6!58] (0,0) rectangle (1.05,-1.05);
+    \draw[rounded corners=2pt,black!45,line width=.65pt] (0,0) rectangle (1.05,-1.05);
+    \coordinate (#1-west) at (0,-.525);
+    \coordinate (#1-east) at (1.05,-.525);
+    \coordinate (#1-center) at (.525,-.525);
+    \node[symbol] at (.525,-1.35) {#7};
+    \node[dimlabel] at (.525,-1.72) {#8};
+  \end{scope}
+}
+\newcommand{\MeaningBox}[3]{%
+  \node[note,anchor=north west] (meaning) at (-13.6,-6.0) {%
+    \begin{minipage}{26.5cm}
+      \textbf{轴}\quad #1\\[5pt]
+      \textbf{对象}\quad #2\\[5pt]
+      \textbf{机制}\quad #3
+    \end{minipage}};
+}
+\newcommand{\Identity}[1]{%
+  \node[font=\scriptsize,text=black!42,anchor=north] at (0,-8.15) {#1};
+}
+
+\begin{document}
+\begin{tikzpicture}[x=1cm,y=1cm,background rectangle/.style={fill=white},show background rectangle]
+
+\node[font=\large] at (0,0) {$\theta_{\mathrm{MAP}}
+      =\arg\min_\theta\frac1{2\sigma^2}\|y-X\theta\|^2
+      +\frac1{2\tau^2}\|\theta\|^2$};
+\node[stage] at (0,-.75) {Gaussian 似然与零均值 Gaussian 先验相加，恰好得到 Ridge 的数据项与参数惩罚};
+\DenseBlock{obj0}{-11.50}{-1.45}{5}{1}{roleTeal}{$y$}{$m\times1$}
+\DenseBlock{obj1}{-5.75}{-1.45}{5}{1}{roleViolet}{$X\theta$}{$m\times1$}
+\ScalarBlock{obj2}{0.00}{-1.45}{1}{1}{roleCoral}{$-\log p(y\mid\theta)$}{标量数据代价}
+\ScalarBlock{obj3}{5.75}{-1.45}{1}{1}{roleOrange}{$-\log p(\theta)$}{标量先验代价}
+\DenseBlock{obj4}{11.50}{-1.45}{3}{1}{roleGray}{$\theta_{\mathrm{MAP}}$}{$n\times1$}
+\node[op] at (-8.63,-2.25) {$-$};
+\node[op] at (-2.88,-2.25) {$\|\cdot\|^2/(2\sigma^2)$};
+\node[op] at (2.88,-2.25) {$+\|\theta\|^2/(2\tau^2)$};
+\node[op] at (8.63,-2.25) {$\arg\min_\theta$};
+\MeaningBox{残差位于 $m$ 维观测空间，参数先验位于 $n$ 维参数空间；两个范数最终都归约为标量。}
+{$\sigma^2$ 是观测噪声方差，$\tau^2$ 是先验尺度，$\lambda=\sigma^2/\tau^2$。}
+{正则化不仅是数值技巧：它对应关于参数大小的概率假设，但先验是否合理仍需验证。}
+\Identity{Gaussian 先验到 Ridge MAP}
+
+\end{tikzpicture}
+\end{document}

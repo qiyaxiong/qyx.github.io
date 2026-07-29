@@ -34,6 +34,8 @@ $$
 
 ## 前向传播
 
+![神经网络批量前向传播中的通道收缩、偏置广播与激活](/images/notes/cs229/tikz/p14-neural-network-forward.png)
+
 第 $l$ 层：
 
 $$
@@ -77,6 +79,8 @@ $$
 
 ## 跨样本向量化
 
+![多层神经网络前向传播中通道轴变化与批次轴保持](/images/notes/cs229/tikz/p14-multilayer-shape-flow.png)
+
 把 $m$ 个样本按列堆叠：
 
 $$
@@ -104,6 +108,8 @@ Mini-batch 在吞吐量、显存和梯度噪声之间平衡。batch size 还会�
 
 ## 反向传播
 
+![反向传播经过激活函数和线性层的向量 Jacobian 乘积](/images/notes/cs229/tikz/p16-vjp-chain-rule.png)
+
 反向传播是链式法则在计算图上的动态规划。每个节点接收上游梯度，乘以局部导数，再把贡献传给父节点。
 
 对线性层：
@@ -113,6 +119,8 @@ Z=WA+b
 $$
 
 若已知 $dZ$：
+
+![线性层反向传播中参数梯度与输入梯度的两条矩阵收缩路径](/images/notes/cs229/tikz/p16-backprop-shape-flow.png)
 
 $$
 dW=\frac1m dZ A^\top

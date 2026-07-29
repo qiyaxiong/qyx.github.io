@@ -8,6 +8,8 @@ language: zh
 
 ## 偏差与方差
 
+![模型超额风险中的近似误差和估计误差分解](/images/notes/cs229/tikz/p12-generalization-error-decomposition.png)
+
 训练误差低、测试误差高通常表示高方差：模型能够贴合训练集，却对数据采样变化敏感。
 
 训练误差本身就很高通常表示高偏差：当前假设类无法表达数据中的主要结构，或优化过程没有找到足够好的解。
@@ -51,6 +53,8 @@ $$
 
 ## 有限假设类
 
+![有限假设类中经验风险、真风险与统一收敛界的归约](/images/notes/cs229/tikz/p12-erm-generalization-bound.png)
+
 对固定假设 $h$，Hoeffding 不等式给出经验误差偏离真实误差的概率上界。
 
 当 $\mathcal H$ 有限时，可以对所有假设使用 union bound：
@@ -88,6 +92,8 @@ $$
 > 原版对应：PDF 第 8–9 页，The case of infinite hypothesis classes。
 
 ## VC 维
+
+![VC 维要求同一假设类实现一组点的全部二进制标记](/images/notes/cs229/tikz/concept-vc-shattering.png)
 
 若存在一组 $d$ 个点，$\mathcal H$ 能实现它们全部 $2^d$ 种二元标记，就说这组点被 $\mathcal H$ 打散。
 

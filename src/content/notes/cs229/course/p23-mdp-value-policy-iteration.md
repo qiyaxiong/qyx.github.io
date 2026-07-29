@@ -563,6 +563,8 @@ $\gamma=0$ 时最优策略依据什么？
 
 ## 有限时域 Bellman 递推
 
+![有限时域 Bellman 方程从终点条件开始逆时间递推](/images/notes/cs229/tikz/concept-finite-horizon-backup.png)
+
 有限时域价值带时间下标：
 
 $$

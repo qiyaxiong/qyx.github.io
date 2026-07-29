@@ -360,6 +360,8 @@ $$
 
 ## GMM 的 M 步
 
+![GMM 责任度沿样本轴形成软计数和加权均值更新](/images/notes/cs229/tikz/concept-gmm-em-updates.png)
+
 有效样本数：
 
 $$

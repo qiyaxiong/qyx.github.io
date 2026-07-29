@@ -321,6 +321,8 @@ $$
 
 ## DDP 的局部二次展开
 
+![DDP 沿名义轨迹建立局部二次模型并执行反向求解与正向 rollout](/images/notes/cs229/tikz/concept-ddp-local-quadratic.png)
+
 非线性动力学：
 
 $$

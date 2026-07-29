@@ -319,6 +319,96 @@
       "source": "src/visuals/tikz/cs229/p28-im2col-convolution.tex",
       "pdf": "public/images/notes/cs229/tikz/p28-im2col-convolution.pdf",
       "png": "public/images/notes/cs229/tikz/p28-im2col-convolution.png"
+    },
+    {
+      "id": "concept-gradient-descent-update",
+      "source": "src/visuals/tikz/cs229/concept-gradient-descent-update.tex",
+      "pdf": "public/images/notes/cs229/tikz/concept-gradient-descent-update.pdf",
+      "png": "public/images/notes/cs229/tikz/concept-gradient-descent-update.png"
+    },
+    {
+      "id": "concept-logistic-likelihood",
+      "source": "src/visuals/tikz/cs229/concept-logistic-likelihood.tex",
+      "pdf": "public/images/notes/cs229/tikz/concept-logistic-likelihood.pdf",
+      "png": "public/images/notes/cs229/tikz/concept-logistic-likelihood.png"
+    },
+    {
+      "id": "concept-perceptron-update",
+      "source": "src/visuals/tikz/cs229/concept-perceptron-update.tex",
+      "pdf": "public/images/notes/cs229/tikz/concept-perceptron-update.pdf",
+      "png": "public/images/notes/cs229/tikz/concept-perceptron-update.png"
+    },
+    {
+      "id": "concept-perceptron-mistake-bound",
+      "source": "src/visuals/tikz/cs229/concept-perceptron-mistake-bound.tex",
+      "pdf": "public/images/notes/cs229/tikz/concept-perceptron-mistake-bound.pdf",
+      "png": "public/images/notes/cs229/tikz/concept-perceptron-mistake-bound.png"
+    },
+    {
+      "id": "concept-tree-split-impurity",
+      "source": "src/visuals/tikz/cs229/concept-tree-split-impurity.tex",
+      "pdf": "public/images/notes/cs229/tikz/concept-tree-split-impurity.pdf",
+      "png": "public/images/notes/cs229/tikz/concept-tree-split-impurity.png"
+    },
+    {
+      "id": "concept-tree-pruning",
+      "source": "src/visuals/tikz/cs229/concept-tree-pruning.tex",
+      "pdf": "public/images/notes/cs229/tikz/concept-tree-pruning.pdf",
+      "png": "public/images/notes/cs229/tikz/concept-tree-pruning.png"
+    },
+    {
+      "id": "concept-gradient-boosting-residual",
+      "source": "src/visuals/tikz/cs229/concept-gradient-boosting-residual.tex",
+      "pdf": "public/images/notes/cs229/tikz/concept-gradient-boosting-residual.pdf",
+      "png": "public/images/notes/cs229/tikz/concept-gradient-boosting-residual.png"
+    },
+    {
+      "id": "concept-vc-shattering",
+      "source": "src/visuals/tikz/cs229/concept-vc-shattering.tex",
+      "pdf": "public/images/notes/cs229/tikz/concept-vc-shattering.pdf",
+      "png": "public/images/notes/cs229/tikz/concept-vc-shattering.png"
+    },
+    {
+      "id": "concept-map-prior",
+      "source": "src/visuals/tikz/cs229/concept-map-prior.tex",
+      "pdf": "public/images/notes/cs229/tikz/concept-map-prior.pdf",
+      "png": "public/images/notes/cs229/tikz/concept-map-prior.png"
+    },
+    {
+      "id": "concept-gmm-em-updates",
+      "source": "src/visuals/tikz/cs229/concept-gmm-em-updates.tex",
+      "pdf": "public/images/notes/cs229/tikz/concept-gmm-em-updates.pdf",
+      "png": "public/images/notes/cs229/tikz/concept-gmm-em-updates.png"
+    },
+    {
+      "id": "concept-jensen-elbo-gap",
+      "source": "src/visuals/tikz/cs229/concept-jensen-elbo-gap.tex",
+      "pdf": "public/images/notes/cs229/tikz/concept-jensen-elbo-gap.pdf",
+      "png": "public/images/notes/cs229/tikz/concept-jensen-elbo-gap.png"
+    },
+    {
+      "id": "concept-factor-posterior",
+      "source": "src/visuals/tikz/cs229/concept-factor-posterior.tex",
+      "pdf": "public/images/notes/cs229/tikz/concept-factor-posterior.pdf",
+      "png": "public/images/notes/cs229/tikz/concept-factor-posterior.png"
+    },
+    {
+      "id": "concept-ica-change-of-variables",
+      "source": "src/visuals/tikz/cs229/concept-ica-change-of-variables.tex",
+      "pdf": "public/images/notes/cs229/tikz/concept-ica-change-of-variables.pdf",
+      "png": "public/images/notes/cs229/tikz/concept-ica-change-of-variables.png"
+    },
+    {
+      "id": "concept-finite-horizon-backup",
+      "source": "src/visuals/tikz/cs229/concept-finite-horizon-backup.tex",
+      "pdf": "public/images/notes/cs229/tikz/concept-finite-horizon-backup.pdf",
+      "png": "public/images/notes/cs229/tikz/concept-finite-horizon-backup.png"
+    },
+    {
+      "id": "concept-ddp-local-quadratic",
+      "source": "src/visuals/tikz/cs229/concept-ddp-local-quadratic.tex",
+      "pdf": "public/images/notes/cs229/tikz/concept-ddp-local-quadratic.pdf",
+      "png": "public/images/notes/cs229/tikz/concept-ddp-local-quadratic.png"
     }
   ]
 }

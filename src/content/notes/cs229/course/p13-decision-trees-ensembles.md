@@ -76,6 +76,8 @@ $$
 
 ## 贪心递归切分
 
+![决策树候选切分如何路由样本并计算加权不纯度下降](/images/notes/cs229/tikz/concept-tree-split-impurity.png)
+
 寻找全局最优树通常计算困难，因此使用贪心算法：
 
 1. 枚举当前节点候选切分；
@@ -408,6 +410,8 @@ $$
 
 ## Gradient Boosting 是函数空间梯度下降
 
+![Gradient Boosting 计算函数空间负梯度、拟合弱学习器并更新集成分数](/images/notes/cs229/tikz/concept-gradient-boosting-residual.png)
+
 Gradient Boosting 构造加法模型：
 
 $$
@@ -502,6 +506,8 @@ Target Encoding 必须在训练 fold 内计算，并对低频类别平滑。直�
 缺失本身可能带信息，但也可能反映数据管道故障。应比较训练与线上缺失机制。
 
 ## 剪枝
+
+![代价复杂度剪枝如何在训练误差和叶节点数量之间选择子树](/images/notes/cs229/tikz/concept-tree-pruning.png)
 
 先长出较深树，再最小化：
 

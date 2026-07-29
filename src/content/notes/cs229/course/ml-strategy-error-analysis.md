@@ -27,6 +27,8 @@ language: zh
 
 ## 偏差方差诊断
 
+![从训练验证差异和误差类型到下一步行动的机器学习诊断链](/images/notes/cs229/tikz/p17-ml-diagnostic-gaps.png)
+
 高方差的典型信号是训练误差低、验证误差高。更多数据、更强正则化、减少特征或降低模型容量可能有效。
 
 高偏差的典型信号是训练和验证误差都高且接近。增加数据通常无法突破当前训练误差，应增加有效特征、模型容量或改善优化。
@@ -71,6 +73,8 @@ language: zh
 > 原版对应：PDF 第 16–19 页，Debugging a reinforcement learning algorithm。
 
 ## 误差分析
+
+![从连续分数、阈值决策和混淆矩阵推导分类指标](/images/notes/cs229/tikz/p15-confusion-matrix-metrics.png)
 
 误差分析不是只看总错误率，而是人工检查一批失败样本，为错误建立互斥或可重叠类别。
 

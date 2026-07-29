@@ -51,6 +51,8 @@ $$
 
 ## 高斯边缘与条件分布
 
+![因子分析如何从观测残差计算潜因子的 Gaussian 条件后验](/images/notes/cs229/tikz/concept-factor-posterior.png)
+
 联合高斯分块：
 
 $$
@@ -84,6 +86,8 @@ $$
 
 ## 因子分析模型
 
+![因子分析如何用低秩载荷和对角噪声构造观测协方差](/images/notes/cs229/tikz/p20-factor-analysis-covariance.png)
+
 由线性高斯变换可得边缘：
 
 $$
@@ -106,6 +110,8 @@ Factor Analysis 是概率模型，显式区分共享信号与观测噪声；这�
 > 原版对应：PDF 第 4–6 页，The factor analysis model。
 
 ## 因子分析的 EM
+
+![EM 在潜变量后验和模型参数之间交替优化](/images/notes/cs229/tikz/p20-em-elbo-coordinate-ascent.png)
 
 隐变量是每个样本的 $z_i$。
 

@@ -27,6 +27,8 @@ language: zh
 
 ## 感知机更新
 
+![感知机如何区分连续 margin、错分掩码和参数更新](/images/notes/cs229/tikz/concept-perceptron-update.png)
+
 令 $y_t\in\{-1,+1\}$，预测：
 
 $$
@@ -52,6 +54,8 @@ $$
 > 原版对应：PDF 第 1–2 页，The perceptron update。
 
 ## 错误上界
+
+![感知机错误次数上界中正确方向进展与参数范数增长的两条夹逼](/images/notes/cs229/tikz/concept-perceptron-mistake-bound.png)
 
 假设所有输入满足：
 

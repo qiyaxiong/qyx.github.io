@@ -26,6 +26,8 @@ language: zh
 
 ## 交叉验证
 
+![K 折交叉验证如何沿验证折平均并选择超参数](/images/notes/cs229/tikz/p11-cross-validation-model-selection.png)
+
 数据足够时使用 holdout validation。数据较少时使用 $k$ 折交叉验证：
 
 1. 将数据分成 $k$ 份；
@@ -89,6 +91,8 @@ MLE 只给数据最支持的参数；完整贝叶斯预测还会对参数后验�
 
 ## 正则化与先验
 
+![Gaussian 似然与 Gaussian 参数先验如何得到 Ridge MAP 目标](/images/notes/cs229/tikz/concept-map-prior.png)
+
 零均值各向同性高斯先验：
 
 $$
@@ -96,6 +100,8 @@ $$
 $$
 
 其负对数先验与 $\|\theta\|_2^2$ 成正比，因此 MAP 对应 L2 正则化：
+
+![Ridge 正则化如何平移 Gram 矩阵的对角谱](/images/notes/cs229/tikz/p11-ridge-regularization.png)
 
 $$
 \min_\theta

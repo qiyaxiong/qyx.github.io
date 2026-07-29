@@ -8,6 +8,8 @@ language: zh
 
 ## 序列决策问题
 
+![强化学习中策略、动作、环境转移、奖励和折扣回报的轨迹结构](/images/notes/cs229/tikz/p22-rl-interaction-loop.png)
+
 监督学习给定输入 $x$ 和目标 $y$，希望一次预测就尽量正确。强化学习处理的却是一串相互影响的决定：当前动作不仅产生即时奖励，还会改变下一时刻能够到达的状态。
 
 在时刻 $t$，智能体观察状态 $s_t$，选择动作 $a_t$，环境返回奖励 $R(s_t,a_t)$ 并转移到 $s_{t+1}$。一条轨迹可以写成：
@@ -52,6 +54,8 @@ $$
 
 ## Bellman 方程
 
+![Bellman 备份先沿下一状态求期望再沿动作轴取最大](/images/notes/cs229/tikz/p23-bellman-value-iteration.png)
+
 策略 $\pi$ 的价值函数是从状态 $s$ 出发，之后始终遵循该策略的期望回报：
 
 $$
@@ -90,6 +94,8 @@ $$
 
 ## 价值迭代与策略迭代
 
+![策略迭代如何在策略评估和贪心改进之间交替](/images/notes/cs229/tikz/p23-policy-iteration.png)
+
 价值迭代从任意 $V_0$ 开始，反复应用 Bellman 最优算子：
 
 $$
@@ -111,6 +117,8 @@ $$
 > 原版对应：PDF 第 4–6 页，Value iteration and policy iteration。
 
 ## 学习环境模型
+
+![从转移三元组计数构造行归一化经验 MDP 模型](/images/notes/cs229/tikz/p24-empirical-transition-model.png)
 
 前面的动态规划假设 $P_{sa}$ 和 $R$ 已知。若能够与环境交互或拥有转移数据，可以先估计模型：
 
@@ -146,6 +154,8 @@ $\phi(s)$ 可以是多项式、径向基、手工特征或神经网络表示。�
 > 原版对应：PDF 第 7–12 页，Continuous-state MDPs and value approximation。
 
 ## 拟合价值迭代
+
+![连续状态下如何用模拟构造 Bellman 目标并拟合价值函数](/images/notes/cs229/tikz/p24-fitted-value-iteration.png)
 
 拟合价值迭代把 Bellman 更新转成一系列监督回归问题。先采样代表性状态 $s^{(i)}$，再用当前价值函数构造目标：
 

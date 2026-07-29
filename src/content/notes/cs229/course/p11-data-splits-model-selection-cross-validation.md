@@ -138,6 +138,8 @@ $\lambda$ 是用验证集选择的超参数，不是在测试集上反复调出�
 
 ## 贝叶斯视角
 
+![Gaussian 似然与 Gaussian 参数先验如何得到 Ridge MAP 目标](/images/notes/cs229/tikz/concept-map-prior.png)
+
 高斯先验：
 
 $$

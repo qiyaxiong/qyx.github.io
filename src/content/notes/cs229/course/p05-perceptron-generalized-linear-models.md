@@ -8,6 +8,8 @@ language: zh
 
 ## 感知机
 
+![感知机如何区分连续 margin、错分掩码和参数更新](/images/notes/cs229/tikz/concept-perceptron-update.png)
+
 使用标签：
 
 $$
@@ -726,6 +728,8 @@ $\log e_i$ 作为固定系数为 1 的 offset，不参与训练。
 这让模型预测单位暴露量的率，同时恢复到实际期望计数。
 
 ## Perceptron 收敛定理的直觉
+
+![感知机错误次数上界中正确方向进展与参数范数增长的两条夹逼](/images/notes/cs229/tikz/concept-perceptron-mistake-bound.png)
 
 假设存在单位向量 $w^\star$，所有样本满足：
 

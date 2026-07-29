@@ -24,6 +24,8 @@ $$
 
 ## 函数间隔与几何间隔
 
+![SVM 几何间隔、约束边界和 KKT 支持向量之间的关系](/images/notes/cs229/tikz/p08-svm-margin-kkt.png)
+
 单个样本的函数间隔是：
 
 $$
@@ -68,6 +70,8 @@ $$
 
 ## 拉格朗日对偶
 
+![SVM 对偶目标中的样本 Gram 矩阵、标签外积和对偶变量](/images/notes/cs229/tikz/p08-svm-dual-gram.png)
+
 为每个约束引入乘子 $\alpha_i\ge0$：
 
 $$
@@ -97,6 +101,8 @@ KKT 条件说明：若某样本严格位于间隔外，则 $\alpha_i=0$；只有
 
 ## 核方法
 
+![Kernel 函数如何直接构造样本间的 Gram 矩阵](/images/notes/cs229/tikz/p10-kernel-gram.png)
+
 若原空间中无法用直线分开，可以把输入映射到特征空间：
 
 $$
@@ -124,6 +130,8 @@ $$
 合法 Kernel 对任意样本集合产生的 Gram 矩阵必须对称半正定。相似度“看起来合理”不代表一定对应某个内积空间。
 
 Kernel Trick 节省的是显式特征构造，不会消除样本规模带来的 Gram 矩阵成本。
+
+![Kernel SVM 如何筛选支持向量并完成加权预测](/images/notes/cs229/tikz/p10-kernel-svm-prediction.png)
 
 > 原版对应：PDF 第 13–19 页，Kernels。
 

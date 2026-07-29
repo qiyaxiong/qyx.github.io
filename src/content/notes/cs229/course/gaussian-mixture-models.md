@@ -8,6 +8,8 @@ language: zh
 
 ## 从硬聚类到软聚类
 
+![从 K-means 硬分配过渡到 GMM 责任度矩阵](/images/notes/cs229/tikz/p19-kmeans-gmm-responsibilities.png)
+
 K-means 为每个样本选择唯一簇。靠近边界的样本即使与两个中心距离相近，也会被硬分到一边。
 
 概率混合模型输出：
@@ -74,6 +76,8 @@ $$
 
 ## EM 更新
 
+![GMM 责任度沿样本轴形成软计数和加权均值更新](/images/notes/cs229/tikz/concept-gmm-em-updates.png)
+
 E 步使用当前参数计算 $w_{ik}$。
 
 M 步把责任度当作软计数：
@@ -103,6 +107,8 @@ GMM 似然非凸，EM 依赖初始化。某个协方差还可能向单个样本�
 > 原版对应：PDF 第 2–3 页，EM updates for Gaussian mixtures。
 
 ## 与 K-means 的关系
+
+![K-means 从距离矩阵、簇 ID、one-hot 掩码到中心更新](/images/notes/cs229/tikz/p19-kmeans-hard-assignment.png)
 
 若所有成分协方差是相同且趋近于零的球形矩阵，责任度会越来越接近 one-hot，GMM 的均值更新趋近 K-means。
 

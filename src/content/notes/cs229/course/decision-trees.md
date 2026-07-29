@@ -27,6 +27,8 @@ AND 区域 = A
 
 ## 如何选择切分
 
+![决策树候选切分如何路由样本并计算加权不纯度下降](/images/notes/cs229/tikz/concept-tree-split-impurity.png)
+
 对连续特征，候选切分通常是：
 
 $$
@@ -80,6 +82,8 @@ $$
 > 原版对应：PDF 第 6–7 页，Categorical variables。
 
 ## 正则化与剪枝
+
+![代价复杂度剪枝如何在训练误差和叶节点数量之间选择子树](/images/notes/cs229/tikz/concept-tree-pruning.png)
 
 不受限制的树可以持续切分直到叶子近乎纯净，通常具有低偏差、高方差。
 

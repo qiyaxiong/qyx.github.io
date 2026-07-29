@@ -62,6 +62,8 @@ ICA 也无法确定源顺序。交换 $s$ 的分量和 $A$ 的列，仍得到相
 
 ## 密度线性变换
 
+![ICA 解混、源密度与变量变换 Jacobian 行列式的完整似然链](/images/notes/cs229/tikz/concept-ica-change-of-variables.png)
+
 若 $s=Wx$，密度变换公式为：
 
 $$
@@ -87,6 +89,8 @@ $$
 > 原版对应：PDF 第 3–4 页，Densities and linear transformations。
 
 ## ICA 算法
+
+![ICA 通过解混矩阵恢复独立非 Gaussian 潜在源](/images/notes/cs229/tikz/p22-ica-unmixing.png)
 
 选择非高斯源密度或其 score function，对 $\ell(W)$ 做梯度上升。
 

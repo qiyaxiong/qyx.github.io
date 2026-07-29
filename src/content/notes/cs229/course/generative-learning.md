@@ -35,6 +35,8 @@ $$
 
 ## 多元高斯分布
 
+![中心化批数据如何沿样本轴形成对称半正定协方差矩阵](/images/notes/cs229/tikz/p06-covariance-gaussian.png)
+
 多元高斯写成：
 
 $$
@@ -60,6 +62,8 @@ $$
 > 原版对应：PDF 第 2–5 页，The multivariate normal distribution。
 
 ## 高斯判别分析
+
+![GDA 使用共享协方差计算每个类别的生成式判别分数](/images/notes/cs229/tikz/p07-gda-generative-classification.png)
 
 GDA 假设：
 
@@ -115,6 +119,8 @@ GDA 假设更强，参数结构利用得更多；逻辑回归假设较弱，通�
 > 原版对应：PDF 第 6–8 页，GDA and logistic regression。
 
 ## 朴素贝叶斯
+
+![Naive Bayes 将各特征条件似然累加成类别 log-score](/images/notes/cs229/tikz/p07-naive-bayes-log-score.png)
 
 文本等高维离散任务很难直接估计完整 $P(x\mid y)$。Naive Bayes 作出条件独立假设：
 

@@ -8,6 +8,8 @@ language: zh
 
 ## 先建立问题：监督学习到底在学什么
 
+![机器学习从数据、学习算法、参数、预测到经验风险的完整闭环](/images/notes/cs229/tikz/p01-learning-system-map.png)
+
 原讲义从房价预测开始。每个样本包含房屋面积、卧室数量等输入，以及最终成交价格。我们不是手工写出“面积每增加一平方英尺涨多少钱”，而是让算法根据已有样本估计这种关系。
 
 训练数据写成：
@@ -73,6 +75,8 @@ X @ theta: (m,)
 
 ## 最小二乘损失：为什么是平方
 
+![最小二乘把目标分解为可解释投影与正交残差](/images/notes/cs229/tikz/p02-least-squares-projection.png)
+
 模型给出预测后，还需要一个数字衡量预测有多差。单个样本的残差是：
 
 $$
@@ -95,6 +99,8 @@ $$
 > 原版对应：PDF 第 4 页，Least-squares cost function。
 
 ## LMS 与梯度下降：参数怎样一步步更新
+
+![批量梯度下降从预测、残差、梯度聚合到参数更新的完整形状链](/images/notes/cs229/tikz/concept-gradient-descent-update.png)
 
 训练就是寻找让 $J(\theta)$ 最小的参数。梯度指出函数上升最快的方向，因此沿负梯度移动：
 
@@ -162,6 +168,8 @@ Stochastic Gradient Descent 每看到一个样本就更新一次：
 > 原版对应：PDF 第 4–7 页，LMS algorithm、Batch Gradient Descent 与 Stochastic Gradient Descent。
 
 ## 正规方程：不迭代直接求解
+
+![正规方程如何沿样本轴形成参数空间中的线性系统](/images/notes/cs229/tikz/p02-normal-equation.png)
 
 梯度下降通过反复更新接近最优解。对于普通最小二乘，还可以把梯度设为零，直接解出参数。
 
@@ -270,6 +278,8 @@ $$
 > 原版对应：PDF 第 11–13 页，Probabilistic interpretation。
 
 ## 局部加权线性回归：一个模型不必覆盖所有位置
+
+![局部加权回归如何形成查询相关的样本权重与局部解](/images/notes/cs229/tikz/p04-locally-weighted-newton.png)
 
 全局直线可能欠拟合弯曲趋势。不断增加高阶多项式又可能过拟合。局部加权线性回归采取另一条路线：每次只在查询点附近拟合一条局部直线。
 

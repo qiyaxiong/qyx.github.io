@@ -45,6 +45,8 @@ $$
 
 ## 伯努利似然
 
+![逻辑回归从线性 logits、Sigmoid 概率到 Bernoulli 负对数似然的计算链](/images/notes/cs229/tikz/concept-logistic-likelihood.png)
+
 给定 $x$，标签服从参数为 $h_\theta(x)$ 的伯努利分布：
 
 $$
@@ -84,6 +86,8 @@ $$
 > 原版对应：PDF 第 18–19 页，Likelihood and gradient ascent。
 
 ## 牛顿法
+
+![逻辑回归通过概率曲率形成 IRLS 加权最小二乘更新](/images/notes/cs229/tikz/p04-logistic-irls.png)
 
 梯度法只使用一阶导数。牛顿法同时使用 Hessian 描述局部曲率：
 
@@ -135,6 +139,8 @@ $$
 
 ## 广义线性模型
 
+![指数族自然参数、连接函数与广义线性模型的统一结构](/images/notes/cs229/tikz/p05-glm-exponential-family.png)
+
 构造 GLM 使用三个决定：
 
 1. 给定 $x$ 后，$y$ 来自某个指数族分布；
@@ -150,6 +156,8 @@ GLM 统一的是“分布—自然参数—线性预测器—均值”这条链�
 > 原版对应：PDF 第 24–26 页，Constructing generalized linear models。
 
 ## Softmax 回归
+
+![Softmax 在线性 logits 的类别轴上完成稳定概率归一化](/images/notes/cs229/tikz/p05-softmax-class-axis.png)
 
 当 $y\in\{1,\ldots,k\}$ 时，用多项分布建模。为避免参数冗余，可以选择一个参考类别，或使用带平移不变性的 $k$ 组 logits。
 

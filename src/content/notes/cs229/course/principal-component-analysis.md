@@ -62,6 +62,8 @@ $$
 
 ## 特征值推导
 
+![PCA 对中心化协方差矩阵进行特征分解并选择主方向](/images/notes/cs229/tikz/p21-pca-covariance-eigen.png)
+
 拉格朗日函数：
 
 $$
@@ -91,6 +93,8 @@ $$
 > 原版对应：PDF 第 3–4 页，Eigenvalue derivation。
 
 ## 投影与重建
+
+![PCA 使用正交主轴完成低维投影和低秩重建](/images/notes/cs229/tikz/p21-pca-projection-reconstruction.png)
 
 令 $U_k$ 包含前 $k$ 个主成分：
 

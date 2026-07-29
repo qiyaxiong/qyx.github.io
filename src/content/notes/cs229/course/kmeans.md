@@ -26,6 +26,8 @@ $$
 
 ## K-means 算法
 
+![K-means 从距离矩阵、簇 ID、one-hot 掩码到中心更新](/images/notes/cs229/tikz/p19-kmeans-hard-assignment.png)
+
 给定簇数 $k$，初始化中心 $\mu_1,\ldots,\mu_k$，然后反复执行两步。
 
 分配步骤：

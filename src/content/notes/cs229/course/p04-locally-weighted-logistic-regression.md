@@ -123,6 +123,8 @@ $$
 
 ## 伯努利似然
 
+![逻辑回归从线性 logits、Sigmoid 概率到 Bernoulli 负对数似然的计算链](/images/notes/cs229/tikz/concept-logistic-likelihood.png)
+
 给定 $x$，假设：
 
 $$

@@ -178,6 +178,8 @@ $$
 
 ## VC 维
 
+![VC 维要求同一假设类实现一组点的全部二进制标记](/images/notes/cs229/tikz/concept-vc-shattering.png)
+
 VC 维是能被假设类打散的最大点数：
 
 $$

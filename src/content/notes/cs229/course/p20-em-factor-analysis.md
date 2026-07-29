@@ -27,6 +27,8 @@ $$
 
 ## Jensen 不等式
 
+![观测证据、ELBO 与辅助分布到真实后验之间的 KL 缺口](/images/notes/cs229/tikz/concept-jensen-elbo-gap.png)
+
 对凹函数 $f$：
 
 $$
@@ -464,6 +466,8 @@ $$
 完整协方差需要 $O(n^2)$ 参数，而 Factor Analysis 只需 $O(nk+n)$，适合用少量公共因子解释变量相关性。
 
 ## 隐因子的后验
+
+![因子分析如何从观测残差计算潜因子的 Gaussian 条件后验](/images/notes/cs229/tikz/concept-factor-posterior.png)
 
 因为 $(z,x)$ 联合 Gaussian，条件分布仍是 Gaussian。
 

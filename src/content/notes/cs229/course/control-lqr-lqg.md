@@ -24,6 +24,8 @@ $$
 
 ## 时间相关价值函数
 
+![有限时域 Bellman 方程从终点条件开始逆时间递推](/images/notes/cs229/tikz/concept-finite-horizon-backup.png)
+
 有限时域价值需要带时间下标：
 
 $$
@@ -50,6 +52,8 @@ $$
 > 原版对应：PDF 第 2–5 页，Time-dependent value functions and backward induction。
 
 ## 线性二次调节器
+
+![LQR 如何把状态映射为最优控制并通过线性动力学传播](/images/notes/cs229/tikz/p26-lqr-state-control.png)
 
 线性二次调节器（LQR）研究线性动力学与二次代价：
 
@@ -79,6 +83,8 @@ $$
 > 原版对应：PDF 第 5–7 页，Linear quadratic regulation。
 
 ## Riccati 递推
+
+![Riccati 递推如何形成控制 Hessian 并求反馈增益](/images/notes/cs229/tikz/p26-riccati-recursion.png)
 
 假设下一时刻价值是二次型：
 
@@ -139,6 +145,8 @@ $$
 
 ## DDP
 
+![DDP 沿名义轨迹建立局部二次模型并执行反向求解与正向 rollout](/images/notes/cs229/tikz/concept-ddp-local-quadratic.png)
+
 微分动态规划（DDP）围绕一条名义轨迹反复改进控制序列：
 
 1. 用当前控制序列前向模拟，得到状态轨迹；
@@ -160,6 +168,8 @@ iLQR 常忽略动力学的二阶导数，是 DDP 的常用近似。两者都依�
 
 ## LQG 与部分可观测性
 
+![Kalman Filter 从状态预测、观测创新到增益加权更新](/images/notes/cs229/tikz/p27-kalman-predict-update.png)
+
 LQG 在线性动力学中加入高斯过程噪声和观测噪声：
 
 $$
@@ -171,6 +181,8 @@ y_t=Cx_t+v_t
 $$
 
 其中 $w_t$ 与 $v_t$ 为高斯噪声。控制器看不到真实 $x_t$，只能根据观测 $y_{0:t}$ 估计状态。
+
+![Kalman Filter 在状态空间和观测空间之间传播与更新协方差](/images/notes/cs229/tikz/p27-kalman-covariance-update.png)
 
 在线性、高斯、二次代价等条件成立时，可以把问题分成两部分：
 
