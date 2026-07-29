@@ -21,6 +21,8 @@ $$
 
 ## K-means
 
+![K-means 从距离矩阵、簇 ID 和 one-hot 掩码到中心更新](/images/notes/cs229/tikz/p19-kmeans-hard-assignment.png)
+
 设簇数为 $K$，每个簇中心：
 
 $$
@@ -296,6 +298,8 @@ K-means++ 先随机选择一个中心，之后按样本到已有最近中心的�
 $K$ 可通过肘部图、Silhouette、稳定性和下游任务选择。仅观察训练失真会总是偏好更大的 $K$。
 
 ## 从 K-means 到 GMM
+
+![从 K-means 硬分配转向 GMM 责任度矩阵和加权参数更新](/images/notes/cs229/tikz/p19-kmeans-gmm-responsibilities.png)
 
 K-means 给每个样本一个硬分配。GMM 假设样本由多个 Gaussian 成分生成：
 

@@ -23,6 +23,8 @@ $$
 
 ## 计算图与局部导数
 
+![反向传播经过激活函数和线性层的向量 Jacobian 乘积](/images/notes/cs229/tikz/p16-vjp-chain-rule.png)
+
 若：
 
 $$
@@ -64,6 +66,8 @@ $$
 这种简化来自输出激活与对数似然损失的配对结构。
 
 ## 线性层反向传播
+
+![线性层反向传播中参数梯度与输入梯度的两条矩阵收缩路径](/images/notes/cs229/tikz/p16-backprop-shape-flow.png)
 
 前向：
 

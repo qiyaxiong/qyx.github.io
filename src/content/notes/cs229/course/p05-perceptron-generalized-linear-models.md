@@ -153,6 +153,8 @@ $$
 
 ## 构造广义线性模型
 
+![指数族自然参数、连接函数与广义线性模型的统一结构](/images/notes/cs229/tikz/p05-glm-exponential-family.png)
+
 GLM 使用三个假设：
 
 1. 给定 $x$，$y$ 服从某个指数族分布；
@@ -230,6 +232,8 @@ $$
 Poisson 隐含均值等于方差。真实数据方差显著更大时存在过度离散，应考虑负二项、额外随机效应或稳健误差估计。
 
 ## 多项分布与 Softmax
+
+![Softmax 在线性 logits 的类别轴上进行稳定概率归一化](/images/notes/cs229/tikz/p05-softmax-class-axis.png)
 
 多分类目标：
 

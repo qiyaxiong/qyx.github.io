@@ -209,6 +209,8 @@ Global Average Pooling
 
 ## 二维卷积的具体计算
 
+![使用 im2col 将局部多通道卷积转换为矩阵乘法](/images/notes/cs229/tikz/p28-im2col-convolution.png)
+
 单通道输入：
 
 $$
@@ -261,6 +263,8 @@ $$
 深度学习库中的“卷积”通常实际执行 cross-correlation，不翻转 Kernel。权重可学习，因此命名差异不影响表达能力，但手算时要与框架定义一致。
 
 ## 多通道卷积
+
+![多通道卷积在局部空间窗口和输入通道上的联合收缩](/images/notes/cs229/tikz/p28-multichannel-convolution.png)
 
 输入：
 

@@ -141,6 +141,8 @@ $$
 
 ## 价值迭代
 
+![Bellman 备份先沿下一状态求期望再沿动作轴取最大](/images/notes/cs229/tikz/p23-bellman-value-iteration.png)
+
 从任意 $V_0$ 开始：
 
 $$
@@ -216,6 +218,8 @@ $$
 若策略不变，则当前策略已最优。
 
 ## 策略迭代
+
+![策略迭代在策略评估和贪心策略改进之间交替](/images/notes/cs229/tikz/p23-policy-iteration.png)
 
 反复执行：
 

@@ -49,6 +49,276 @@
       "source": "src/visuals/tikz/cs229/p10-kernel-svm-prediction.tex",
       "pdf": "public/images/notes/cs229/tikz/p10-kernel-svm-prediction.pdf",
       "png": "public/images/notes/cs229/tikz/p10-kernel-svm-prediction.png"
+    },
+    {
+      "id": "p01-learning-system-map",
+      "source": "src/visuals/tikz/cs229/p01-learning-system-map.tex",
+      "pdf": "public/images/notes/cs229/tikz/p01-learning-system-map.pdf",
+      "png": "public/images/notes/cs229/tikz/p01-learning-system-map.png"
+    },
+    {
+      "id": "p04-locally-weighted-newton",
+      "source": "src/visuals/tikz/cs229/p04-locally-weighted-newton.tex",
+      "pdf": "public/images/notes/cs229/tikz/p04-locally-weighted-newton.pdf",
+      "png": "public/images/notes/cs229/tikz/p04-locally-weighted-newton.png"
+    },
+    {
+      "id": "p05-glm-exponential-family",
+      "source": "src/visuals/tikz/cs229/p05-glm-exponential-family.tex",
+      "pdf": "public/images/notes/cs229/tikz/p05-glm-exponential-family.pdf",
+      "png": "public/images/notes/cs229/tikz/p05-glm-exponential-family.png"
+    },
+    {
+      "id": "p06-bayes-update",
+      "source": "src/visuals/tikz/cs229/p06-bayes-update.tex",
+      "pdf": "public/images/notes/cs229/tikz/p06-bayes-update.pdf",
+      "png": "public/images/notes/cs229/tikz/p06-bayes-update.png"
+    },
+    {
+      "id": "p07-gda-generative-classification",
+      "source": "src/visuals/tikz/cs229/p07-gda-generative-classification.tex",
+      "pdf": "public/images/notes/cs229/tikz/p07-gda-generative-classification.pdf",
+      "png": "public/images/notes/cs229/tikz/p07-gda-generative-classification.png"
+    },
+    {
+      "id": "p08-svm-margin-kkt",
+      "source": "src/visuals/tikz/cs229/p08-svm-margin-kkt.tex",
+      "pdf": "public/images/notes/cs229/tikz/p08-svm-margin-kkt.pdf",
+      "png": "public/images/notes/cs229/tikz/p08-svm-margin-kkt.png"
+    },
+    {
+      "id": "p09-broadcasting-vectorization",
+      "source": "src/visuals/tikz/cs229/p09-broadcasting-vectorization.tex",
+      "pdf": "public/images/notes/cs229/tikz/p09-broadcasting-vectorization.pdf",
+      "png": "public/images/notes/cs229/tikz/p09-broadcasting-vectorization.png"
+    },
+    {
+      "id": "p11-cross-validation-model-selection",
+      "source": "src/visuals/tikz/cs229/p11-cross-validation-model-selection.tex",
+      "pdf": "public/images/notes/cs229/tikz/p11-cross-validation-model-selection.pdf",
+      "png": "public/images/notes/cs229/tikz/p11-cross-validation-model-selection.png"
+    },
+    {
+      "id": "p12-erm-generalization-bound",
+      "source": "src/visuals/tikz/cs229/p12-erm-generalization-bound.tex",
+      "pdf": "public/images/notes/cs229/tikz/p12-erm-generalization-bound.pdf",
+      "png": "public/images/notes/cs229/tikz/p12-erm-generalization-bound.png"
+    },
+    {
+      "id": "p13-bagging-variance-reduction",
+      "source": "src/visuals/tikz/cs229/p13-bagging-variance-reduction.tex",
+      "pdf": "public/images/notes/cs229/tikz/p13-bagging-variance-reduction.pdf",
+      "png": "public/images/notes/cs229/tikz/p13-bagging-variance-reduction.png"
+    },
+    {
+      "id": "p14-neural-network-forward",
+      "source": "src/visuals/tikz/cs229/p14-neural-network-forward.tex",
+      "pdf": "public/images/notes/cs229/tikz/p14-neural-network-forward.pdf",
+      "png": "public/images/notes/cs229/tikz/p14-neural-network-forward.png"
+    },
+    {
+      "id": "p15-confusion-matrix-metrics",
+      "source": "src/visuals/tikz/cs229/p15-confusion-matrix-metrics.tex",
+      "pdf": "public/images/notes/cs229/tikz/p15-confusion-matrix-metrics.pdf",
+      "png": "public/images/notes/cs229/tikz/p15-confusion-matrix-metrics.png"
+    },
+    {
+      "id": "p16-backprop-shape-flow",
+      "source": "src/visuals/tikz/cs229/p16-backprop-shape-flow.tex",
+      "pdf": "public/images/notes/cs229/tikz/p16-backprop-shape-flow.pdf",
+      "png": "public/images/notes/cs229/tikz/p16-backprop-shape-flow.png"
+    },
+    {
+      "id": "p17-ml-diagnostic-gaps",
+      "source": "src/visuals/tikz/cs229/p17-ml-diagnostic-gaps.tex",
+      "pdf": "public/images/notes/cs229/tikz/p17-ml-diagnostic-gaps.pdf",
+      "png": "public/images/notes/cs229/tikz/p17-ml-diagnostic-gaps.png"
+    },
+    {
+      "id": "p18-midterm-unified-solution-loop",
+      "source": "src/visuals/tikz/cs229/p18-midterm-unified-solution-loop.tex",
+      "pdf": "public/images/notes/cs229/tikz/p18-midterm-unified-solution-loop.pdf",
+      "png": "public/images/notes/cs229/tikz/p18-midterm-unified-solution-loop.png"
+    },
+    {
+      "id": "p19-kmeans-gmm-responsibilities",
+      "source": "src/visuals/tikz/cs229/p19-kmeans-gmm-responsibilities.tex",
+      "pdf": "public/images/notes/cs229/tikz/p19-kmeans-gmm-responsibilities.pdf",
+      "png": "public/images/notes/cs229/tikz/p19-kmeans-gmm-responsibilities.png"
+    },
+    {
+      "id": "p20-em-elbo-coordinate-ascent",
+      "source": "src/visuals/tikz/cs229/p20-em-elbo-coordinate-ascent.tex",
+      "pdf": "public/images/notes/cs229/tikz/p20-em-elbo-coordinate-ascent.pdf",
+      "png": "public/images/notes/cs229/tikz/p20-em-elbo-coordinate-ascent.png"
+    },
+    {
+      "id": "p21-pca-projection-reconstruction",
+      "source": "src/visuals/tikz/cs229/p21-pca-projection-reconstruction.tex",
+      "pdf": "public/images/notes/cs229/tikz/p21-pca-projection-reconstruction.pdf",
+      "png": "public/images/notes/cs229/tikz/p21-pca-projection-reconstruction.png"
+    },
+    {
+      "id": "p22-ica-unmixing",
+      "source": "src/visuals/tikz/cs229/p22-ica-unmixing.tex",
+      "pdf": "public/images/notes/cs229/tikz/p22-ica-unmixing.pdf",
+      "png": "public/images/notes/cs229/tikz/p22-ica-unmixing.png"
+    },
+    {
+      "id": "p23-bellman-value-iteration",
+      "source": "src/visuals/tikz/cs229/p23-bellman-value-iteration.tex",
+      "pdf": "public/images/notes/cs229/tikz/p23-bellman-value-iteration.pdf",
+      "png": "public/images/notes/cs229/tikz/p23-bellman-value-iteration.png"
+    },
+    {
+      "id": "p24-fitted-value-iteration",
+      "source": "src/visuals/tikz/cs229/p24-fitted-value-iteration.tex",
+      "pdf": "public/images/notes/cs229/tikz/p24-fitted-value-iteration.pdf",
+      "png": "public/images/notes/cs229/tikz/p24-fitted-value-iteration.png"
+    },
+    {
+      "id": "p25-distribution-deployment-feedback",
+      "source": "src/visuals/tikz/cs229/p25-distribution-deployment-feedback.tex",
+      "pdf": "public/images/notes/cs229/tikz/p25-distribution-deployment-feedback.pdf",
+      "png": "public/images/notes/cs229/tikz/p25-distribution-deployment-feedback.png"
+    },
+    {
+      "id": "p26-lqr-state-control",
+      "source": "src/visuals/tikz/cs229/p26-lqr-state-control.tex",
+      "pdf": "public/images/notes/cs229/tikz/p26-lqr-state-control.pdf",
+      "png": "public/images/notes/cs229/tikz/p26-lqr-state-control.png"
+    },
+    {
+      "id": "p27-kalman-predict-update",
+      "source": "src/visuals/tikz/cs229/p27-kalman-predict-update.tex",
+      "pdf": "public/images/notes/cs229/tikz/p27-kalman-predict-update.pdf",
+      "png": "public/images/notes/cs229/tikz/p27-kalman-predict-update.png"
+    },
+    {
+      "id": "p28-multichannel-convolution",
+      "source": "src/visuals/tikz/cs229/p28-multichannel-convolution.tex",
+      "pdf": "public/images/notes/cs229/tikz/p28-multichannel-convolution.pdf",
+      "png": "public/images/notes/cs229/tikz/p28-multichannel-convolution.png"
+    },
+    {
+      "id": "p04-logistic-irls",
+      "source": "src/visuals/tikz/cs229/p04-logistic-irls.tex",
+      "pdf": "public/images/notes/cs229/tikz/p04-logistic-irls.pdf",
+      "png": "public/images/notes/cs229/tikz/p04-logistic-irls.png"
+    },
+    {
+      "id": "p05-softmax-class-axis",
+      "source": "src/visuals/tikz/cs229/p05-softmax-class-axis.tex",
+      "pdf": "public/images/notes/cs229/tikz/p05-softmax-class-axis.pdf",
+      "png": "public/images/notes/cs229/tikz/p05-softmax-class-axis.png"
+    },
+    {
+      "id": "p06-covariance-gaussian",
+      "source": "src/visuals/tikz/cs229/p06-covariance-gaussian.tex",
+      "pdf": "public/images/notes/cs229/tikz/p06-covariance-gaussian.pdf",
+      "png": "public/images/notes/cs229/tikz/p06-covariance-gaussian.png"
+    },
+    {
+      "id": "p07-naive-bayes-log-score",
+      "source": "src/visuals/tikz/cs229/p07-naive-bayes-log-score.tex",
+      "pdf": "public/images/notes/cs229/tikz/p07-naive-bayes-log-score.pdf",
+      "png": "public/images/notes/cs229/tikz/p07-naive-bayes-log-score.png"
+    },
+    {
+      "id": "p08-svm-dual-gram",
+      "source": "src/visuals/tikz/cs229/p08-svm-dual-gram.tex",
+      "pdf": "public/images/notes/cs229/tikz/p08-svm-dual-gram.pdf",
+      "png": "public/images/notes/cs229/tikz/p08-svm-dual-gram.png"
+    },
+    {
+      "id": "p11-ridge-regularization",
+      "source": "src/visuals/tikz/cs229/p11-ridge-regularization.tex",
+      "pdf": "public/images/notes/cs229/tikz/p11-ridge-regularization.pdf",
+      "png": "public/images/notes/cs229/tikz/p11-ridge-regularization.png"
+    },
+    {
+      "id": "p12-generalization-error-decomposition",
+      "source": "src/visuals/tikz/cs229/p12-generalization-error-decomposition.tex",
+      "pdf": "public/images/notes/cs229/tikz/p12-generalization-error-decomposition.pdf",
+      "png": "public/images/notes/cs229/tikz/p12-generalization-error-decomposition.png"
+    },
+    {
+      "id": "p13-adaboost-weight-update",
+      "source": "src/visuals/tikz/cs229/p13-adaboost-weight-update.tex",
+      "pdf": "public/images/notes/cs229/tikz/p13-adaboost-weight-update.pdf",
+      "png": "public/images/notes/cs229/tikz/p13-adaboost-weight-update.png"
+    },
+    {
+      "id": "p14-multilayer-shape-flow",
+      "source": "src/visuals/tikz/cs229/p14-multilayer-shape-flow.tex",
+      "pdf": "public/images/notes/cs229/tikz/p14-multilayer-shape-flow.pdf",
+      "png": "public/images/notes/cs229/tikz/p14-multilayer-shape-flow.png"
+    },
+    {
+      "id": "p15-roc-threshold-sweep",
+      "source": "src/visuals/tikz/cs229/p15-roc-threshold-sweep.tex",
+      "pdf": "public/images/notes/cs229/tikz/p15-roc-threshold-sweep.pdf",
+      "png": "public/images/notes/cs229/tikz/p15-roc-threshold-sweep.png"
+    },
+    {
+      "id": "p16-vjp-chain-rule",
+      "source": "src/visuals/tikz/cs229/p16-vjp-chain-rule.tex",
+      "pdf": "public/images/notes/cs229/tikz/p16-vjp-chain-rule.pdf",
+      "png": "public/images/notes/cs229/tikz/p16-vjp-chain-rule.png"
+    },
+    {
+      "id": "p19-kmeans-hard-assignment",
+      "source": "src/visuals/tikz/cs229/p19-kmeans-hard-assignment.tex",
+      "pdf": "public/images/notes/cs229/tikz/p19-kmeans-hard-assignment.pdf",
+      "png": "public/images/notes/cs229/tikz/p19-kmeans-hard-assignment.png"
+    },
+    {
+      "id": "p20-factor-analysis-covariance",
+      "source": "src/visuals/tikz/cs229/p20-factor-analysis-covariance.tex",
+      "pdf": "public/images/notes/cs229/tikz/p20-factor-analysis-covariance.pdf",
+      "png": "public/images/notes/cs229/tikz/p20-factor-analysis-covariance.png"
+    },
+    {
+      "id": "p21-pca-covariance-eigen",
+      "source": "src/visuals/tikz/cs229/p21-pca-covariance-eigen.tex",
+      "pdf": "public/images/notes/cs229/tikz/p21-pca-covariance-eigen.pdf",
+      "png": "public/images/notes/cs229/tikz/p21-pca-covariance-eigen.png"
+    },
+    {
+      "id": "p22-rl-interaction-loop",
+      "source": "src/visuals/tikz/cs229/p22-rl-interaction-loop.tex",
+      "pdf": "public/images/notes/cs229/tikz/p22-rl-interaction-loop.pdf",
+      "png": "public/images/notes/cs229/tikz/p22-rl-interaction-loop.png"
+    },
+    {
+      "id": "p23-policy-iteration",
+      "source": "src/visuals/tikz/cs229/p23-policy-iteration.tex",
+      "pdf": "public/images/notes/cs229/tikz/p23-policy-iteration.pdf",
+      "png": "public/images/notes/cs229/tikz/p23-policy-iteration.png"
+    },
+    {
+      "id": "p24-empirical-transition-model",
+      "source": "src/visuals/tikz/cs229/p24-empirical-transition-model.tex",
+      "pdf": "public/images/notes/cs229/tikz/p24-empirical-transition-model.pdf",
+      "png": "public/images/notes/cs229/tikz/p24-empirical-transition-model.png"
+    },
+    {
+      "id": "p26-riccati-recursion",
+      "source": "src/visuals/tikz/cs229/p26-riccati-recursion.tex",
+      "pdf": "public/images/notes/cs229/tikz/p26-riccati-recursion.pdf",
+      "png": "public/images/notes/cs229/tikz/p26-riccati-recursion.png"
+    },
+    {
+      "id": "p27-kalman-covariance-update",
+      "source": "src/visuals/tikz/cs229/p27-kalman-covariance-update.tex",
+      "pdf": "public/images/notes/cs229/tikz/p27-kalman-covariance-update.pdf",
+      "png": "public/images/notes/cs229/tikz/p27-kalman-covariance-update.png"
+    },
+    {
+      "id": "p28-im2col-convolution",
+      "source": "src/visuals/tikz/cs229/p28-im2col-convolution.tex",
+      "pdf": "public/images/notes/cs229/tikz/p28-im2col-convolution.pdf",
+      "png": "public/images/notes/cs229/tikz/p28-im2col-convolution.png"
     }
   ]
 }

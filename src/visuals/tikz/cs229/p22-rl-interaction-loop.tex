@@ -1,0 +1,120 @@
+
+\documentclass[tikz,border=10pt]{standalone}
+\usepackage[UTF8,fontset=fandol]{ctex}
+\usepackage{amsmath,amssymb}
+\usetikzlibrary{arrows.meta,backgrounds,calc,fit,positioning}
+\definecolor{roleTeal}{HTML}{4F8FA5}
+\definecolor{roleOrange}{HTML}{EE995B}
+\definecolor{roleCoral}{HTML}{C95B5B}
+\definecolor{roleViolet}{HTML}{8A74B5}
+\definecolor{roleGray}{HTML}{85898F}
+\tikzset{
+  flow/.style={-{Latex[length=2.4mm,width=1.8mm]}, line width=.7pt, draw=black!58},
+  op/.style={font=\Large, text=black!70},
+  stage/.style={font=\small\bfseries, text=black!55},
+  symbol/.style={font=\small, text=black!84, align=center},
+  dimlabel/.style={font=\scriptsize, text=black!52, align=center},
+  note/.style={rounded corners=2pt, fill=black!2, draw=black!14, line width=.5pt,
+    inner xsep=10pt, inner ysep=8pt, text width=27.2cm, align=left, font=\small},
+  tag/.style={rounded corners=2pt, fill=black!4, draw=black!18, inner sep=4pt,
+    font=\scriptsize, text=black!65}
+}
+\newcommand{\cellsize}{0.46}
+\newcommand{\DenseBlock}[8]{%
+  \begin{scope}[shift={(#2,#3)}]
+    \pgfmathtruncatemacro{\R}{#4}
+    \pgfmathtruncatemacro{\C}{#5}
+    \foreach \r in {1,...,\R}{
+      \foreach \c in {1,...,\C}{
+        \pgfmathtruncatemacro{\tone}{mod(7*\r+11*\c+3*\r*\c,3)}
+        \ifcase\tone\def\mix{38}\or\def\mix{58}\or\def\mix{76}\fi
+        \fill[rounded corners=.7pt,#6!\mix]
+          ({(\c-1)*\cellsize},{-(\r-1)*\cellsize})
+          rectangle ++({.39},{-.39});
+      }
+    }
+    \draw[black!55,line width=.65pt]
+      (-.11,.09) -- (-.19,.09) -- (-.19,{-\R*\cellsize+.07}) -- (-.11,{-\R*\cellsize+.07});
+    \draw[black!55,line width=.65pt]
+      ({\C*\cellsize-.07},.09) -- ({\C*\cellsize+.01},.09)
+      -- ({\C*\cellsize+.01},{-\R*\cellsize+.07}) -- ({\C*\cellsize-.07},{-\R*\cellsize+.07});
+    \coordinate (#1-west) at (-.19,{-\R*\cellsize/2+.035});
+    \coordinate (#1-east) at ({\C*\cellsize+.01},{-\R*\cellsize/2+.035});
+    \coordinate (#1-center) at ({\C*\cellsize/2-.035},{-\R*\cellsize/2+.035});
+    \node[symbol] (#1-label) at ({\C*\cellsize/2-.035},{-\R*\cellsize-.28}) {#7};
+    \node[dimlabel] at ({\C*\cellsize/2-.035},{-\R*\cellsize-.65}) {#8};
+  \end{scope}
+}
+\newcommand{\DiagBlock}[8]{%
+  \begin{scope}[shift={(#2,#3)}]
+    \pgfmathtruncatemacro{\R}{#4}
+    \pgfmathtruncatemacro{\C}{#5}
+    \foreach \r in {1,...,\R}{
+      \foreach \c in {1,...,\C}{
+        \ifnum\r=\c
+          \fill[rounded corners=.7pt,#6!68]
+            ({(\c-1)*\cellsize},{-(\r-1)*\cellsize}) rectangle ++({.39},{-.39});
+        \else
+          \draw[rounded corners=.7pt,black!10,line width=.35pt]
+            ({(\c-1)*\cellsize},{-(\r-1)*\cellsize}) rectangle ++({.39},{-.39});
+        \fi
+      }
+    }
+    \draw[black!55,line width=.65pt]
+      (-.11,.09) -- (-.19,.09) -- (-.19,{-\R*\cellsize+.07}) -- (-.11,{-\R*\cellsize+.07});
+    \draw[black!55,line width=.65pt]
+      ({\C*\cellsize-.07},.09) -- ({\C*\cellsize+.01},.09)
+      -- ({\C*\cellsize+.01},{-\R*\cellsize+.07}) -- ({\C*\cellsize-.07},{-\R*\cellsize+.07});
+    \coordinate (#1-west) at (-.19,{-\R*\cellsize/2+.035});
+    \coordinate (#1-east) at ({\C*\cellsize+.01},{-\R*\cellsize/2+.035});
+    \coordinate (#1-center) at ({\C*\cellsize/2-.035},{-\R*\cellsize/2+.035});
+    \node[symbol] at ({\C*\cellsize/2-.035},{-\R*\cellsize-.28}) {#7};
+    \node[dimlabel] at ({\C*\cellsize/2-.035},{-\R*\cellsize-.65}) {#8};
+  \end{scope}
+}
+\newcommand{\ScalarBlock}[8]{%
+  \begin{scope}[shift={(#2,#3)}]
+    \fill[rounded corners=2pt,#6!58] (0,0) rectangle (1.05,-1.05);
+    \draw[rounded corners=2pt,black!45,line width=.65pt] (0,0) rectangle (1.05,-1.05);
+    \coordinate (#1-west) at (0,-.525);
+    \coordinate (#1-east) at (1.05,-.525);
+    \coordinate (#1-center) at (.525,-.525);
+    \node[symbol] at (.525,-1.35) {#7};
+    \node[dimlabel] at (.525,-1.72) {#8};
+  \end{scope}
+}
+\newcommand{\MeaningBox}[3]{%
+  \node[note,anchor=north west] (meaning) at (-13.6,-6.0) {%
+    \begin{minipage}{26.5cm}
+      \textbf{轴}\quad #1\\[5pt]
+      \textbf{对象}\quad #2\\[5pt]
+      \textbf{机制}\quad #3
+    \end{minipage}};
+}
+\newcommand{\Identity}[1]{%
+  \node[font=\scriptsize,text=black!42,anchor=north] at (0,-8.15) {#1};
+}
+
+\begin{document}
+\begin{tikzpicture}[x=1cm,y=1cm,background rectangle/.style={fill=white},show background rectangle]
+
+\node[font=\large] at (0,0) {$a_t\sim\pi(\cdot\mid s_t),\qquad
+      s_{t+1}\sim P(\cdot\mid s_t,a_t),\qquad
+      G_t=\sum_{k\ge0}\gamma^kr_{t+k}$};
+\node[stage] at (0,-.75) {强化学习的数据不是固定表格，而是策略与环境交互后按时间顺序产生的轨迹};
+\DenseBlock{obj0}{-11.50}{-1.45}{4}{3}{roleTeal}{$S_t$}{$B\times T\times d_s$}
+\DenseBlock{obj1}{-5.75}{-1.45}{4}{1}{roleOrange}{$A_t$}{$B\times T$ 动作 ID}
+\DenseBlock{obj2}{0.00}{-1.45}{4}{1}{roleCoral}{$R_t$}{$B\times T$}
+\DenseBlock{obj3}{5.75}{-1.45}{4}{3}{roleViolet}{$S_{t+1}$}{$B\times T\times d_s$}
+\DenseBlock{obj4}{11.50}{-1.45}{4}{1}{roleGray}{$G_t$}{$B\times T$}
+\node[op] at (-8.63,-2.25) {$\xrightarrow{\pi}$};
+\node[op] at (-2.88,-2.25) {$\xrightarrow{P,R}$};
+\node[op] at (2.88,-2.25) {$+$};
+\node[op] at (8.63,-2.25) {$\xrightarrow{\operatorname{scan}_{\gamma,T}}$};
+\MeaningBox{B 是轨迹批次，T 是时间轴，ds 是状态特征；回报沿未来时间做折扣扫描而非无序平均。}
+{动作是离散 ID 或连续控制，奖励是即时标量，回报是依赖未来的累计随机变量。}
+{策略改变访问到的状态分布，因此探索与利用不能像监督学习那样假设数据独立同分布。}
+\Identity{强化学习的策略—环境交互轨迹}
+
+\end{tikzpicture}
+\end{document}

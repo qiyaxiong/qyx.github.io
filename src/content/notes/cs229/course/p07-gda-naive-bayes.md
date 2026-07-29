@@ -67,6 +67,8 @@ $\mu_k$ 是类别中心，$\Sigma$ 描述各方向尺度和特征相关性。
 
 ## GDA 模型
 
+![GDA 使用共享协方差计算每个类别的生成式判别分数](/images/notes/cs229/tikz/p07-gda-generative-classification.png)
+
 二分类 GDA 假设：
 
 $$
@@ -407,6 +409,8 @@ GDA 对 $p(x\mid y)$ 作较强 Gaussian 假设。假设近似成立时，它可�
 - 概率校准和决策边界哪个更重要。
 
 ## Naive Bayes 的对数判别
+
+![Naive Bayes 将各特征条件似然沿特征轴累加为类别 log-score](/images/notes/cs229/tikz/p07-naive-bayes-log-score.png)
 
 对离散特征 $x=(x_1,\ldots,x_n)$，朴素条件独立假设：
 

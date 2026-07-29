@@ -135,6 +135,8 @@ $$
 
 ## 支持向量
 
+![SVM 几何间隔、对偶系数和 KKT 支持向量之间的关系](/images/notes/cs229/tikz/p08-svm-margin-kkt.png)
+
 只有满足：
 
 $$
@@ -199,6 +201,8 @@ $$
 若样本严格在间隔外，括号大于零，所以 $\alpha_i=0$。只有支持向量可能有非零对偶系数。
 
 ## 对偶问题
+
+![SVM 对偶目标中的样本 Gram 矩阵、标签外积与对偶变量](/images/notes/cs229/tikz/p08-svm-dual-gram.png)
 
 消去 $w$ 和 $b$ 后：
 

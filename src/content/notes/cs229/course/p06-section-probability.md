@@ -80,6 +80,8 @@ $$
 
 ## Bayes 公式
 
+![Bayes 更新中先验与似然的逐点乘法及证据归一化](/images/notes/cs229/tikz/p06-bayes-update.png)
+
 由乘法规则：
 
 $$
@@ -211,6 +213,8 @@ E[aX+bY]
 $$
 
 ## 方差与协方差
+
+![中心化批数据沿样本轴聚合形成对称半正定协方差矩阵](/images/notes/cs229/tikz/p06-covariance-gaussian.png)
 
 方差：
 

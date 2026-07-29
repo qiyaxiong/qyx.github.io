@@ -88,6 +88,8 @@ $$
 
 ## 特征值推导
 
+![PCA 对中心化数据协方差进行特征分解并选取主方向](/images/notes/cs229/tikz/p21-pca-covariance-eigen.png)
+
 拉格朗日函数：
 
 $$
@@ -140,6 +142,8 @@ $$
 $z^{(i)}\in\mathbb R^k$。
 
 ## 重建
+
+![PCA 使用正交主轴完成低维投影和低秩重建](/images/notes/cs229/tikz/p21-pca-projection-reconstruction.png)
 
 从低维表示重建：
 

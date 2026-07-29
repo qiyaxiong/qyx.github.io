@@ -108,6 +108,8 @@ $$
 
 ## 为什么 Bagging 有效
 
+![Bagging 通过 Bootstrap 和模型轴平均降低预测方差](/images/notes/cs229/tikz/p13-bagging-variance-reduction.png)
+
 训练多个模型 $f_b(x)$，平均预测：
 
 $$
@@ -154,6 +156,8 @@ $$
 每一轮添加一个新学习器。
 
 ## AdaBoost
+
+![AdaBoost 根据错分掩码和弱学习器错误率更新样本权重](/images/notes/cs229/tikz/p13-adaboost-weight-update.png)
 
 初始化样本权重：
 

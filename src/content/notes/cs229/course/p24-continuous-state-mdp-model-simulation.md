@@ -26,6 +26,8 @@ $$
 
 ## 经验转移模型
 
+![从离散转移三元组计数构造行归一化经验 MDP 模型](/images/notes/cs229/tikz/p24-empirical-transition-model.png)
+
 离散状态下：
 
 $$
@@ -112,6 +114,8 @@ $$
 自适应网格可以在策略常访问或价值变化快的区域使用更细划分。
 
 ## 价值函数近似
+
+![连续状态下通过模拟构造 Bellman 目标并拟合价值函数](/images/notes/cs229/tikz/p24-fitted-value-iteration.png)
 
 线性近似：
 

@@ -106,6 +106,8 @@ $$
 
 ## ICA 学习
 
+![ICA 通过解混矩阵恢复独立非 Gaussian 潜在源](/images/notes/cs229/tikz/p22-ica-unmixing.png)
+
 对数据最大化：
 
 $$
@@ -169,6 +171,8 @@ $$
 若仅观察位置而忽略速度，很多控制系统就不满足这个条件。
 
 ## 动作、奖励与策略
+
+![强化学习中策略、动作、环境转移、奖励和折扣回报的轨迹结构](/images/notes/cs229/tikz/p22-rl-interaction-loop.png)
 
 动作：
 

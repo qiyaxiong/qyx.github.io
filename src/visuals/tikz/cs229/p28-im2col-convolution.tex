@@ -1,0 +1,120 @@
+
+\documentclass[tikz,border=10pt]{standalone}
+\usepackage[UTF8,fontset=fandol]{ctex}
+\usepackage{amsmath,amssymb}
+\usetikzlibrary{arrows.meta,backgrounds,calc,fit,positioning}
+\definecolor{roleTeal}{HTML}{4F8FA5}
+\definecolor{roleOrange}{HTML}{EE995B}
+\definecolor{roleCoral}{HTML}{C95B5B}
+\definecolor{roleViolet}{HTML}{8A74B5}
+\definecolor{roleGray}{HTML}{85898F}
+\tikzset{
+  flow/.style={-{Latex[length=2.4mm,width=1.8mm]}, line width=.7pt, draw=black!58},
+  op/.style={font=\Large, text=black!70},
+  stage/.style={font=\small\bfseries, text=black!55},
+  symbol/.style={font=\small, text=black!84, align=center},
+  dimlabel/.style={font=\scriptsize, text=black!52, align=center},
+  note/.style={rounded corners=2pt, fill=black!2, draw=black!14, line width=.5pt,
+    inner xsep=10pt, inner ysep=8pt, text width=27.2cm, align=left, font=\small},
+  tag/.style={rounded corners=2pt, fill=black!4, draw=black!18, inner sep=4pt,
+    font=\scriptsize, text=black!65}
+}
+\newcommand{\cellsize}{0.46}
+\newcommand{\DenseBlock}[8]{%
+  \begin{scope}[shift={(#2,#3)}]
+    \pgfmathtruncatemacro{\R}{#4}
+    \pgfmathtruncatemacro{\C}{#5}
+    \foreach \r in {1,...,\R}{
+      \foreach \c in {1,...,\C}{
+        \pgfmathtruncatemacro{\tone}{mod(7*\r+11*\c+3*\r*\c,3)}
+        \ifcase\tone\def\mix{38}\or\def\mix{58}\or\def\mix{76}\fi
+        \fill[rounded corners=.7pt,#6!\mix]
+          ({(\c-1)*\cellsize},{-(\r-1)*\cellsize})
+          rectangle ++({.39},{-.39});
+      }
+    }
+    \draw[black!55,line width=.65pt]
+      (-.11,.09) -- (-.19,.09) -- (-.19,{-\R*\cellsize+.07}) -- (-.11,{-\R*\cellsize+.07});
+    \draw[black!55,line width=.65pt]
+      ({\C*\cellsize-.07},.09) -- ({\C*\cellsize+.01},.09)
+      -- ({\C*\cellsize+.01},{-\R*\cellsize+.07}) -- ({\C*\cellsize-.07},{-\R*\cellsize+.07});
+    \coordinate (#1-west) at (-.19,{-\R*\cellsize/2+.035});
+    \coordinate (#1-east) at ({\C*\cellsize+.01},{-\R*\cellsize/2+.035});
+    \coordinate (#1-center) at ({\C*\cellsize/2-.035},{-\R*\cellsize/2+.035});
+    \node[symbol] (#1-label) at ({\C*\cellsize/2-.035},{-\R*\cellsize-.28}) {#7};
+    \node[dimlabel] at ({\C*\cellsize/2-.035},{-\R*\cellsize-.65}) {#8};
+  \end{scope}
+}
+\newcommand{\DiagBlock}[8]{%
+  \begin{scope}[shift={(#2,#3)}]
+    \pgfmathtruncatemacro{\R}{#4}
+    \pgfmathtruncatemacro{\C}{#5}
+    \foreach \r in {1,...,\R}{
+      \foreach \c in {1,...,\C}{
+        \ifnum\r=\c
+          \fill[rounded corners=.7pt,#6!68]
+            ({(\c-1)*\cellsize},{-(\r-1)*\cellsize}) rectangle ++({.39},{-.39});
+        \else
+          \draw[rounded corners=.7pt,black!10,line width=.35pt]
+            ({(\c-1)*\cellsize},{-(\r-1)*\cellsize}) rectangle ++({.39},{-.39});
+        \fi
+      }
+    }
+    \draw[black!55,line width=.65pt]
+      (-.11,.09) -- (-.19,.09) -- (-.19,{-\R*\cellsize+.07}) -- (-.11,{-\R*\cellsize+.07});
+    \draw[black!55,line width=.65pt]
+      ({\C*\cellsize-.07},.09) -- ({\C*\cellsize+.01},.09)
+      -- ({\C*\cellsize+.01},{-\R*\cellsize+.07}) -- ({\C*\cellsize-.07},{-\R*\cellsize+.07});
+    \coordinate (#1-west) at (-.19,{-\R*\cellsize/2+.035});
+    \coordinate (#1-east) at ({\C*\cellsize+.01},{-\R*\cellsize/2+.035});
+    \coordinate (#1-center) at ({\C*\cellsize/2-.035},{-\R*\cellsize/2+.035});
+    \node[symbol] at ({\C*\cellsize/2-.035},{-\R*\cellsize-.28}) {#7};
+    \node[dimlabel] at ({\C*\cellsize/2-.035},{-\R*\cellsize-.65}) {#8};
+  \end{scope}
+}
+\newcommand{\ScalarBlock}[8]{%
+  \begin{scope}[shift={(#2,#3)}]
+    \fill[rounded corners=2pt,#6!58] (0,0) rectangle (1.05,-1.05);
+    \draw[rounded corners=2pt,black!45,line width=.65pt] (0,0) rectangle (1.05,-1.05);
+    \coordinate (#1-west) at (0,-.525);
+    \coordinate (#1-east) at (1.05,-.525);
+    \coordinate (#1-center) at (.525,-.525);
+    \node[symbol] at (.525,-1.35) {#7};
+    \node[dimlabel] at (.525,-1.72) {#8};
+  \end{scope}
+}
+\newcommand{\MeaningBox}[3]{%
+  \node[note,anchor=north west] (meaning) at (-13.6,-6.0) {%
+    \begin{minipage}{26.5cm}
+      \textbf{轴}\quad #1\\[5pt]
+      \textbf{对象}\quad #2\\[5pt]
+      \textbf{机制}\quad #3
+    \end{minipage}};
+}
+\newcommand{\Identity}[1]{%
+  \node[font=\scriptsize,text=black!42,anchor=north] at (0,-8.15) {#1};
+}
+
+\begin{document}
+\begin{tikzpicture}[x=1cm,y=1cm,background rectangle/.style={fill=white},show background rectangle]
+
+\node[font=\large] at (0,0) {$Y_{\mathrm{col}}=X_{\mathrm{col}}W_{\mathrm{col}},\qquad
+      (N_p\times K)(K\times C_{\mathrm{out}})\to N_p\times C_{\mathrm{out}},
+      \quad K=k_hk_wC_{\mathrm{in}}$};
+\node[stage] at (0,-.75) {im2col 把每个局部感受野展平为一行，使多通道卷积变成标准矩阵乘法};
+\DenseBlock{obj0}{-11.50}{-1.45}{5}{5}{roleTeal}{$X$}{$H\times W\times C_{\mathrm{in}}$}
+\DenseBlock{obj1}{-5.75}{-1.45}{5}{4}{roleViolet}{$X_{\mathrm{col}}$}{$N_p\times K$}
+\DenseBlock{obj2}{0.00}{-1.45}{4}{3}{roleOrange}{$W_{\mathrm{col}}$}{$K\times C_{\mathrm{out}}$}
+\DenseBlock{obj3}{5.75}{-1.45}{5}{3}{roleCoral}{$Y_{\mathrm{col}}$}{$N_p\times C_{\mathrm{out}}$}
+\DenseBlock{obj4}{11.50}{-1.45}{4}{4}{roleViolet}{$Y$}{$H_o\times W_o\times C_{\mathrm{out}}$}
+\node[op] at (-8.63,-2.25) {$\longrightarrow$};
+\node[op] at (-2.88,-2.25) {$\times$};
+\node[op] at (2.88,-2.25) {$=$};
+\node[op] at (8.63,-2.25) {$\longrightarrow$};
+\MeaningBox{Np=HoWo 是输出位置轴，K 是局部空间与输入通道的合并收缩轴，Cout 是输出通道轴。}
+{Xcol 是重复展开的局部块矩阵，Wcol 是展平滤波器，Ycol 是未恢复空间布局的输出。}
+{实现可借助高效 GEMM；代价是显式 im2col 可能复制输入并增加临时内存。}
+\Identity{卷积的 im2col 矩阵乘法}
+
+\end{tikzpicture}
+\end{document}

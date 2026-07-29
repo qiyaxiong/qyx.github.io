@@ -89,6 +89,8 @@ $$
 
 ## 有限假设类与 Union Bound
 
+![有限假设类中经验风险、真风险与统一收敛界的归约过程](/images/notes/cs229/tikz/p12-erm-generalization-bound.png)
+
 若：
 
 $$
@@ -322,6 +324,8 @@ $$
 一致收敛意味着以至少 $1-\delta$ 的概率，所有假设的经验风险都接近真实风险。这样用经验风险选择模型才有理论保证。
 
 ## ERM 的泛化误差分解
+
+![模型超额风险中的近似误差与估计误差分解](/images/notes/cs229/tikz/p12-generalization-error-decomposition.png)
 
 设：
 

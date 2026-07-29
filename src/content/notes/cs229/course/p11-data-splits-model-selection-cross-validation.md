@@ -59,6 +59,8 @@ $$
 
 ## K 折交叉验证
 
+![K 折交叉验证沿验证折平均并在候选超参数中完成选择](/images/notes/cs229/tikz/p11-cross-validation-model-selection.png)
+
 把训练数据分为 $K$ 折。第 $k$ 轮用第 $k$ 折验证，其余折训练：
 
 $$
@@ -109,6 +111,8 @@ $K$ 较小时计算便宜，但训练集规模更小。
 它是贪心搜索，不能保证找到全局最佳子集，而且必须嵌套在验证流程内部。
 
 ## 正则化
+
+![Ridge 正则化在特征 Gram 矩阵对角线上平移特征值](/images/notes/cs229/tikz/p11-ridge-regularization.png)
 
 $L_2$ 正则：
 

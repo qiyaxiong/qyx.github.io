@@ -144,6 +144,8 @@ $$
 
 ## 部署反馈循环
 
+![模型部署如何改变行为、选择机制和下一轮训练数据分布](/images/notes/cs229/tikz/p25-distribution-deployment-feedback.png)
+
 预测会改变后续数据。
 
 例如模型决定哪些案例被调查，未来训练集就更常包含这些案例的结果。

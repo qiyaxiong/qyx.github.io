@@ -22,6 +22,8 @@ language: zh
 
 ## 混淆矩阵
 
+![从连续预测分数、阈值决策和混淆矩阵推导 Precision、Recall 与 F1](/images/notes/cs229/tikz/p15-confusion-matrix-metrics.png)
+
 二分类结果分为：
 
 |        | 预测正 | 预测负 |
@@ -118,6 +120,8 @@ $$
 阈值必须在验证集根据真实代价选择，不能在测试集挑出最好看的点。
 
 ## ROC 曲线
+
+![ROC 曲线如何沿阈值轴生成多组预测、计数和坐标](/images/notes/cs229/tikz/p15-roc-threshold-sweep.png)
 
 ROC 横轴：
 

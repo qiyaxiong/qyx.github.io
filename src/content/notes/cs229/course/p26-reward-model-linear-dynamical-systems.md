@@ -132,6 +132,8 @@ $$
 
 ## 最优线性反馈
 
+![LQR 将状态映射为最优控制并通过线性动力学传播](/images/notes/cs229/tikz/p26-lqr-state-control.png)
+
 对 $u$ 求导并令零：
 
 $$
@@ -154,6 +156,8 @@ $$
 实际实现应解线性方程，不显式计算括号矩阵的逆。
 
 ## Riccati 递推
+
+![Riccati 递推如何在控制空间形成 Hessian 并求反馈增益](/images/notes/cs229/tikz/p26-riccati-recursion.png)
 
 把 $u_t=K_tx_t$ 代回，可得到：
 

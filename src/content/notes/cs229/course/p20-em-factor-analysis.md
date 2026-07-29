@@ -56,6 +56,8 @@ $$
 
 ## ELBO 与 KL 分解
 
+![EM 在辅助后验与模型参数两个坐标上交替提高 ELBO](/images/notes/cs229/tikz/p20-em-elbo-coordinate-ascent.png)
+
 定义：
 
 $$
@@ -148,6 +150,8 @@ $$
 Factor Analysis 假设高维相关结构由少量低维隐因子产生。
 
 ## 因子分析生成模型
+
+![因子分析通过低秩载荷和对角噪声构造观测协方差](/images/notes/cs229/tikz/p20-factor-analysis-covariance.png)
 
 隐变量：
 

@@ -248,6 +248,8 @@ $$
 
 ## IRLS 视角
 
+![Logistic 回归如何通过概率曲率形成 IRLS 加权最小二乘更新](/images/notes/cs229/tikz/p04-logistic-irls.png)
+
 牛顿法更新可改写为迭代重加权最小二乘。每轮根据当前预测构造权重 $R$ 和工作响应，再解一个加权线性系统。
 
 这揭示了两个性质：
@@ -285,6 +287,8 @@ $$
 通常不惩罚截距项。
 
 ## 局部加权回归的矩阵解
+
+![局部加权回归的样本权重以及 Newton 法的曲率更新](/images/notes/cs229/tikz/p04-locally-weighted-newton.png)
 
 对查询点 $x$，给第 $i$ 个训练样本权重：
 

@@ -101,6 +101,8 @@ X[:, j : j + 1]
 
 ## 广播
 
+![NumPy 批量矩阵乘法、偏置广播与输出形状传播](/images/notes/cs229/tikz/p09-broadcasting-vectorization.png)
+
 若：
 
 ```text

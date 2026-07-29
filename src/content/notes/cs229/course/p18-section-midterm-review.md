@@ -278,6 +278,8 @@ $$
 
 ## 统一解题框架
 
+![CS229 期中模型从假设、目标、梯度到诊断的统一解题闭环](/images/notes/cs229/tikz/p18-midterm-unified-solution-loop.png)
+
 遇到任何模型题，按以下顺序展开：
 
 1. 写出样本、参数和维度；

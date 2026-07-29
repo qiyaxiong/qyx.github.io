@@ -140,6 +140,8 @@ $$
 
 ## 线性高斯系统
 
+![Kalman Filter 在状态空间和观测空间之间传播与更新协方差](/images/notes/cs229/tikz/p27-kalman-covariance-update.png)
+
 LQG 假设：
 
 $$
@@ -173,6 +175,8 @@ $$
 $Q$ 是过程噪声协方差。
 
 ## Kalman Filter：更新
+
+![Kalman Filter 从状态预测、观测创新到增益加权更新](/images/notes/cs229/tikz/p27-kalman-predict-update.png)
 
 创新：
 

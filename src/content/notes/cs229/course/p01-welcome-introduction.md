@@ -25,6 +25,8 @@ language: zh
 
 ## 什么叫机器学习
 
+![机器学习系统从数据、学习算法、参数、预测到经验风险的完整闭环](/images/notes/cs229/tikz/p01-learning-system-map.png)
+
 传统程序把规则直接写入代码：
 
 $$
