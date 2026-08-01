@@ -1,5 +1,5 @@
 ---
-const enabled = import.meta.env.PUBLIC_LIVE2D_ENABLED === 'true'
+const enabled = import.meta.env.PUBLIC_LIVE2D_ENABLED !== 'false'
 const apiBase = import.meta.env.PUBLIC_PI_AGENT_API_BASE || '/agent-api'
 const provider = import.meta.env.PUBLIC_PI_AGENT_PROVIDER || 'dashscope'
 const model = import.meta.env.PUBLIC_PI_AGENT_MODEL || 'qwen3-max'
