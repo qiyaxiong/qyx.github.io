@@ -391,20 +391,41 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
       updateMouth()
     }
 
-    function once(target: EventTarget, event: string): Promise<void> {
+    function once(target: EventTarget, event: string, signal?: AbortSignal): Promise<void> {
       return new Promise((resolve, reject) => {
-        target.addEventListener(event, () => resolve(), { once: true })
-        target.addEventListener('error', () => reject(new Error(`Audio ${event} failed`)), {
-          once: true
-        })
+        const cleanup = () => {
+          target.removeEventListener(event, onSuccess)
+          target.removeEventListener('error', onError)
+          signal?.removeEventListener('abort', onAbort)
+        }
+        const onSuccess = () => {
+          cleanup()
+          resolve()
+        }
+        const onError = () => {
+          cleanup()
+          reject(new Error(`Audio ${event} failed`))
+        }
+        const onAbort = () => {
+          cleanup()
+          reject(new DOMException('Audio playback aborted', 'AbortError'))
+        }
+        if (signal?.aborted) return onAbort()
+        target.addEventListener(event, onSuccess, { once: true })
+        target.addEventListener('error', onError, { once: true })
+        signal?.addEventListener('abort', onAbort, { once: true })
       })
     }
 
-    async function appendBuffer(sourceBuffer: SourceBuffer, chunk: Uint8Array) {
+    async function appendBuffer(
+      sourceBuffer: SourceBuffer,
+      chunk: Uint8Array,
+      signal: AbortSignal
+    ) {
       const copy = new Uint8Array(chunk.byteLength)
       copy.set(chunk)
       sourceBuffer.appendBuffer(copy.buffer)
-      await once(sourceBuffer, 'updateend')
+      await once(sourceBuffer, 'updateend', signal)
     }
 
     async function playSpeechAudio(text: string) {
@@ -427,12 +448,12 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
         audio.src = speechObjectUrl
         trackSpeechAudio(audio, context)
         await audio.play()
-        await once(audio, 'ended')
+        await once(audio, 'ended', abortController.signal)
       } else {
         const mediaSource = new MediaSource()
         speechObjectUrl = URL.createObjectURL(mediaSource)
         audio.src = speechObjectUrl
-        await once(mediaSource, 'sourceopen')
+        await once(mediaSource, 'sourceopen', abortController.signal)
         const sourceBuffer = mediaSource.addSourceBuffer(mediaType)
         const reader = response.body.getReader()
         let started = false
@@ -443,7 +464,7 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
             return
           }
           if (done) break
-          await appendBuffer(sourceBuffer, value)
+          await appendBuffer(sourceBuffer, value, abortController.signal)
           if (!started) {
             started = true
             trackSpeechAudio(audio, context)
@@ -452,7 +473,7 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
         }
         if (!started) throw new Error('TTS returned no audio')
         if (mediaSource.readyState === 'open') mediaSource.endOfStream()
-        await once(audio, 'ended')
+        await once(audio, 'ended', abortController.signal)
       }
 
       if (generation !== speechGeneration) return
