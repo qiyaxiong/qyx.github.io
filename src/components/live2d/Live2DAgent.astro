@@ -2,7 +2,7 @@
 const enabled = import.meta.env.PUBLIC_LIVE2D_ENABLED === 'true'
 const apiBase = import.meta.env.PUBLIC_PI_AGENT_API_BASE || '/agent-api'
 const provider = import.meta.env.PUBLIC_PI_AGENT_PROVIDER || 'dashscope'
-const model = import.meta.env.PUBLIC_PI_AGENT_MODEL || 'qwen-plus'
+const model = import.meta.env.PUBLIC_PI_AGENT_MODEL || 'qwen3-max'
 const coreUrl = import.meta.env.PUBLIC_LIVE2D_CUBISM_CORE_URL || '/live2dcubismcore.min.js'
 const coreFallbackUrl =
   import.meta.env.PUBLIC_LIVE2D_CUBISM_CORE_FALLBACK_URL ||
@@ -143,7 +143,7 @@ const coreFallbackUrl =
     const minimize = agentRoot.querySelector<HTMLButtonElement>('.live2d-minimize')!
     const api = new BlogAgentApi(agentRoot.dataset.apiBase || '/agent-api')
     const provider = agentRoot.dataset.provider || 'dashscope'
-    const modelId = agentRoot.dataset.model || 'qwen-plus'
+    const modelId = agentRoot.dataset.model || 'qwen3-max'
     let app: import('pixi.js').Application | undefined
     let avatar: AvatarModel | undefined
     let sessionId = ''
@@ -487,6 +487,11 @@ const coreFallbackUrl =
       if (event.key !== 'Enter' && event.key !== ' ') return
       event.preventDefault()
       setComposerOpen(true)
+    })
+    prompt.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' || event.isComposing) return
+      event.preventDefault()
+      form.requestSubmit()
     })
     form.addEventListener('submit', async (event) => {
       event.preventDefault()
