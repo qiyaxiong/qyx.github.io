@@ -371,6 +371,7 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
       speechAnalyser = undefined
       avatarSpeaking = false
       mouthLevel = 0
+      if (talkMotionGroup) void avatar?.motion(idleMotionGroup, 0)
     }
 
     function startSpeechTracking(context: AudioContext): AnalyserNode {
@@ -446,10 +447,12 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
       let trailingByte: number | undefined
       let pendingSamples = new Float32Array(0)
       let playbackStarted = speechAnalyser !== undefined
+      let segmentScheduled = false
       const batchFrames = Math.round(sampleRate * 0.12)
       const startupFrames = Math.round(sampleRate * 0.18)
 
       const schedule = (samples: Float32Array) => {
+        segmentScheduled = true
         const analyser = speechAnalyser ?? startSpeechTracking(context)
         const buffer = context.createBuffer(1, samples.length, sampleRate)
         buffer.getChannelData(0).set(samples)
@@ -522,7 +525,7 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
       }
       if (trailingByte !== undefined) throw new Error('TTS returned incomplete PCM data')
       flushReadySamples(true)
-      if (!turn.lastFinished) throw new Error('TTS returned no audio')
+      if (!segmentScheduled) throw new Error('TTS returned no audio')
     }
 
     async function closeSpeechTurn(turn: SpeechTurn) {
