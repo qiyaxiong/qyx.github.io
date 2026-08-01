@@ -12,6 +12,7 @@
     "build:github": "astro check && astro build",
     "preview": "astro preview",
     "smoke:live2d": "node scripts/verify-live2d-blog.mjs",
+    "test:live2d": "node --test tests/live2d-speech-segments.test.ts",
     "viz:cs229": "node src/scripts/generate-cs229-tikz-diagrams.mjs",
     "sync": "astro sync",
     "check": "astro check",

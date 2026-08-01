@@ -71,7 +71,14 @@ Session，只返回当前访客的 Session ID，固定 Provider/Model，移除�
 
 语音接口返回 `audio/pcm` 分块流，并通过响应头声明 24 kHz、单声道、signed 16-bit
 little-endian（s16le）格式。浏览器先积累 180 ms 启动水位，随后按 120 ms 音频批次通过
-Web Audio 连续播放；原始 PCM 振幅同时驱动 Live2D 嘴型。
+Web Audio 连续播放；原始 PCM 的 RMS 振幅同时驱动 `ParamMouthOpenY`。Agent 回复流按中文、
+英文标点或换行切成短句，没有标点时每 120 字强制切分；每个短句一生成便进入顺序 TTS 队列，
+不再等待整段回复结束后才开始说话。
+
+播放开始时，存在 `Talk` Motion 的模型会切换到 `Talk`；没有 `Talk` 资源时使用轻微的头部和身体
+参数摆动作为降级效果，模型 Physics 继续负责头发和衣摆的惯性。最后一段 PCM 播放结束后，嘴型
+最多用 240 ms 平滑回零，再从 `Talk` 切回模型实际声明的 `Idle` Motion。新问题、页面卸载或播放
+失败都会中止当前 TTS 队列并释放 Web Audio 节点。
 
 `PI_AGENT_BFF_SECRET` 必须是至少 32 字符的独立随机 Secret。内置速率计数是单实例的最后一道
 保护；多实例生产部署还应在 CDN/网关配置共享速率限制和成本预算。Agent 服务应位于私网或只接受

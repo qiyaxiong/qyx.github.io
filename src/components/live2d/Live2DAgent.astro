@@ -108,6 +108,7 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
     type Live2DSnapshot,
     type PageContext
   } from './client'
+  import { SpeechSegmenter } from './speech-segments'
 
   interface CoreModel {
     setParameterValueById(id: string, value: number): void
@@ -129,6 +130,18 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
     expression(name: string): Promise<unknown>
     motion(group: string, index: number): Promise<unknown>
     internalModel?: InternalModel
+  }
+
+  interface SpeechTurn {
+    generation: number
+    context: AudioContext
+    abortController: AbortController
+    queue: string[]
+    complete: boolean
+    wake?: () => void
+    nextStartTime: number
+    sampleRate?: number
+    lastFinished?: Promise<void>
   }
 
   const root = document.querySelector<HTMLElement>('[data-live2d-agent]')
@@ -168,12 +181,14 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
     let audioContext: AudioContext | undefined
     const speechSources = new Set<AudioBufferSourceNode>()
     let speechAnalyser: AnalyserNode | undefined
-    let speechAbortController: AbortController | undefined
     let speechAnimationFrame: number | undefined
     let speechGeneration = 0
+    let speechTurn: SpeechTurn | undefined
+    const speechSegmenter = new SpeechSegmenter()
     let mouthLevel = 0
     let avatarSpeaking = false
     let talkMotionGroup: string | undefined
+    let idleMotionGroup = 'Idle'
 
     const allowedRoutePrefixes = [
       '/blog/',
@@ -337,8 +352,10 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
 
     function stopSpeechAudio() {
       speechGeneration += 1
-      speechAbortController?.abort()
-      speechAbortController = undefined
+      speechTurn?.abortController.abort()
+      speechTurn?.wake?.()
+      speechTurn = undefined
+      speechSegmenter.reset()
       if (speechAnimationFrame !== undefined) cancelAnimationFrame(speechAnimationFrame)
       speechAnimationFrame = undefined
       for (const source of speechSources) {
@@ -401,16 +418,10 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
       })
     }
 
-    async function playSpeechAudio(text: string) {
-      const context = ensureAudioContext()
-      if (!context || !text.trim()) return
-      stopSpeechAudio()
-      const generation = speechGeneration
-      const abortController = new AbortController()
-      speechAbortController = abortController
-      if (context.state === 'suspended') await context.resume()
+    async function streamSpeechSegment(turn: SpeechTurn, text: string) {
+      const { context, abortController, generation } = turn
       const response = await api.synthesizeSpeech(sessionId, text, abortController.signal)
-      if (generation !== speechGeneration) return
+      if (generation !== speechGeneration || speechTurn !== turn) return
       if (!response.body) throw new Error('TTS returned no PCM stream')
       const mediaType = response.headers.get('content-type')?.split(';')[0]
       const sampleRate = Number(response.headers.get('x-audio-sample-rate'))
@@ -426,18 +437,20 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
       ) {
         throw new Error('TTS returned an unsupported PCM format')
       }
+      if (turn.sampleRate !== undefined && turn.sampleRate !== sampleRate) {
+        throw new Error('TTS changed PCM sample rate during a reply')
+      }
+      turn.sampleRate = sampleRate
 
       const reader = response.body.getReader()
-      const analyser = startSpeechTracking(context)
       let trailingByte: number | undefined
-      let nextStartTime = context.currentTime + 0.04
-      let lastFinished: Promise<void> | undefined
       let pendingSamples = new Float32Array(0)
-      let playbackStarted = false
+      let playbackStarted = speechAnalyser !== undefined
       const batchFrames = Math.round(sampleRate * 0.12)
       const startupFrames = Math.round(sampleRate * 0.18)
 
       const schedule = (samples: Float32Array) => {
+        const analyser = speechAnalyser ?? startSpeechTracking(context)
         const buffer = context.createBuffer(1, samples.length, sampleRate)
         buffer.getChannelData(0).set(samples)
         const source = context.createBufferSource()
@@ -452,10 +465,10 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
           },
           { once: true }
         )
-        lastFinished = sourceFinished(source, abortController.signal)
-        const startAt = Math.max(nextStartTime, context.currentTime + 0.015)
+        turn.lastFinished = sourceFinished(source, abortController.signal)
+        const startAt = Math.max(turn.nextStartTime, context.currentTime + 0.015)
         source.start(startAt)
-        nextStartTime = startAt + buffer.duration
+        turn.nextStartTime = startAt + buffer.duration
       }
 
       const flushReadySamples = (finished = false) => {
@@ -476,7 +489,7 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
 
       while (true) {
         const { done, value } = await reader.read()
-        if (generation !== speechGeneration) {
+        if (generation !== speechGeneration || speechTurn !== turn) {
           await reader.cancel()
           return
         }
@@ -509,12 +522,83 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
       }
       if (trailingByte !== undefined) throw new Error('TTS returned incomplete PCM data')
       flushReadySamples(true)
-      if (!lastFinished) throw new Error('TTS returned no audio')
-      await lastFinished
+      if (!turn.lastFinished) throw new Error('TTS returned no audio')
+    }
 
-      if (generation !== speechGeneration) return
-      stopSpeechAudio()
+    async function closeSpeechTurn(turn: SpeechTurn) {
+      if (turn.lastFinished) await turn.lastFinished
+      if (turn.generation !== speechGeneration || speechTurn !== turn) return
+
+      avatarSpeaking = false
+      const deadline = performance.now() + 240
+      while (mouthLevel > 0.01 && performance.now() < deadline) {
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+        if (turn.generation !== speechGeneration || speechTurn !== turn) return
+      }
+
+      if (talkMotionGroup) void avatar?.motion(idleMotionGroup, 0)
+      if (speechAnimationFrame !== undefined) cancelAnimationFrame(speechAnimationFrame)
+      speechAnimationFrame = undefined
+      speechAnalyser?.disconnect()
+      speechAnalyser = undefined
+      mouthLevel = 0
+      speechTurn = undefined
       setState('idle', copy.ready)
+    }
+
+    async function runSpeechTurn(turn: SpeechTurn) {
+      try {
+        while (turn.generation === speechGeneration && speechTurn === turn) {
+          const segment = turn.queue.shift()
+          if (segment) {
+            await streamSpeechSegment(turn, segment)
+            continue
+          }
+          if (turn.complete) break
+          await new Promise<void>((resolve) => {
+            turn.wake = resolve
+          })
+          turn.wake = undefined
+        }
+        await closeSpeechTurn(turn)
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return
+        if (turn.generation !== speechGeneration || speechTurn !== turn) return
+        stopSpeechAudio()
+        setState('idle', copy.ready)
+        console.warn('[live2d-agent] TTS unavailable', error)
+      }
+    }
+
+    function enqueueSpeechSegment(text: string) {
+      const context = ensureAudioContext()
+      const segment = text.trim()
+      if (!context || !segment) return
+      let turn = speechTurn
+      if (!turn) {
+        const abortController = new AbortController()
+        turn = {
+          generation: speechGeneration,
+          context,
+          abortController,
+          queue: [],
+          complete: false,
+          nextStartTime: context.currentTime + 0.04
+        }
+        speechTurn = turn
+        void runSpeechTurn(turn)
+      }
+      turn.queue.push(segment)
+      turn.wake?.()
+    }
+
+    function completeSpeechTurn() {
+      if (!speechTurn) {
+        setState('idle', copy.ready)
+        return
+      }
+      speechTurn.complete = true
+      speechTurn.wake?.()
     }
 
     const applyVoiceParameters = () => {
@@ -596,20 +680,17 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
         speech += data.delta
         setSpeech(speech)
         setState('speaking')
+        for (const segment of speechSegmenter.push(data.delta)) enqueueSpeechSegment(segment)
       }
       if (event.type === 'live2d.speech.completed') {
         speech = typeof data.text === 'string' ? data.text : speech
         setSpeech(speech, Boolean(speech), 12_000)
-        setState('idle', copy.ready)
+        for (const segment of speechSegmenter.finish(speech)) enqueueSpeechSegment(segment)
+        completeSpeechTurn()
         send.disabled = false
-        void playSpeechAudio(speech).catch((error: unknown) => {
-          if (error instanceof DOMException && error.name === 'AbortError') return
-          stopSpeechAudio()
-          setState('idle', copy.ready)
-          console.warn('[live2d-agent] TTS unavailable', error)
-        })
       }
       if (event.type === 'live2d.error') {
+        stopSpeechAudio()
         throw new Error(typeof data.message === 'string' ? data.message : copy.unavailable)
       }
       if (event.type === 'live2d.web.action.intent') {
@@ -689,6 +770,9 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
       talkMotionGroup = Object.keys(modelInfo.motion_groups).find(
         (group) => group.toLowerCase() === 'talk'
       )
+      idleMotionGroup =
+        Object.keys(modelInfo.motion_groups).find((group) => group.toLowerCase() === 'idle') ||
+        'Idle'
       avatar.internalModel?.on?.('afterMotionUpdate', applyVoiceParameters)
       app.stage.addChild(avatar as unknown as import('pixi.js').DisplayObject)
       fitAvatar()
