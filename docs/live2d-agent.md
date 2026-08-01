@@ -75,9 +75,11 @@ Web Audio 连续播放；原始 PCM 的 RMS 振幅同时驱动 `ParamMouthOpenY`
 英文标点或换行切成短句，没有标点时每 48 个 Unicode 字符强制切分；每个短句一生成便进入顺序 TTS 队列，
 不再等待整段回复结束后才开始说话。
 
-播放开始时，存在 `Talk` Motion 的模型会切换到 `Talk`；没有 `Talk` 资源时使用有界正弦曲线驱动
-`ParamBodyAngleZ`、`ParamBodyAngleX` 和 `ParamAngleZ`，只让腰以上的躯干与头部摆动，不平移或旋转
-整个人物。模型 Physics 继续负责头发和衣摆的惯性。最后一段 PCM 播放结束后，嘴型
+播放开始时，存在 `Talk` Motion 的模型会切换到 `Talk`；没有 `Talk` 资源时由说话姿态控制器叠加
+多组非整数频率的低幅曲线，分别驱动 `ParamBodyAngleZ`、`ParamBodyAngleX` 与头部 X/Y/Z。躯干慢速
+改变重心，头部以不同频率略微滞后，PCM RMS 只轻度调节活跃度；指数阻尼负责启停过渡，避免固定
+钟摆节奏和姿态突变。整个 Pixi 人物不平移或旋转，模型 Physics 继续负责头发和衣摆的惯性。最后
+一段 PCM 播放结束后，嘴型
 最多用 240 ms 平滑回零，再从 `Talk` 切回模型实际声明的 `Idle` Motion。新问题、页面卸载或播放
 失败都会中止当前 TTS 队列并释放 Web Audio 节点。
 

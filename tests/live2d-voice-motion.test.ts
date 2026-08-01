@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { applySpeechSway, resetSpeechSway } from '../src/components/live2d/voice-motion.ts'
+import { SpeechMotionController } from '../src/components/live2d/voice-motion.ts'
 
 class ParameterTarget {
   readonly values = new Map<string, number>()
@@ -11,30 +11,52 @@ class ParameterTarget {
   }
 }
 
-test('speech sway writes a bounded pose instead of accumulating every frame', () => {
+test('speech motion stays smooth and bounded while avoiding a single pendulum rhythm', () => {
   const target = new ParameterTarget()
+  const controller = new SpeechMotionController()
+  const bodySamples: number[] = []
+  let largestStep = 0
+  let previousBodyTilt = 0
 
-  applySpeechSway(target, 1)
-  const firstAngle = target.values.get('ParamAngleZ')
-  const firstBodyAngle = target.values.get('ParamBodyAngleX')
-  const firstBodyTilt = target.values.get('ParamBodyAngleZ')
-  applySpeechSway(target, 1)
+  for (let frame = 0; frame < 60 * 20; frame += 1) {
+    controller.update(target, {
+      timeSeconds: frame / 60,
+      energy: 0.45,
+      speaking: true
+    })
+    const bodyTilt = target.values.get('ParamBodyAngleZ') || 0
+    largestStep = Math.max(largestStep, Math.abs(bodyTilt - previousBodyTilt))
+    previousBodyTilt = bodyTilt
+    if (frame % 60 === 0) bodySamples.push(bodyTilt)
+  }
 
-  assert.equal(target.values.get('ParamAngleZ'), firstAngle)
-  assert.equal(target.values.get('ParamBodyAngleX'), firstBodyAngle)
-  assert.equal(target.values.get('ParamBodyAngleZ'), firstBodyTilt)
-  assert.ok(Math.abs(firstAngle || 0) <= 4)
-  assert.ok(Math.abs(firstBodyAngle || 0) <= 2.5)
-  assert.ok(Math.abs(firstBodyTilt || 0) <= 6)
+  assert.ok(largestStep < 0.2)
+  assert.ok(Math.max(...bodySamples) - Math.min(...bodySamples) > 2)
+  assert.ok(Math.max(...bodySamples.map(Math.abs)) < 5)
+  assert.notEqual(bodySamples[0], bodySamples[8])
 })
 
-test('speech sway returns to a neutral pose when playback stops', () => {
+test('speech motion eases out and resets every controlled parameter', () => {
   const target = new ParameterTarget()
+  const controller = new SpeechMotionController()
 
-  applySpeechSway(target, 1)
-  resetSpeechSway(target)
+  for (let frame = 0; frame < 120; frame += 1) {
+    controller.update(target, { timeSeconds: frame / 60, energy: 0.8, speaking: true })
+  }
+  for (let frame = 120; frame < 240; frame += 1) {
+    controller.update(target, { timeSeconds: frame / 60, energy: 0, speaking: false })
+  }
 
-  assert.equal(target.values.get('ParamAngleZ'), 0)
-  assert.equal(target.values.get('ParamBodyAngleX'), 0)
-  assert.equal(target.values.get('ParamBodyAngleZ'), 0)
+  assert.ok(Math.abs(target.values.get('ParamBodyAngleZ') || 0) < 0.25)
+  controller.reset(target)
+
+  for (const id of [
+    'ParamAngleX',
+    'ParamAngleY',
+    'ParamAngleZ',
+    'ParamBodyAngleX',
+    'ParamBodyAngleZ'
+  ]) {
+    assert.equal(target.values.get(id), 0)
+  }
 })

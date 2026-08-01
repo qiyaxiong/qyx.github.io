@@ -110,7 +110,7 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
     type PageContext
   } from './client'
   import { SpeechSegmenter } from './speech-segments'
-  import { applySpeechSway, resetSpeechSway } from './voice-motion'
+  import { SpeechMotionController } from './voice-motion'
 
   interface CoreModel {
     setParameterValueById(id: string, value: number): void
@@ -186,6 +186,7 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
     let speechGeneration = 0
     let speechTurn: SpeechTurn | undefined
     const speechSegmenter = new SpeechSegmenter()
+    const speechMotion = new SpeechMotionController()
     let mouthLevel = 0
     let avatarSpeaking = false
     let talkMotionGroup: string | undefined
@@ -374,7 +375,7 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
       agentRoot.dataset.audioActive = 'false'
       mouthLevel = 0
       const coreModel = avatar?.internalModel?.coreModel
-      if (coreModel) resetSpeechSway(coreModel)
+      if (coreModel) speechMotion.reset(coreModel)
       if (talkMotionGroup) void avatar?.motion(idleMotionGroup, 0)
     }
 
@@ -547,7 +548,7 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
 
       if (talkMotionGroup) void avatar?.motion(idleMotionGroup, 0)
       const coreModel = avatar?.internalModel?.coreModel
-      if (coreModel) resetSpeechSway(coreModel)
+      if (coreModel) speechMotion.reset(coreModel)
       if (speechAnimationFrame !== undefined) cancelAnimationFrame(speechAnimationFrame)
       speechAnimationFrame = undefined
       speechAnalyser?.disconnect()
@@ -616,10 +617,11 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
       const coreModel = avatar?.internalModel?.coreModel
       if (!coreModel) return
       coreModel.setParameterValueById('ParamMouthOpenY', mouthLevel)
-      if (avatarSpeaking) {
-        const elapsed = performance.now() / 1_000
-        applySpeechSway(coreModel, elapsed)
-      }
+      speechMotion.update(coreModel, {
+        timeSeconds: performance.now() / 1_000,
+        energy: mouthLevel,
+        speaking: avatarSpeaking
+      })
     }
 
     function loadScript(source: string): Promise<void> {
