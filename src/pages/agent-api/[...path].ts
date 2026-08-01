@@ -5,7 +5,7 @@ export const prerender = false
 type RouteMatch =
   | { kind: 'model' | 'asset' | 'session-create' }
   | { kind: 'session-read' | 'snapshot' | 'events'; sessionId: string }
-  | { kind: 'run' }
+  | { kind: 'run' | 'speech' }
 
 interface RateCounter {
   count: number
@@ -24,6 +24,7 @@ function matchRoute(method: string, path: string): RouteMatch | undefined {
   if (method === 'GET' && /^api\/v1\/live2d\/assets\/.+$/.test(path)) return { kind: 'asset' }
   if (method === 'POST' && path === 'api/v1/sessions') return { kind: 'session-create' }
   if (method === 'POST' && path === 'api/v1/runs') return { kind: 'run' }
+  if (method === 'POST' && path === 'api/v1/speech/synthesize') return { kind: 'speech' }
   const session = /^api\/v1\/sessions\/([^/]+)$/.exec(path)
   if (method === 'GET' && session) {
     return { kind: 'session-read', sessionId: session[1] }
@@ -117,7 +118,8 @@ function sanitizePageContext(value: unknown, sourceUrl: URL): Record<string, str
     const url = new URL(pageContext.href, sourceUrl.origin)
     if (url.origin !== sourceUrl.origin || !url.pathname.startsWith('/')) return undefined
     const decodedPath = decodeURIComponent(url.pathname)
-    if (decodedPath.split('/').some((segment) => segment === '.' || segment === '..')) return undefined
+    if (decodedPath.split('/').some((segment) => segment === '.' || segment === '..'))
+      return undefined
     if (
       decodedPath !== '/' &&
       !allowedPagePrefixes.some(
@@ -125,9 +127,11 @@ function sanitizePageContext(value: unknown, sourceUrl: URL): Record<string, str
           decodedPath === prefix.replace(/\/$/, '') ||
           decodedPath.startsWith(`${prefix.replace(/\/$/, '')}/`)
       )
-    ) return undefined
+    )
+      return undefined
     const title = typeof pageContext.title === 'string' ? pageContext.title.slice(0, 160) : ''
-    const language = typeof pageContext.language === 'string' ? pageContext.language.slice(0, 16) : 'zh'
+    const language =
+      typeof pageContext.language === 'string' ? pageContext.language.slice(0, 16) : 'zh'
     return {
       href: `${url.pathname}${url.search}${url.hash}`,
       title,
@@ -291,6 +295,36 @@ export const ALL: APIRoute = async ({ params, request }) => {
         request_context: requestContext ? { page_context: requestContext } : {}
       })
     )
+  }
+
+  if (route.kind === 'speech') {
+    if (!owned) return errorResponse(401, 'bff.session_required', 'Guest Session is required')
+    if (
+      !consumeRateLimit(`speech-minute:${owned}`, 10, 60_000) ||
+      !consumeRateLimit(`speech-day:${owned}`, 200, 24 * 60 * 60 * 1_000)
+    ) {
+      return errorResponse(429, 'bff.rate_limited', 'Guest speech quota exceeded')
+    }
+    const raw = await request.text()
+    if (new TextEncoder().encode(raw).byteLength > 16_384) {
+      return errorResponse(413, 'bff.request_too_large', 'Speech request is too large')
+    }
+    let value: unknown
+    try {
+      value = JSON.parse(raw)
+    } catch {
+      return errorResponse(400, 'bff.invalid_json', 'Speech request must be JSON')
+    }
+    if (!isRecord(value))
+      return errorResponse(400, 'bff.invalid_request', 'Speech request is invalid')
+    const text = value.text
+    if (value.session_id !== owned || typeof text !== 'string' || !text.trim()) {
+      return errorResponse(403, 'bff.session_mismatch', 'Speech Session is not owned')
+    }
+    if (text.length > 2_000) {
+      return errorResponse(413, 'bff.speech_too_long', 'Speech text exceeds 2000 characters')
+    }
+    return upstreamFetch(request, path, JSON.stringify({ session_id: owned, text: text.trim() }))
   }
 
   if (!('sessionId' in route)) {

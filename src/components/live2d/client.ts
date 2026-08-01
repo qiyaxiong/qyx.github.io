@@ -221,6 +221,27 @@ export class BlogAgentApi {
     })
   }
 
+  async synthesizeSpeech(sessionId: string, text: string, signal?: AbortSignal): Promise<Response> {
+    const response = await fetch(this.url('/api/v1/speech/synthesize'), {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: sessionId, text }),
+      signal
+    })
+    if (!response.ok) {
+      let message = `${response.status} ${response.statusText}`
+      try {
+        const envelope = (await response.json()) as ApiEnvelope<never>
+        message = envelope.error?.message || message
+      } catch {
+        // Audio errors are JSON in normal operation; retain the HTTP fallback otherwise.
+      }
+      throw new AgentApiError(message, response.status)
+    }
+    return response
+  }
+
   events(sessionId: string, cursor: number): EventSource {
     const path = `/api/v1/live2d/sessions/${encodeURIComponent(sessionId)}/events?cursor=${cursor}`
     return new EventSource(this.url(path), { withCredentials: true })
