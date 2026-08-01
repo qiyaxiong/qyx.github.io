@@ -18,6 +18,7 @@ const coreUrl = import.meta.env.PUBLIC_LIVE2D_CUBISM_CORE_URL || '/live2dcubismc
       data-minimized='false'
       data-state='loading'
       data-speech-visible='true'
+      data-composer-open='false'
       aria-label='Live2D AI assistant'
     >
       <section class='live2d-panel' aria-label='Live2D assistant panel'>
@@ -33,14 +34,20 @@ const coreUrl = import.meta.env.PUBLIC_LIVE2D_CUBISM_CORE_URL || '/live2dcubismc
           </button>
         </header>
 
-        <div class='live2d-stage'>
+        <div
+          class='live2d-stage'
+          role='button'
+          tabindex='0'
+          aria-label='和绘梦对话'
+          aria-expanded='false'
+        >
           <canvas class='live2d-canvas' aria-label='Live2D character' />
           <p class='live2d-speech' aria-live='polite'>
             正在唤醒绘梦…
           </p>
         </div>
 
-        <form class='live2d-form'>
+        <form class='live2d-form' aria-hidden='true'>
           <label class='sr-only' for='live2d-prompt'>
             给绘梦发送消息
           </label>
@@ -152,6 +159,20 @@ const coreUrl = import.meta.env.PUBLIC_LIVE2D_CUBISM_CORE_URL || '/live2dcubismc
           agentRoot.dataset.speechVisible = 'false'
           speechHideTimer = undefined
         }, hideAfterMs)
+      }
+    }
+
+    function setComposerOpen(open: boolean) {
+      agentRoot.dataset.composerOpen = String(open)
+      stage.setAttribute('aria-expanded', String(open))
+      if (open) {
+        form.setAttribute('aria-hidden', 'false')
+        requestAnimationFrame(() => prompt.focus({ preventScroll: true }))
+      } else {
+        if (document.activeElement instanceof HTMLElement && form.contains(document.activeElement)) {
+          document.activeElement.blur()
+        }
+        form.setAttribute('aria-hidden', 'true')
       }
     }
 
@@ -313,6 +334,7 @@ const coreUrl = import.meta.env.PUBLIC_LIVE2D_CUBISM_CORE_URL || '/live2dcubismc
     }
 
     function setMinimized(minimized: boolean) {
+      if (minimized) setComposerOpen(false)
       agentRoot.dataset.minimized = String(minimized)
       launcher.setAttribute('aria-expanded', String(!minimized))
       launcher.setAttribute('aria-label', minimized ? '打开 Live2D 助手' : '收起 Live2D 助手')
@@ -329,6 +351,12 @@ const coreUrl = import.meta.env.PUBLIC_LIVE2D_CUBISM_CORE_URL || '/live2dcubismc
       if (willOpen && !app) ensureBootstrap()
     })
     minimize.addEventListener('click', () => setMinimized(true))
+    stage.addEventListener('click', () => setComposerOpen(true))
+    stage.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return
+      event.preventDefault()
+      setComposerOpen(true)
+    })
     form.addEventListener('submit', async (event) => {
       event.preventDefault()
       const text = prompt.value.trim()
@@ -338,6 +366,7 @@ const coreUrl = import.meta.env.PUBLIC_LIVE2D_CUBISM_CORE_URL || '/live2dcubismc
       setSpeech(copy.thinking)
       setState('thinking')
       prompt.value = ''
+      setComposerOpen(false)
       try {
         await api.run(sessionId, text, provider, modelId)
       } catch (error) {
@@ -347,6 +376,12 @@ const coreUrl = import.meta.env.PUBLIC_LIVE2D_CUBISM_CORE_URL || '/live2dcubismc
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) app?.stop()
       else if (agentRoot.dataset.minimized !== 'true') app?.start()
+    })
+    document.addEventListener('pointerdown', (event) => {
+      if (event.target instanceof Node && !agentRoot.contains(event.target)) setComposerOpen(false)
+    })
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') setComposerOpen(false)
     })
     window.addEventListener('beforeunload', () => eventSource?.close())
 
@@ -477,6 +512,8 @@ const coreUrl = import.meta.env.PUBLIC_LIVE2D_CUBISM_CORE_URL || '/live2dcubismc
     inset: 0 0 54px;
     overflow: visible;
     pointer-events: auto;
+    cursor: pointer;
+    outline: none;
   }
 
   .live2d-stage::before {
@@ -489,7 +526,13 @@ const coreUrl = import.meta.env.PUBLIC_LIVE2D_CUBISM_CORE_URL || '/live2dcubismc
     background: radial-gradient(ellipse, rgb(var(--agent-accent) / 0.11), transparent 68%);
     content: '';
     filter: blur(20px);
+    opacity: 0.72;
     pointer-events: none;
+    transition: opacity 160ms ease;
+  }
+
+  .live2d-stage:focus-visible::before {
+    opacity: 1;
   }
 
   .live2d-canvas {
@@ -504,7 +547,7 @@ const coreUrl = import.meta.env.PUBLIC_LIVE2D_CUBISM_CORE_URL || '/live2dcubismc
     position: absolute;
     z-index: 3;
     right: 8px;
-    bottom: 64px;
+    bottom: 14px;
     left: 18px;
     max-height: 104px;
     overflow-y: auto;
@@ -523,8 +566,13 @@ const coreUrl = import.meta.env.PUBLIC_LIVE2D_CUBISM_CORE_URL || '/live2dcubismc
     transform: translateY(7px) scale(0.98);
     transform-origin: right bottom;
     transition:
+      bottom 180ms ease,
       opacity 160ms ease,
       transform 180ms ease;
+  }
+
+  .live2d-agent[data-composer-open='true'] .live2d-speech {
+    bottom: 64px;
   }
 
   .live2d-agent[data-speech-visible='true'] .live2d-speech {
@@ -547,13 +595,26 @@ const coreUrl = import.meta.env.PUBLIC_LIVE2D_CUBISM_CORE_URL || '/live2dcubismc
     padding: 5px;
     background: hsl(var(--background) / 0.48);
     box-shadow: 0 12px 40px rgb(18 10 32 / 0.12);
-    opacity: 0.68;
-    pointer-events: auto;
+    opacity: 0;
+    pointer-events: none;
     backdrop-filter: blur(20px) saturate(1.2);
+    transform: translateY(9px) scale(0.97);
+    transform-origin: center bottom;
+    visibility: hidden;
     transition:
       border-color 150ms ease,
       opacity 150ms ease,
-      background-color 150ms ease;
+      background-color 150ms ease,
+      transform 180ms ease,
+      visibility 0s linear 180ms;
+  }
+
+  .live2d-agent[data-composer-open='true'] .live2d-form {
+    opacity: 0.68;
+    pointer-events: auto;
+    transform: translateY(0) scale(1);
+    visibility: visible;
+    transition-delay: 0s;
   }
 
   .live2d-form:hover,
