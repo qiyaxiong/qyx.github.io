@@ -65,8 +65,13 @@ Session，只返回当前访客的 Session ID，固定 Provider/Model，移除�
 - `POST /api/v1/sessions`
 - `GET /api/v1/sessions/{id}`
 - `POST /api/v1/runs`
+- `POST /api/v1/speech/synthesize`
 - `GET /api/v1/live2d/sessions/{id}/snapshot`
 - `GET /api/v1/live2d/sessions/{id}/events`
+
+语音接口返回 `audio/pcm` 分块流，并通过响应头声明 24 kHz、单声道、signed 16-bit
+little-endian（s16le）格式。浏览器先积累 180 ms 启动水位，随后按 120 ms 音频批次通过
+Web Audio 连续播放；原始 PCM 振幅同时驱动 Live2D 嘴型。
 
 `PI_AGENT_BFF_SECRET` 必须是至少 32 字符的独立随机 Secret。内置速率计数是单实例的最后一道
 保护；多实例生产部署还应在 CDN/网关配置共享速率限制和成本预算。Agent 服务应位于私网或只接受

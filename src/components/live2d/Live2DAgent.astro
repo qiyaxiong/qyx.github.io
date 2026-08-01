@@ -384,28 +384,19 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
       return analyser
     }
 
-    function once(target: EventTarget, event: string, signal?: AbortSignal): Promise<void> {
-      return new Promise((resolve, reject) => {
+    function sourceFinished(source: AudioBufferSourceNode, signal: AbortSignal): Promise<void> {
+      return new Promise((resolve) => {
         const cleanup = () => {
-          target.removeEventListener(event, onSuccess)
-          target.removeEventListener('error', onError)
+          source.removeEventListener('ended', finish)
           signal?.removeEventListener('abort', onAbort)
         }
-        const onSuccess = () => {
+        const finish = () => {
           cleanup()
           resolve()
         }
-        const onError = () => {
-          cleanup()
-          reject(new Error(`Audio ${event} failed`))
-        }
-        const onAbort = () => {
-          cleanup()
-          reject(new DOMException('Audio playback aborted', 'AbortError'))
-        }
+        const onAbort = () => finish()
         if (signal?.aborted) return onAbort()
-        target.addEventListener(event, onSuccess, { once: true })
-        target.addEventListener('error', onError, { once: true })
+        source.addEventListener('ended', finish, { once: true })
         signal?.addEventListener('abort', onAbort, { once: true })
       })
     }
@@ -441,6 +432,48 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
       let trailingByte: number | undefined
       let nextStartTime = context.currentTime + 0.04
       let lastFinished: Promise<void> | undefined
+      let pendingSamples = new Float32Array(0)
+      let playbackStarted = false
+      const batchFrames = Math.round(sampleRate * 0.12)
+      const startupFrames = Math.round(sampleRate * 0.18)
+
+      const schedule = (samples: Float32Array) => {
+        const buffer = context.createBuffer(1, samples.length, sampleRate)
+        buffer.getChannelData(0).set(samples)
+        const source = context.createBufferSource()
+        source.buffer = buffer
+        source.connect(analyser)
+        speechSources.add(source)
+        source.addEventListener(
+          'ended',
+          () => {
+            speechSources.delete(source)
+            source.disconnect()
+          },
+          { once: true }
+        )
+        lastFinished = sourceFinished(source, abortController.signal)
+        const startAt = Math.max(nextStartTime, context.currentTime + 0.015)
+        source.start(startAt)
+        nextStartTime = startAt + buffer.duration
+      }
+
+      const flushReadySamples = (finished = false) => {
+        if (!playbackStarted && (pendingSamples.length >= startupFrames || finished)) {
+          if (pendingSamples.length > 0) schedule(pendingSamples)
+          pendingSamples = new Float32Array(0)
+          playbackStarted = true
+        }
+        while (playbackStarted && pendingSamples.length >= batchFrames) {
+          schedule(pendingSamples.slice(0, batchFrames))
+          pendingSamples = pendingSamples.slice(batchFrames)
+        }
+        if (finished && pendingSamples.length > 0) {
+          schedule(pendingSamples)
+          pendingSamples = new Float32Array(0)
+        }
+      }
+
       while (true) {
         const { done, value } = await reader.read()
         if (generation !== speechGeneration) {
@@ -464,30 +497,18 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
         if (bytes.byteLength === 0) continue
 
         const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
-        const buffer = context.createBuffer(1, bytes.byteLength / 2, sampleRate)
-        const samples = buffer.getChannelData(0)
+        const samples = new Float32Array(bytes.byteLength / 2)
         for (let index = 0; index < samples.length; index += 1) {
           samples[index] = view.getInt16(index * 2, true) / 32_768
         }
-        const source = context.createBufferSource()
-        source.buffer = buffer
-        source.connect(analyser)
-        speechSources.add(source)
-        source.addEventListener(
-          'ended',
-          () => {
-            speechSources.delete(source)
-            source.disconnect()
-          },
-          { once: true }
-        )
-        void lastFinished?.catch(() => undefined)
-        lastFinished = once(source, 'ended', abortController.signal)
-        const startAt = Math.max(nextStartTime, context.currentTime + 0.015)
-        source.start(startAt)
-        nextStartTime = startAt + buffer.duration
+        const joined = new Float32Array(pendingSamples.length + samples.length)
+        joined.set(pendingSamples)
+        joined.set(samples, pendingSamples.length)
+        pendingSamples = joined
+        flushReadySamples()
       }
       if (trailingByte !== undefined) throw new Error('TTS returned incomplete PCM data')
+      flushReadySamples(true)
       if (!lastFinished) throw new Error('TTS returned no audio')
       await lastFinished
 
