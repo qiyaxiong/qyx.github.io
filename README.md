@@ -4,6 +4,10 @@
 
 站点个性化配置请编辑 `src/site.config.ts`。
 
+全站 Live2D Agent 的本地运行、独立后端和生产代理边界见
+[`docs/live2d-agent.md`](docs/live2d-agent.md)。
+组件默认关闭；配置 Cubism Core、独立 Python 服务和 Guest BFF Secret 后再显式启用。
+
 ## GitHub 贡献日历
 
 首页贡献日历默认只能读取 GitHub 公开贡献。如果你在 GitHub 登录状态下看到的数量更高，例如包含私有仓库贡献，需要在本地 `.env` 和部署平台环境变量里设置：

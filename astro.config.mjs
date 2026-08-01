@@ -1,17 +1,17 @@
 // @ts-check
 
-import { rehypeHeadingIds } from '@astrojs/markdown-remark'
 // Adapters
 import cloudflare from '@astrojs/cloudflare'
+import { rehypeHeadingIds } from '@astrojs/markdown-remark'
 import vercel from '@astrojs/vercel/serverless'
-// Integrations
-import AstroAxiIntegration from './src/axi-integration.ts'
 import { defineConfig } from 'astro/config'
 // Rehype & remark packages
 import rehypeKatex from 'rehype-katex'
-import remarkMath from 'remark-math'
 import remarkGfm from 'remark-gfm'
+import remarkMath from 'remark-math'
 
+// Integrations
+import AstroAxiIntegration from './src/axi-integration.ts'
 // Others
 // import { visualizer } from 'rollup-plugin-visualizer'
 
@@ -138,6 +138,18 @@ export default defineConfig({
     }
   },
   vite: {
+    server: {
+      proxy:
+        process.env.PI_AGENT_DEV_PROXY_DISABLED === 'true'
+          ? {}
+          : {
+              '/agent-api': {
+                target: process.env.PI_AGENT_DEV_SERVER_URL || 'http://127.0.0.1:8765',
+                changeOrigin: true,
+                rewrite: (path) => path.replace(/^\/agent-api/, '')
+              }
+            }
+    }
     // plugins: [
     //   visualizer({
     //     emitFile: true,

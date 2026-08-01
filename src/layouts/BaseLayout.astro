@@ -1,9 +1,11 @@
 ---
+import type { SiteMeta } from '@/types'
+
 import BaseHead from '@/components/BaseHead.astro'
+import { Footer, Header, ThemeProvider } from '@/components/basic'
+import Live2DAgent from '@/components/live2d/Live2DAgent.astro'
 import config from '@/site-config'
 
-import { Footer, Header, ThemeProvider } from '@/components/basic'
-import type { SiteMeta } from '@/types'
 // Import the global.css file here so that it is included on
 // all pages through the use of the <BaseLayout /> component.
 import '@/assets/styles/app.css'
@@ -92,6 +94,7 @@ const langAttr = currentLocale === 'en' ? 'en' : 'zh'
       <slot />
       <Footer />
     </div>
+    <Live2DAgent />
 
     {/* Set highlight color */}
     <style define:vars={{ highlightColor }}>
@@ -320,7 +323,7 @@ const langAttr = currentLocale === 'en' ? 'en' : 'zh'
 
     <script>
       import { initializeWebGL } from '@/utils/webgl/index'
-      
+
       if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initializeWebGL)
       } else {

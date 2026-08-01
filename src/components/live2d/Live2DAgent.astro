@@ -1,0 +1,588 @@
+---
+const enabled = import.meta.env.PUBLIC_LIVE2D_ENABLED === 'true'
+const apiBase = import.meta.env.PUBLIC_PI_AGENT_API_BASE || '/agent-api'
+const provider = import.meta.env.PUBLIC_PI_AGENT_PROVIDER || 'dashscope'
+const model = import.meta.env.PUBLIC_PI_AGENT_MODEL || 'qwen-plus'
+const coreUrl = import.meta.env.PUBLIC_LIVE2D_CUBISM_CORE_URL || '/live2dcubismcore.min.js'
+---
+
+{
+  enabled && (
+    <aside
+      class='live2d-agent'
+      data-live2d-agent
+      data-api-base={apiBase}
+      data-provider={provider}
+      data-model={model}
+      data-core-url={coreUrl}
+      data-minimized='false'
+      data-state='loading'
+      aria-label='Live2D AI assistant'
+    >
+      <section class='live2d-panel' aria-label='Live2D assistant panel'>
+        <header class='live2d-header'>
+          <div class='live2d-status-wrap'>
+            <span class='live2d-status-dot' aria-hidden='true' />
+            <span class='live2d-status'>连接中</span>
+          </div>
+          <button class='live2d-minimize' type='button' aria-label='收起 Live2D 助手'>
+            ×
+          </button>
+        </header>
+
+        <div class='live2d-stage'>
+          <canvas class='live2d-canvas' aria-label='Live2D character' />
+          <p class='live2d-speech' aria-live='polite'>
+            正在唤醒绘梦…
+          </p>
+        </div>
+
+        <form class='live2d-form'>
+          <label class='sr-only' for='live2d-prompt'>
+            给绘梦发送消息
+          </label>
+          <input
+            id='live2d-prompt'
+            class='live2d-prompt'
+            name='prompt'
+            required
+            autocomplete='off'
+            placeholder='和绘梦聊聊…'
+          />
+          <button class='live2d-send' type='submit' aria-label='发送消息'>
+            <svg viewBox='0 0 24 24' aria-hidden='true'>
+              <path d='m4 4 17 8-17 8 3-8-3-8Zm3.8 7h7.6L6.7 6.9 7.8 11Zm-1.1 6.1 8.7-4.1H7.8l-1.1 4.1Z' />
+            </svg>
+          </button>
+        </form>
+      </section>
+
+      <button
+        class='live2d-launcher'
+        type='button'
+        aria-label='打开 Live2D 助手'
+        aria-expanded='true'
+      >
+        <span class='live2d-launcher-pulse' aria-hidden='true' />
+        <svg viewBox='0 0 24 24' aria-hidden='true'>
+          <path d='M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-8l-5 4v-4H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Zm2 5h10V7H7v2Zm0 4h7v-2H7v2Z' />
+        </svg>
+      </button>
+    </aside>
+  )
+}
+
+<script>
+  import { BlogAgentApi, parseLive2DEvent, type Live2DEvent, type Live2DSnapshot } from './client'
+
+  interface CoreModel {
+    setParameterValueById(id: string, value: number): void
+  }
+
+  interface AvatarModel {
+    width: number
+    height: number
+    scale: { set(value: number): void }
+    anchor: { set(x: number, y?: number): void }
+    position: { set(x: number, y: number): void }
+    expression(name: string): Promise<unknown>
+    motion(group: string, index: number): Promise<unknown>
+    internalModel?: { coreModel?: CoreModel }
+  }
+
+  const root = document.querySelector<HTMLElement>('[data-live2d-agent]')
+
+  if (root && root.dataset.initialized !== 'true') {
+    const agentRoot = root
+    agentRoot.dataset.initialized = 'true'
+    const stage = agentRoot.querySelector<HTMLElement>('.live2d-stage')!
+    const canvas = agentRoot.querySelector<HTMLCanvasElement>('.live2d-canvas')!
+    const status = agentRoot.querySelector<HTMLElement>('.live2d-status')!
+    const speechElement = agentRoot.querySelector<HTMLElement>('.live2d-speech')!
+    const form = agentRoot.querySelector<HTMLFormElement>('.live2d-form')!
+    const prompt = agentRoot.querySelector<HTMLInputElement>('.live2d-prompt')!
+    const send = agentRoot.querySelector<HTMLButtonElement>('.live2d-send')!
+    const launcher = agentRoot.querySelector<HTMLButtonElement>('.live2d-launcher')!
+    const minimize = agentRoot.querySelector<HTMLButtonElement>('.live2d-minimize')!
+    const api = new BlogAgentApi(agentRoot.dataset.apiBase || '/agent-api')
+    const provider = agentRoot.dataset.provider || 'dashscope'
+    const modelId = agentRoot.dataset.model || 'qwen-plus'
+    let app: import('pixi.js').Application | undefined
+    let avatar: AvatarModel | undefined
+    let sessionId = ''
+    let eventSource: EventSource | undefined
+    let speech = ''
+    let eventQueue = Promise.resolve()
+    let bootstrapPromise: Promise<void> | undefined
+
+    const language = document.documentElement.lang.startsWith('en') ? 'en' : 'zh'
+    const copy =
+      language === 'en'
+        ? {
+            ready: 'Ready',
+            loading: 'Waking Huimeng…',
+            thinking: 'Thinking…',
+            placeholder: 'Chat with Huimeng…',
+            unavailable: 'Assistant unavailable'
+          }
+        : {
+            ready: '在线',
+            loading: '正在唤醒绘梦…',
+            thinking: '正在思考…',
+            placeholder: '和绘梦聊聊…',
+            unavailable: '助手暂时不可用'
+          }
+    prompt.placeholder = copy.placeholder
+
+    function setState(value: string, label?: string) {
+      agentRoot.dataset.state = value
+      status.textContent = label || value
+    }
+
+    function fail(error: unknown) {
+      const message = error instanceof Error ? error.message : String(error)
+      setState('error', copy.unavailable)
+      speechElement.textContent = message
+      send.disabled = false
+      console.error('[live2d-agent]', error)
+    }
+
+    function loadScript(source: string): Promise<void> {
+      const coreWindow = window as typeof window & { Live2DCubismCore?: unknown }
+      if (coreWindow.Live2DCubismCore) return Promise.resolve()
+      return new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = source
+        script.crossOrigin = 'anonymous'
+        script.onload = () => resolve()
+        script.onerror = () => reject(new Error(`Cubism Core 加载失败: ${source}`))
+        document.head.append(script)
+      })
+    }
+
+    function fitAvatar() {
+      if (!avatar || !stage.clientWidth || !stage.clientHeight) return
+      avatar.scale.set(1)
+      const scale = Math.min(stage.clientWidth / avatar.width, stage.clientHeight / avatar.height)
+      avatar.scale.set(scale * 1.02)
+      avatar.anchor.set(0.5, 0.5)
+      avatar.position.set(stage.clientWidth / 2, stage.clientHeight / 2 + 12)
+    }
+
+    async function applySnapshot(snapshot: Live2DSnapshot) {
+      setState(snapshot.state, snapshot.state === 'idle' ? copy.ready : undefined)
+      speech = snapshot.speech_text
+      if (speech) speechElement.textContent = speech
+      if (snapshot.expression) {
+        agentRoot.dataset.expression = snapshot.expression
+        await avatar?.expression(snapshot.expression)
+      } else delete agentRoot.dataset.expression
+      if (snapshot.motion_group) {
+        agentRoot.dataset.motionGroup = snapshot.motion_group
+        agentRoot.dataset.motionIndex = String(snapshot.motion_index || 0)
+        await avatar?.motion(snapshot.motion_group, snapshot.motion_index || 0)
+      } else {
+        delete agentRoot.dataset.motionGroup
+        delete agentRoot.dataset.motionIndex
+      }
+      for (const [id, value] of Object.entries(snapshot.parameters)) {
+        avatar?.internalModel?.coreModel?.setParameterValueById(id, value)
+      }
+    }
+
+    async function applyEvent(event: Live2DEvent) {
+      const data = event.data
+      if (event.type === 'live2d.state.changed' && typeof data.state === 'string') {
+        setState(data.state)
+      }
+      if (event.type === 'live2d.speech.delta' && typeof data.delta === 'string') {
+        speech += data.delta
+        speechElement.textContent = speech
+        setState('speaking')
+      }
+      if (event.type === 'live2d.speech.completed') {
+        speech = typeof data.text === 'string' ? data.text : speech
+        speechElement.textContent = speech || copy.ready
+        setState('idle', copy.ready)
+        send.disabled = false
+      }
+      if (event.type === 'live2d.error') {
+        throw new Error(typeof data.message === 'string' ? data.message : copy.unavailable)
+      }
+      if (event.type !== 'live2d.command') return
+      if (typeof data.expression === 'string') {
+        agentRoot.dataset.expression = data.expression
+        await avatar?.expression(data.expression)
+      }
+      if (typeof data.motion_group === 'string') {
+        agentRoot.dataset.motionGroup = data.motion_group
+        agentRoot.dataset.motionIndex = String(
+          typeof data.motion_index === 'number' ? data.motion_index : 0
+        )
+        await avatar?.motion(
+          data.motion_group,
+          typeof data.motion_index === 'number' ? data.motion_index : 0
+        )
+      }
+      if (data.parameters && typeof data.parameters === 'object') {
+        for (const [id, value] of Object.entries(data.parameters)) {
+          if (typeof value === 'number') {
+            avatar?.internalModel?.coreModel?.setParameterValueById(id, value)
+          }
+        }
+      }
+    }
+
+    function connectEvents(cursor: number) {
+      eventSource?.close()
+      eventSource = api.events(sessionId, cursor)
+      for (const type of [
+        'live2d.state.changed',
+        'live2d.command',
+        'live2d.speech.delta',
+        'live2d.speech.completed',
+        'live2d.error'
+      ]) {
+        eventSource.addEventListener(type, (raw) => {
+          eventQueue = eventQueue
+            .then(() =>
+              applyEvent(parseLive2DEvent(JSON.parse((raw as MessageEvent).data)) as Live2DEvent)
+            )
+            .catch(fail)
+        })
+      }
+    }
+
+    async function bootstrap() {
+      speechElement.textContent = copy.loading
+      await loadScript(agentRoot.dataset.coreUrl || '/live2dcubismcore.min.js')
+      const PIXI = await import('pixi.js')
+      ;(window as typeof window & { PIXI: typeof PIXI }).PIXI = PIXI
+      const { Live2DModel } = await import('pixi-live2d-display/cubism4')
+      Live2DModel.registerTicker(PIXI.Ticker)
+
+      const [modelInfo, session] = await Promise.all([
+        api.model(),
+        api.ensureSession(window.localStorage)
+      ])
+      sessionId = session.id
+      agentRoot.dataset.sessionId = sessionId
+      app = new PIXI.Application({
+        view: canvas,
+        resizeTo: stage,
+        backgroundAlpha: 0,
+        antialias: true,
+        autoDensity: true
+      })
+      avatar = (await Live2DModel.from(api.url(modelInfo.manifest_url), {
+        autoInteract: true,
+        idleMotionGroup: 'Idle'
+      })) as AvatarModel
+      app.stage.addChild(avatar as unknown as import('pixi.js').DisplayObject)
+      fitAvatar()
+      window.addEventListener('resize', fitAvatar)
+
+      const snapshot = await api.snapshot(sessionId)
+      await applySnapshot(snapshot)
+      connectEvents(snapshot.sequence)
+      if (!speech) {
+        speechElement.textContent =
+          snapshot.state === 'idle' ? copy.ready : status.textContent || copy.loading
+      }
+      if (agentRoot.dataset.minimized === 'true') app.stop()
+    }
+
+    function ensureBootstrap() {
+      bootstrapPromise ??= bootstrap()
+      bootstrapPromise.catch(fail)
+    }
+
+    function setMinimized(minimized: boolean) {
+      agentRoot.dataset.minimized = String(minimized)
+      launcher.setAttribute('aria-expanded', String(!minimized))
+      launcher.setAttribute('aria-label', minimized ? '打开 Live2D 助手' : '收起 Live2D 助手')
+      if (minimized) app?.stop()
+      else {
+        app?.start()
+        requestAnimationFrame(fitAvatar)
+      }
+    }
+
+    launcher.addEventListener('click', () => {
+      const willOpen = agentRoot.dataset.minimized === 'true'
+      setMinimized(!willOpen)
+      if (willOpen && !app) ensureBootstrap()
+    })
+    minimize.addEventListener('click', () => setMinimized(true))
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault()
+      const text = prompt.value.trim()
+      if (!text || !sessionId) return
+      send.disabled = true
+      speech = ''
+      speechElement.textContent = copy.thinking
+      setState('thinking')
+      prompt.value = ''
+      try {
+        await api.run(sessionId, text, provider, modelId)
+      } catch (error) {
+        fail(error)
+      }
+    })
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) app?.stop()
+      else if (agentRoot.dataset.minimized !== 'true') app?.start()
+    })
+    window.addEventListener('beforeunload', () => eventSource?.close())
+
+    if (window.matchMedia('(max-width: 520px)').matches) setMinimized(true)
+    else ensureBootstrap()
+  }
+</script>
+
+<style>
+  .live2d-agent {
+    --agent-accent: 151 102 214;
+    position: fixed;
+    right: max(12px, env(safe-area-inset-right));
+    bottom: max(8px, env(safe-area-inset-bottom));
+    z-index: 80;
+    width: min(320px, calc(100vw - 24px));
+    height: min(470px, calc(100vh - 80px));
+    pointer-events: none;
+  }
+
+  .live2d-panel {
+    position: absolute;
+    inset: 0 0 54px;
+    overflow: hidden;
+    border: 1px solid hsl(var(--border) / 0.45);
+    border-radius: 24px;
+    background: linear-gradient(160deg, hsl(var(--background) / 0.82), hsl(var(--muted) / 0.5));
+    box-shadow:
+      0 24px 60px rgba(18, 10, 32, 0.22),
+      inset 0 1px rgba(255, 255, 255, 0.16);
+    opacity: 1;
+    pointer-events: auto;
+    backdrop-filter: blur(18px) saturate(1.25);
+    transform: translateY(0) scale(1);
+    transform-origin: right bottom;
+    transition:
+      opacity 180ms ease,
+      transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .live2d-agent[data-minimized='true'] .live2d-panel {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(18px) scale(0.82);
+  }
+
+  .live2d-header {
+    position: absolute;
+    z-index: 3;
+    top: 0;
+    right: 0;
+    left: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    background: linear-gradient(to bottom, hsl(var(--background) / 0.7), transparent);
+  }
+
+  .live2d-status-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: hsl(var(--muted-foreground));
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+
+  .live2d-status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: rgb(var(--agent-accent));
+    box-shadow: 0 0 0 4px rgb(var(--agent-accent) / 0.14);
+  }
+
+  .live2d-agent[data-state='idle'] .live2d-status-dot,
+  .live2d-agent[data-state='speaking'] .live2d-status-dot {
+    background: #34d399;
+    box-shadow: 0 0 0 4px rgb(52 211 153 / 0.14);
+  }
+
+  .live2d-agent[data-state='error'] .live2d-status-dot {
+    background: #fb7185;
+    box-shadow: 0 0 0 4px rgb(251 113 133 / 0.14);
+  }
+
+  .live2d-minimize {
+    display: grid;
+    width: 28px;
+    height: 28px;
+    place-items: center;
+    border: 0;
+    border-radius: 999px;
+    background: hsl(var(--muted) / 0.72);
+    color: hsl(var(--muted-foreground));
+    font-size: 19px;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .live2d-stage {
+    position: absolute;
+    inset: 0 0 58px;
+    overflow: hidden;
+  }
+
+  .live2d-stage::before {
+    position: absolute;
+    inset: 12% 10% 6%;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgb(var(--agent-accent) / 0.15), transparent 67%);
+    content: '';
+    filter: blur(18px);
+  }
+
+  .live2d-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  .live2d-speech {
+    position: absolute;
+    z-index: 2;
+    right: 14px;
+    bottom: 8px;
+    left: 14px;
+    max-height: 92px;
+    overflow-y: auto;
+    margin: 0;
+    border: 1px solid hsl(var(--border) / 0.55);
+    border-radius: 14px;
+    padding: 9px 11px;
+    background: hsl(var(--background) / 0.82);
+    color: hsl(var(--foreground));
+    font-size: 12px;
+    line-height: 1.55;
+    box-shadow: 0 10px 30px rgb(0 0 0 / 0.12);
+    backdrop-filter: blur(12px);
+  }
+
+  .live2d-form {
+    position: absolute;
+    z-index: 3;
+    right: 10px;
+    bottom: 9px;
+    left: 10px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 38px;
+    gap: 7px;
+  }
+
+  .live2d-prompt {
+    min-width: 0;
+    border: 1px solid hsl(var(--border) / 0.6);
+    border-radius: 12px;
+    padding: 9px 11px;
+    outline: none;
+    background: hsl(var(--background) / 0.88);
+    color: hsl(var(--foreground));
+    font-size: 12px;
+    backdrop-filter: blur(10px);
+  }
+
+  .live2d-prompt:focus {
+    border-color: rgb(var(--agent-accent) / 0.75);
+    box-shadow: 0 0 0 3px rgb(var(--agent-accent) / 0.12);
+  }
+
+  .live2d-send,
+  .live2d-launcher {
+    display: grid;
+    place-items: center;
+    border: 0;
+    color: white;
+    cursor: pointer;
+  }
+
+  .live2d-send {
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgb(var(--agent-accent)), #6753d9);
+  }
+
+  .live2d-send:disabled {
+    cursor: wait;
+    opacity: 0.55;
+  }
+
+  .live2d-send svg {
+    width: 18px;
+    fill: currentColor;
+  }
+
+  .live2d-launcher {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 48px;
+    height: 48px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, rgb(var(--agent-accent)), #6753d9);
+    box-shadow: 0 12px 28px rgb(var(--agent-accent) / 0.32);
+    pointer-events: auto;
+    transition: transform 150ms ease;
+  }
+
+  .live2d-launcher:hover {
+    transform: translateY(-2px);
+  }
+
+  .live2d-launcher svg {
+    width: 22px;
+    fill: currentColor;
+  }
+
+  .live2d-launcher-pulse {
+    position: absolute;
+    inset: -4px;
+    border: 1px solid rgb(var(--agent-accent) / 0.38);
+    border-radius: 19px;
+    animation: live2d-pulse 2.4s ease-out infinite;
+  }
+
+  @keyframes live2d-pulse {
+    0%,
+    45% {
+      opacity: 0.75;
+      transform: scale(0.9);
+    }
+    100% {
+      opacity: 0;
+      transform: scale(1.24);
+    }
+  }
+
+  @media (max-width: 520px) {
+    .live2d-agent {
+      width: min(270px, calc(100vw - 20px));
+      height: min(400px, calc(100vh - 72px));
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .live2d-panel,
+    .live2d-launcher,
+    .live2d-launcher-pulse {
+      animation: none;
+      transition: none;
+    }
+  }
+</style>

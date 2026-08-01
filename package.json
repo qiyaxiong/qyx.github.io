@@ -11,6 +11,7 @@
     "build:cloudflare": "astro check && astro build",
     "build:github": "astro check && astro build",
     "preview": "astro preview",
+    "smoke:live2d": "node scripts/verify-live2d-blog.mjs",
     "viz:cs229": "node src/scripts/generate-cs229-tikz-diagrams.mjs",
     "sync": "astro sync",
     "check": "astro check",
@@ -46,6 +47,8 @@
     "notion-to-md": "^3.1.9",
     "pagefind": "^1.4.0",
     "pdfjs-dist": "^6.1.200",
+    "pixi-live2d-display": "0.4.0",
+    "pixi.js": "6.5.10",
     "rehype-external-links": "^3.0.0",
     "rehype-katex": "^7.0.1",
     "remark-gfm": "^4.0.1",
@@ -70,6 +73,7 @@
     "prettier": "^3.7.4",
     "prettier-plugin-astro": "^0.14.1",
     "prettier-plugin-tailwindcss": "^0.6.14",
+    "playwright": "1.62.1",
     "rehype": "^13.0.2",
     "rehype-stringify": "^10.0.1",
     "remark-parse": "^11.0.0",
@@ -84,5 +88,10 @@
   },
   "overrides": {
     "@emmetio/css-parser": "0.5.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "gh-pages": "6.3.0"
+    }
   }
 }
