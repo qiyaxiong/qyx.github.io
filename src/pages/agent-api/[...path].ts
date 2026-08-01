@@ -93,6 +93,51 @@ function safeEqual(left: string, right: string): boolean {
   return difference === 0
 }
 
+const allowedPagePrefixes = [
+  '/blog/',
+  '/notes/',
+  '/pages/',
+  '/collection/',
+  '/projects/',
+  '/search',
+  '/about',
+  '/links',
+  '/academic'
+]
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function sanitizePageContext(value: unknown, sourceUrl: URL): Record<string, string> | undefined {
+  if (!isRecord(value)) return undefined
+  const pageContext = value.page_context
+  if (!isRecord(pageContext) || typeof pageContext.href !== 'string') return undefined
+  try {
+    const url = new URL(pageContext.href, sourceUrl.origin)
+    if (url.origin !== sourceUrl.origin || !url.pathname.startsWith('/')) return undefined
+    const decodedPath = decodeURIComponent(url.pathname)
+    if (decodedPath.split('/').some((segment) => segment === '.' || segment === '..')) return undefined
+    if (
+      decodedPath !== '/' &&
+      !allowedPagePrefixes.some(
+        (prefix) =>
+          decodedPath === prefix.replace(/\/$/, '') ||
+          decodedPath.startsWith(`${prefix.replace(/\/$/, '')}/`)
+      )
+    ) return undefined
+    const title = typeof pageContext.title === 'string' ? pageContext.title.slice(0, 160) : ''
+    const language = typeof pageContext.language === 'string' ? pageContext.language.slice(0, 16) : 'zh'
+    return {
+      href: `${url.pathname}${url.search}${url.hash}`,
+      title,
+      language
+    }
+  } catch {
+    return undefined
+  }
+}
+
 async function ownedSession(request: Request, secret: string): Promise<string | undefined> {
   const token = cookieValue(request, guestCookie)
   if (!token) return undefined
@@ -230,6 +275,10 @@ export const ALL: APIRoute = async ({ params, request }) => {
     if (prompt.length > 2_000) {
       return errorResponse(413, 'bff.prompt_too_long', 'Prompt exceeds 2000 characters')
     }
+    const requestContext = sanitizePageContext(
+      (value as Record<string, unknown>).request_context,
+      sourceUrl
+    )
     const provider = import.meta.env.PI_AGENT_GUEST_PROVIDER || 'dashscope'
     const model = import.meta.env.PI_AGENT_GUEST_MODEL || 'qwen-plus'
     return upstreamFetch(
@@ -238,7 +287,8 @@ export const ALL: APIRoute = async ({ params, request }) => {
       JSON.stringify({
         session_id: owned,
         prompt,
-        model: { id: model, provider, display_name: model }
+        model: { id: model, provider, display_name: model },
+        request_context: requestContext ? { page_context: requestContext } : {}
       })
     )
   }

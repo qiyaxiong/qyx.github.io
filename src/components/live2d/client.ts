@@ -27,7 +27,8 @@ const live2dEventTypes = new Set([
   'live2d.command',
   'live2d.speech.delta',
   'live2d.speech.completed',
-  'live2d.error'
+  'live2d.error',
+  'live2d.web.action.intent'
 ])
 const live2dStates = new Set([
   'idle',
@@ -73,6 +74,29 @@ export function parseLive2DEvent(value: unknown): Live2DEvent {
           Object.values(data.parameters).some((entry) => typeof entry !== 'number')))
     ) {
       throw new Error('Invalid payload for live2d.command')
+    }
+  }
+  if (value.type === 'live2d.web.action.intent') {
+    const allowed = new Set([
+      'id',
+      'action',
+      'href',
+      'anchor',
+      'title',
+      'reason',
+      'requires_confirmation'
+    ])
+    if (
+      Object.keys(data).some((key) => !allowed.has(key)) ||
+      typeof data.id !== 'string' ||
+      (data.action !== 'navigate' && data.action !== 'scroll_to') ||
+      typeof data.title !== 'string' ||
+      typeof data.reason !== 'string' ||
+      typeof data.requires_confirmation !== 'boolean' ||
+      (data.action === 'navigate' && typeof data.href !== 'string') ||
+      (data.action === 'scroll_to' && typeof data.anchor !== 'string')
+    ) {
+      throw new Error('Invalid payload for live2d.web.action.intent')
     }
   }
   if (
@@ -182,7 +206,8 @@ export class BlogAgentApi {
     sessionId: string,
     prompt: string,
     provider: string,
-    model: string
+    model: string,
+    pageContext?: PageContext
   ): Promise<{ id: string }> {
     return this.request('/api/v1/runs', {
       method: 'POST',
@@ -190,7 +215,8 @@ export class BlogAgentApi {
       body: JSON.stringify({
         session_id: sessionId,
         prompt,
-        model: { id: model, provider, display_name: model }
+        model: { id: model, provider, display_name: model },
+        request_context: pageContext ? { page_context: pageContext } : {}
       })
     })
   }
@@ -199,4 +225,10 @@ export class BlogAgentApi {
     const path = `/api/v1/live2d/sessions/${encodeURIComponent(sessionId)}/events?cursor=${cursor}`
     return new EventSource(this.url(path), { withCredentials: true })
   }
+}
+
+export interface PageContext {
+  href: string
+  title: string
+  language: string
 }

@@ -45,6 +45,18 @@ const coreUrl = import.meta.env.PUBLIC_LIVE2D_CUBISM_CORE_URL || '/live2dcubismc
           <p class='live2d-speech' aria-live='polite'>
             正在唤醒绘梦…
           </p>
+          <div class='live2d-action-card' data-live2d-action-card hidden aria-live='polite'>
+            <p class='live2d-action-title' data-live2d-action-title />
+            <p class='live2d-action-reason' data-live2d-action-reason />
+            <div class='live2d-action-buttons'>
+              <button class='live2d-action-confirm' data-live2d-action-confirm type='button'>
+                打开
+              </button>
+              <button class='live2d-action-dismiss' data-live2d-action-dismiss type='button'>
+                稍后
+              </button>
+            </div>
+          </div>
         </div>
 
         <form class='live2d-form' aria-hidden='true'>
@@ -83,7 +95,13 @@ const coreUrl = import.meta.env.PUBLIC_LIVE2D_CUBISM_CORE_URL || '/live2dcubismc
 }
 
 <script>
-  import { BlogAgentApi, parseLive2DEvent, type Live2DEvent, type Live2DSnapshot } from './client'
+  import {
+    BlogAgentApi,
+    parseLive2DEvent,
+    type Live2DEvent,
+    type Live2DSnapshot,
+    type PageContext
+  } from './client'
 
   interface CoreModel {
     setParameterValueById(id: string, value: number): void
@@ -113,6 +131,11 @@ const coreUrl = import.meta.env.PUBLIC_LIVE2D_CUBISM_CORE_URL || '/live2dcubismc
     const prompt = agentRoot.querySelector<HTMLInputElement>('.live2d-prompt')!
     const send = agentRoot.querySelector<HTMLButtonElement>('.live2d-send')!
     const launcher = agentRoot.querySelector<HTMLButtonElement>('.live2d-launcher')!
+    const actionCard = agentRoot.querySelector<HTMLElement>('[data-live2d-action-card]')!
+    const actionTitle = agentRoot.querySelector<HTMLElement>('[data-live2d-action-title]')!
+    const actionReason = agentRoot.querySelector<HTMLElement>('[data-live2d-action-reason]')!
+    const actionConfirm = agentRoot.querySelector<HTMLButtonElement>('[data-live2d-action-confirm]')!
+    const actionDismiss = agentRoot.querySelector<HTMLButtonElement>('[data-live2d-action-dismiss]')!
     const minimize = agentRoot.querySelector<HTMLButtonElement>('.live2d-minimize')!
     const api = new BlogAgentApi(agentRoot.dataset.apiBase || '/agent-api')
     const provider = agentRoot.dataset.provider || 'dashscope'
@@ -124,6 +147,90 @@ const coreUrl = import.meta.env.PUBLIC_LIVE2D_CUBISM_CORE_URL || '/live2dcubismc
     let speech = ''
     let speechHideTimer: number | undefined
     let eventQueue = Promise.resolve()
+    let pendingAction: Record<string, unknown> | undefined
+
+    const allowedRoutePrefixes = [
+      '/blog/',
+      '/notes/',
+      '/pages/',
+      '/collection/',
+      '/projects/',
+      '/search',
+      '/about',
+      '/links',
+      '/academic'
+    ]
+
+    function safeInternalHref(value: unknown): string | undefined {
+      if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//')) return
+      try {
+        const url = new URL(value, window.location.origin)
+        if (url.origin !== window.location.origin) return
+        if (decodeURIComponent(url.pathname).split('/').some((part) => part === '.' || part === '..')) return
+        if (
+          url.pathname !== '/' &&
+          !allowedRoutePrefixes.some(
+            (prefix) =>
+              url.pathname === prefix.replace(/\/$/, '') ||
+              url.pathname.startsWith(`${prefix.replace(/\/$/, '')}/`)
+          )
+        ) return
+        if (url.hash && !/^#[A-Za-z][A-Za-z0-9_-]{0,127}$/.test(url.hash)) return
+        return `${url.pathname}${url.search}${url.hash}`
+      } catch {
+        return
+      }
+    }
+
+    function hideActionCard() {
+      pendingAction = undefined
+      actionCard.hidden = true
+    }
+
+    function showActionCard(action: Record<string, unknown>) {
+      pendingAction = action
+      actionTitle.textContent = typeof action.title === 'string' ? action.title : '发现一个页面动作'
+      actionReason.textContent = typeof action.reason === 'string' ? action.reason : ''
+      actionConfirm.textContent = action.action === 'scroll_to' ? '定位' : '打开'
+      actionCard.hidden = false
+      setComposerOpen(false)
+    }
+
+    function executeAction(action: Record<string, unknown>) {
+      if (action.action === 'navigate') {
+        const href = safeInternalHref(action.href)
+        if (!href) throw new Error('页面地址未通过安全校验')
+        window.location.assign(href)
+        return
+      }
+      if (action.action === 'scroll_to') {
+        const anchor = action.anchor
+        if (typeof anchor !== 'string' || !/^[A-Za-z][A-Za-z0-9_-]{0,127}$/.test(anchor)) {
+          throw new Error('页面定位目标未通过安全校验')
+        }
+        const target = document.getElementById(anchor)
+        if (!target) throw new Error('当前页面没有找到这个章节')
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        target.animate(
+          [
+            { backgroundColor: 'transparent' },
+            { backgroundColor: 'color-mix(in srgb, var(--color-primary, #8b5cf6) 18%, transparent)' },
+            { backgroundColor: 'transparent' }
+          ],
+          { duration: 1_600, easing: 'ease-out' }
+        )
+        return
+      }
+      throw new Error('不支持的页面动作')
+    }
+
+    function currentPageContext(): PageContext {
+      return {
+        href: `${window.location.pathname}${window.location.search}${window.location.hash}`,
+        title: document.title.slice(0, 160),
+        language: document.documentElement.lang || 'zh'
+      }
+    }
     let bootstrapPromise: Promise<void> | undefined
 
     const language = document.documentElement.lang.startsWith('en') ? 'en' : 'zh'
@@ -246,6 +353,10 @@ const coreUrl = import.meta.env.PUBLIC_LIVE2D_CUBISM_CORE_URL || '/live2dcubismc
       if (event.type === 'live2d.error') {
         throw new Error(typeof data.message === 'string' ? data.message : copy.unavailable)
       }
+      if (event.type === 'live2d.web.action.intent') {
+        showActionCard(data)
+        return
+      }
       if (event.type !== 'live2d.command') return
       if (typeof data.expression === 'string') {
         agentRoot.dataset.expression = data.expression
@@ -278,7 +389,8 @@ const coreUrl = import.meta.env.PUBLIC_LIVE2D_CUBISM_CORE_URL || '/live2dcubismc
         'live2d.command',
         'live2d.speech.delta',
         'live2d.speech.completed',
-        'live2d.error'
+        'live2d.error',
+        'live2d.web.action.intent'
       ]) {
         eventSource.addEventListener(type, (raw) => {
           eventQueue = eventQueue
@@ -368,11 +480,22 @@ const coreUrl = import.meta.env.PUBLIC_LIVE2D_CUBISM_CORE_URL || '/live2dcubismc
       prompt.value = ''
       setComposerOpen(false)
       try {
-        await api.run(sessionId, text, provider, modelId)
+        await api.run(sessionId, text, provider, modelId, currentPageContext())
       } catch (error) {
         fail(error)
       }
     })
+    actionConfirm.addEventListener('click', () => {
+      if (!pendingAction) return
+      try {
+        executeAction(pendingAction)
+        hideActionCard()
+      } catch (error) {
+        hideActionCard()
+        fail(error)
+      }
+    })
+    actionDismiss.addEventListener('click', hideActionCard)
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) app?.stop()
       else if (agentRoot.dataset.minimized !== 'true') app?.start()
@@ -579,6 +702,67 @@ const coreUrl = import.meta.env.PUBLIC_LIVE2D_CUBISM_CORE_URL || '/live2dcubismc
     opacity: 1;
     pointer-events: auto;
     transform: translateY(0) scale(1);
+  }
+
+  .live2d-action-card {
+    position: absolute;
+    z-index: 5;
+    right: 8px;
+    bottom: 68px;
+    left: 18px;
+    border: 1px solid rgb(var(--agent-accent) / 0.28);
+    border-radius: 14px;
+    padding: 10px 11px;
+    background: hsl(var(--background) / 0.72);
+    box-shadow: 0 14px 40px rgb(18 10 32 / 0.14);
+    backdrop-filter: blur(20px) saturate(1.2);
+  }
+
+  .live2d-action-card[hidden] {
+    display: none;
+  }
+
+  .live2d-action-title,
+  .live2d-action-reason {
+    margin: 0;
+  }
+
+  .live2d-action-title {
+    color: hsl(var(--foreground));
+    font-size: 12px;
+    font-weight: 650;
+  }
+
+  .live2d-action-reason {
+    margin-top: 3px;
+    color: hsl(var(--muted-foreground));
+    font-size: 11px;
+    line-height: 1.45;
+  }
+
+  .live2d-action-buttons {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .live2d-action-confirm,
+  .live2d-action-dismiss {
+    border: 0;
+    border-radius: 999px;
+    padding: 5px 10px;
+    font-size: 11px;
+    cursor: pointer;
+  }
+
+  .live2d-action-confirm {
+    background: rgb(var(--agent-accent));
+    color: white;
+  }
+
+  .live2d-action-dismiss {
+    background: hsl(var(--muted) / 0.7);
+    color: hsl(var(--muted-foreground));
   }
 
   .live2d-form {
