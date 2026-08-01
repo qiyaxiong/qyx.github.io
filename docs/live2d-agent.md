@@ -76,8 +76,8 @@ Web Audio 连续播放；原始 PCM 的 RMS 振幅同时驱动 `ParamMouthOpenY`
 不再等待整段回复结束后才开始说话。
 
 播放开始时，存在 `Talk` Motion 的模型会切换到 `Talk`；没有 `Talk` 资源时使用有界正弦曲线驱动
-内部头身参数，并让整个人物在中心点附近水平移动约 ±10 px、倾斜约 ±1.5°，确保身体摆动可见。
-模型 Physics 继续负责头发和衣摆的惯性。最后一段 PCM 播放结束后，嘴型
+`ParamBodyAngleZ`、`ParamBodyAngleX` 和 `ParamAngleZ`，只让腰以上的躯干与头部摆动，不平移或旋转
+整个人物。模型 Physics 继续负责头发和衣摆的惯性。最后一段 PCM 播放结束后，嘴型
 最多用 240 ms 平滑回零，再从 `Talk` 切回模型实际声明的 `Idle` Motion。新问题、页面卸载或播放
 失败都会中止当前 TTS 队列并释放 Web Audio 节点。
 

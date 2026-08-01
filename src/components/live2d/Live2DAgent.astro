@@ -110,12 +110,7 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
     type PageContext
   } from './client'
   import { SpeechSegmenter } from './speech-segments'
-  import {
-    applyAvatarSway,
-    applySpeechSway,
-    resetAvatarSway,
-    resetSpeechSway
-  } from './voice-motion'
+  import { applySpeechSway, resetSpeechSway } from './voice-motion'
 
   interface CoreModel {
     setParameterValueById(id: string, value: number): void
@@ -132,8 +127,7 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
     height: number
     scale: { set(value: number): void }
     anchor: { set(x: number, y?: number): void }
-    position: { x: number; y: number; set(x: number, y: number): void }
-    rotation: number
+    position: { set(x: number, y: number): void }
     expression(name: string): Promise<unknown>
     motion(group: string, index: number): Promise<unknown>
     internalModel?: InternalModel
@@ -381,7 +375,6 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
       mouthLevel = 0
       const coreModel = avatar?.internalModel?.coreModel
       if (coreModel) resetSpeechSway(coreModel)
-      if (avatar) resetAvatarSway(avatar, stage.clientWidth / 2)
       if (talkMotionGroup) void avatar?.motion(idleMotionGroup, 0)
     }
 
@@ -555,7 +548,6 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
       if (talkMotionGroup) void avatar?.motion(idleMotionGroup, 0)
       const coreModel = avatar?.internalModel?.coreModel
       if (coreModel) resetSpeechSway(coreModel)
-      if (avatar) resetAvatarSway(avatar, stage.clientWidth / 2)
       if (speechAnimationFrame !== undefined) cancelAnimationFrame(speechAnimationFrame)
       speechAnimationFrame = undefined
       speechAnalyser?.disconnect()
@@ -627,7 +619,6 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
       if (avatarSpeaking) {
         const elapsed = performance.now() / 1_000
         applySpeechSway(coreModel, elapsed)
-        if (avatar) applyAvatarSway(avatar, stage.clientWidth / 2, elapsed)
       }
     }
 
