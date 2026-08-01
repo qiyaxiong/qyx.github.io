@@ -21,6 +21,13 @@ Live2D 通过 `pi-agent-py` 提出结构化网站动作意图，浏览器端负�
 
 Agent 说“打开这篇文章”时，Live2D 展示“打开”卡片；只有用户点击后才跳转。章节定位会展示“定位”按钮。用户可以关闭卡片，动作不会自动执行。
 
+## Cubism Core
+
+`pixi-live2d-display` 只包含渲染框架，不包含 Live2D Cubism Core。组件会先加载
+`PUBLIC_LIVE2D_CUBISM_CORE_URL`（默认 `/live2dcubismcore.min.js`），失败后使用可配置的
+`PUBLIC_LIVE2D_CUBISM_CORE_FALLBACK_URL` 做本地开发兜底。生产部署建议从官方 Cubism SDK 获取
+符合许可的 Core 文件，放入 `public/live2dcubismcore.min.js`，避免依赖外部网络。
+
 ## 下一阶段
 
 在同一协议上增加 Blog Knowledge：`blog_search`、`blog_open`、`blog_related`。搜索结果必须返回稳定的 `document_id` 和 canonical route，由后端生成导航意图，模型不能自由拼接 URL。

@@ -4,6 +4,9 @@ const apiBase = import.meta.env.PUBLIC_PI_AGENT_API_BASE || '/agent-api'
 const provider = import.meta.env.PUBLIC_PI_AGENT_PROVIDER || 'dashscope'
 const model = import.meta.env.PUBLIC_PI_AGENT_MODEL || 'qwen-plus'
 const coreUrl = import.meta.env.PUBLIC_LIVE2D_CUBISM_CORE_URL || '/live2dcubismcore.min.js'
+const coreFallbackUrl =
+  import.meta.env.PUBLIC_LIVE2D_CUBISM_CORE_FALLBACK_URL ||
+  'https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js'
 ---
 
 {
@@ -15,6 +18,7 @@ const coreUrl = import.meta.env.PUBLIC_LIVE2D_CUBISM_CORE_URL || '/live2dcubismc
       data-provider={provider}
       data-model={model}
       data-core-url={coreUrl}
+      data-core-fallback-url={coreFallbackUrl}
       data-minimized='false'
       data-state='loading'
       data-speech-visible='true'
@@ -294,13 +298,28 @@ const coreUrl = import.meta.env.PUBLIC_LIVE2D_CUBISM_CORE_URL || '/live2dcubismc
     function loadScript(source: string): Promise<void> {
       const coreWindow = window as typeof window & { Live2DCubismCore?: unknown }
       if (coreWindow.Live2DCubismCore) return Promise.resolve()
-      return new Promise((resolve, reject) => {
-        const script = document.createElement('script')
-        script.src = source
-        script.crossOrigin = 'anonymous'
-        script.onload = () => resolve()
-        script.onerror = () => reject(new Error(`Cubism Core 加载失败: ${source}`))
-        document.head.append(script)
+      const fallback = agentRoot.dataset.coreFallbackUrl
+      const candidates = fallback && fallback !== source ? [source, fallback] : [source]
+      let lastError: Error | undefined
+      return candidates.reduce<Promise<void>>(
+        (promise, candidate) =>
+          promise.catch(async (error: unknown) => {
+            lastError = error instanceof Error ? error : new Error(String(error))
+            await new Promise<void>((resolve, reject) => {
+              const script = document.createElement('script')
+              script.src = candidate
+              script.crossOrigin = 'anonymous'
+              script.onload = () => resolve()
+              script.onerror = () => {
+                script.remove()
+                reject(new Error(`Cubism Core 加载失败: ${candidate}`))
+              }
+              document.head.append(script)
+            })
+          }),
+        Promise.reject(new Error(`Cubism Core 加载失败: ${source}`))
+      ).catch((error: unknown) => {
+        throw lastError || (error instanceof Error ? error : new Error(String(error)))
       })
     }
 
