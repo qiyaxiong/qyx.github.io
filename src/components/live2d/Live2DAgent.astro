@@ -23,6 +23,7 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
       data-tts-enabled={String(ttsEnabled)}
       data-minimized='false'
       data-state='loading'
+      data-audio-active='false'
       data-speech-visible='true'
       data-composer-open='false'
       aria-label='Live2D AI assistant'
@@ -109,10 +110,15 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
     type PageContext
   } from './client'
   import { SpeechSegmenter } from './speech-segments'
+  import {
+    applyAvatarSway,
+    applySpeechSway,
+    resetAvatarSway,
+    resetSpeechSway
+  } from './voice-motion'
 
   interface CoreModel {
     setParameterValueById(id: string, value: number): void
-    addParameterValueById(id: string, value: number, weight?: number): void
   }
 
   interface InternalModel {
@@ -126,7 +132,8 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
     height: number
     scale: { set(value: number): void }
     anchor: { set(x: number, y?: number): void }
-    position: { set(x: number, y: number): void }
+    position: { x: number; y: number; set(x: number, y: number): void }
+    rotation: number
     expression(name: string): Promise<unknown>
     motion(group: string, index: number): Promise<unknown>
     internalModel?: InternalModel
@@ -370,7 +377,11 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
       speechAnalyser?.disconnect()
       speechAnalyser = undefined
       avatarSpeaking = false
+      agentRoot.dataset.audioActive = 'false'
       mouthLevel = 0
+      const coreModel = avatar?.internalModel?.coreModel
+      if (coreModel) resetSpeechSway(coreModel)
+      if (avatar) resetAvatarSway(avatar, stage.clientWidth / 2)
       if (talkMotionGroup) void avatar?.motion(idleMotionGroup, 0)
     }
 
@@ -381,6 +392,7 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
       analyser.connect(context.destination)
       speechAnalyser = analyser
       avatarSpeaking = true
+      agentRoot.dataset.audioActive = 'true'
       setState('speaking')
       if (talkMotionGroup) void avatar?.motion(talkMotionGroup, 0)
 
@@ -533,6 +545,7 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
       if (turn.generation !== speechGeneration || speechTurn !== turn) return
 
       avatarSpeaking = false
+      agentRoot.dataset.audioActive = 'false'
       const deadline = performance.now() + 240
       while (mouthLevel > 0.01 && performance.now() < deadline) {
         await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
@@ -540,6 +553,9 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
       }
 
       if (talkMotionGroup) void avatar?.motion(idleMotionGroup, 0)
+      const coreModel = avatar?.internalModel?.coreModel
+      if (coreModel) resetSpeechSway(coreModel)
+      if (avatar) resetAvatarSway(avatar, stage.clientWidth / 2)
       if (speechAnimationFrame !== undefined) cancelAnimationFrame(speechAnimationFrame)
       speechAnimationFrame = undefined
       speechAnalyser?.disconnect()
@@ -608,10 +624,11 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
       const coreModel = avatar?.internalModel?.coreModel
       if (!coreModel) return
       coreModel.setParameterValueById('ParamMouthOpenY', mouthLevel)
-      if (!avatarSpeaking) return
-      const elapsed = performance.now() / 1_000
-      coreModel.addParameterValueById('ParamAngleZ', Math.sin(elapsed * 1.7) * 1.8, 0.65)
-      coreModel.addParameterValueById('ParamBodyAngleX', Math.sin(elapsed * 1.15) * 1.25, 0.55)
+      if (avatarSpeaking) {
+        const elapsed = performance.now() / 1_000
+        applySpeechSway(coreModel, elapsed)
+        if (avatar) applyAvatarSway(avatar, stage.clientWidth / 2, elapsed)
+      }
     }
 
     function loadScript(source: string): Promise<void> {
