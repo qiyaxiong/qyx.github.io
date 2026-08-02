@@ -548,8 +548,6 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
       }
 
       if (talkMotionGroup) void avatar?.motion(idleMotionGroup, 0)
-      const coreModel = avatar?.internalModel?.coreModel
-      if (coreModel && !talkMotionGroup && !speechMotion.settled) speechMotion.reset(coreModel)
       if (speechAnimationFrame !== undefined) cancelAnimationFrame(speechAnimationFrame)
       speechAnimationFrame = undefined
       speechAnalyser?.disconnect()
@@ -622,7 +620,8 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
         speechMotion.update(coreModel, {
           timeSeconds: performance.now() / 1_000,
           energy: mouthLevel,
-          speaking: avatarSpeaking
+          speaking: avatarSpeaking,
+          ambient: true
         })
       }
     }

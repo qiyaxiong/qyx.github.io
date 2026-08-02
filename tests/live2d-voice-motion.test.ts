@@ -54,7 +54,13 @@ test('speech motion eases out and resets every controlled parameter', () => {
     'ParamAngleY',
     'ParamAngleZ',
     'ParamBodyAngleX',
-    'ParamBodyAngleZ'
+    'ParamBodyAngleY',
+    'ParamBodyAngleZ',
+    'ParamBodyAngleZ2',
+    'ParamBodyAngleZ3',
+    'ParamBreath',
+    'ParamEyeBallX',
+    'ParamEyeBallY'
   ]) {
     assert.equal(target.values.get(id), 0)
   }
@@ -70,4 +76,55 @@ test('an inactive controller leaves the model idle motion parameters untouched',
 
   assert.equal(target.values.get('ParamAngleX'), 7)
   assert.equal(target.values.get('ParamBodyAngleZ'), -3)
+})
+
+test('speech energy creates a visible emphasis pose instead of only changing the mouth', () => {
+  const target = new ParameterTarget()
+  const controller = new SpeechMotionController()
+
+  for (let frame = 0; frame < 180; frame += 1) {
+    controller.update(target, { timeSeconds: frame / 60, energy: 0.12, speaking: true })
+  }
+
+  const before = {
+    headX: target.values.get('ParamAngleX') || 0,
+    headTilt: target.values.get('ParamAngleZ') || 0,
+    bodyTilt: target.values.get('ParamBodyAngleZ') || 0
+  }
+  let largestPoseChange = 0
+
+  for (let frame = 180; frame < 198; frame += 1) {
+    controller.update(target, { timeSeconds: frame / 60, energy: 0.95, speaking: true })
+    largestPoseChange = Math.max(
+      largestPoseChange,
+      Math.abs((target.values.get('ParamAngleX') || 0) - before.headX) +
+        Math.abs((target.values.get('ParamAngleZ') || 0) - before.headTilt) +
+        Math.abs((target.values.get('ParamBodyAngleZ') || 0) - before.bodyTilt)
+    )
+  }
+
+  assert.ok(largestPoseChange > 2.4)
+})
+
+test('ambient mode keeps the character breathing and shifting weight between replies', () => {
+  const target = new ParameterTarget()
+  const controller = new SpeechMotionController()
+  const bodySamples: number[] = []
+  const breathSamples: number[] = []
+
+  for (let frame = 0; frame < 60 * 12; frame += 1) {
+    controller.update(target, {
+      timeSeconds: frame / 60,
+      energy: 0,
+      speaking: false,
+      ambient: true
+    })
+    if (frame % 30 === 0) {
+      bodySamples.push(target.values.get('ParamBodyAngleZ') || 0)
+      breathSamples.push(target.values.get('ParamBreath') || 0)
+    }
+  }
+
+  assert.ok(Math.max(...bodySamples) - Math.min(...bodySamples) > 1.2)
+  assert.ok(Math.max(...breathSamples) - Math.min(...breathSamples) > 0.12)
 })
