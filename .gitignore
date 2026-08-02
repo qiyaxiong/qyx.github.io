@@ -82,3 +82,4 @@ bun.lockb
 
 AGENTS.md
 public/live2dcubismcore.min.js
+.env*
