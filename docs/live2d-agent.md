@@ -65,8 +65,40 @@ Session，只返回当前访客的 Session ID，固定 Provider/Model，移除�
 - `POST /api/v1/sessions`
 - `GET /api/v1/sessions/{id}`
 - `POST /api/v1/runs`
+- `POST /api/v1/speech/synthesize`
 - `GET /api/v1/live2d/sessions/{id}/snapshot`
 - `GET /api/v1/live2d/sessions/{id}/events`
+
+语音接口返回 `audio/pcm` 分块流，并通过响应头声明 24 kHz、单声道、signed 16-bit
+little-endian（s16le）格式。浏览器先积累 180 ms 启动水位，随后按 120 ms 音频批次通过
+Web Audio 连续播放；原始 PCM 的 RMS 振幅同时驱动 `ParamMouthOpenY`。Agent 回复流按中文、
+英文标点或换行切成短句，没有标点时每 48 个 Unicode 字符强制切分；每个短句一生成便进入顺序 TTS 队列，
+不再等待整段回复结束后才开始说话。
+
+存在 `Talk` Motion 的模型会在播放时切换到 `Talk`。没有 `Talk` 资源时，姿态控制器会持续提供
+Ambient Motion：待机也会驱动呼吸、头部 X/Y/Z、身体 X/Y/Z 以及绘梦模型的第二、第三层
+躯干扭转参数。眼球采用带随机停留时长的平滑微扫视，不持续机械摆动；多组非整数频率曲线形成
+缓慢重心变化，并间歇叠加侧倾或抬头。开口后动作活跃度平滑提高，PCM RMS 的短时上升会触发
+短促的强调姿势，同时调整 `ParamMouthForm`，而不是只改变嘴巴开合。指数阻尼负责待机、说话
+和停止之间的过渡，避免固定钟摆节奏和姿态突变。整个 Pixi 人物不平移或旋转，模型 Physics 继续
+负责头发和衣摆的惯性。最后一段 PCM 播放结束后，嘴型和说话强调层平滑回落至 Ambient Motion；
+新问题、页面卸载或播放失败都会中止当前 TTS 队列并释放 Web Audio 节点。
+
+角色默认使用膝上构图；用户打开输入框后推进为上半身近景，使眼神、嘴型和头部强调动作在 Blog
+侧边空间内仍然可见。思考、搜索和说话期间会保持近景，回到待机后再缓动拉远；系统减少动态效果
+时镜头改为立即切换。镜头变化只调整 Pixi 模型缩放和锚点，不改变页面布局。
+
+### 绘梦模型能力边界
+
+当前 `huimeng.agent` 模型清单只声明了一个 `Idle`，没有 `Talk`、`Listen`、`Think` 或手势 Motion。
+该 Idle 的四条曲线只驱动星星、爱心、花朵等装饰参数，不驱动头部和身体；因此 Ambient Motion
+与它使用不同参数，可以保留装饰动画的同时补充角色姿态。模型的 CDI 参数表已确认包含
+`ParamAngleX/Y/Z`、`ParamBodyAngleX/Y/Z`、`ParamBodyAngleZ2/Z3`、`ParamBreath`、
+`ParamEyeBallX/Y` 和 `ParamMouthForm`，这些是当前程序化动作的实际能力基础。
+
+RMS 只能提供音量驱动的嘴巴开合、嘴型强弱和姿态强调，并不是基于音素时间戳的 Viseme Lip Sync；
+现有模型也缺少可交叉淡入的点头、倾听、思考、问句和情绪手势。若需要接近 Neuro 的动作丰富度，
+应更换或重新制作包含这些 Motion、面部参数和完整 Physics Rig 的模型，而不是继续提高程序化摆动幅度。
 
 `PI_AGENT_BFF_SECRET` 必须是至少 32 字符的独立随机 Secret。内置速率计数是单实例的最后一道
 保护；多实例生产部署还应在 CDN/网关配置共享速率限制和成本预算。Agent 服务应位于私网或只接受

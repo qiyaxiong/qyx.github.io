@@ -1,9 +1,13 @@
 ---
-const enabled = import.meta.env.PUBLIC_LIVE2D_ENABLED === 'true'
+const enabled = import.meta.env.PUBLIC_LIVE2D_ENABLED !== 'false'
 const apiBase = import.meta.env.PUBLIC_PI_AGENT_API_BASE || '/agent-api'
 const provider = import.meta.env.PUBLIC_PI_AGENT_PROVIDER || 'dashscope'
-const model = import.meta.env.PUBLIC_PI_AGENT_MODEL || 'qwen-plus'
+const model = import.meta.env.PUBLIC_PI_AGENT_MODEL || 'qwen3-max'
 const coreUrl = import.meta.env.PUBLIC_LIVE2D_CUBISM_CORE_URL || '/live2dcubismcore.min.js'
+const coreFallbackUrl =
+  import.meta.env.PUBLIC_LIVE2D_CUBISM_CORE_FALLBACK_URL ||
+  'https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js'
+const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
 ---
 
 {
@@ -15,8 +19,11 @@ const coreUrl = import.meta.env.PUBLIC_LIVE2D_CUBISM_CORE_URL || '/live2dcubismc
       data-provider={provider}
       data-model={model}
       data-core-url={coreUrl}
+      data-core-fallback-url={coreFallbackUrl}
+      data-tts-enabled={String(ttsEnabled)}
       data-minimized='false'
       data-state='loading'
+      data-audio-active='false'
       data-speech-visible='true'
       data-composer-open='false'
       aria-label='Live2D AI assistant'
@@ -45,6 +52,18 @@ const coreUrl = import.meta.env.PUBLIC_LIVE2D_CUBISM_CORE_URL || '/live2dcubismc
           <p class='live2d-speech' aria-live='polite'>
             正在唤醒绘梦…
           </p>
+          <div class='live2d-action-card' data-live2d-action-card hidden aria-live='polite'>
+            <p class='live2d-action-title' data-live2d-action-title />
+            <p class='live2d-action-reason' data-live2d-action-reason />
+            <div class='live2d-action-buttons'>
+              <button class='live2d-action-confirm' data-live2d-action-confirm type='button'>
+                打开
+              </button>
+              <button class='live2d-action-dismiss' data-live2d-action-dismiss type='button'>
+                稍后
+              </button>
+            </div>
+          </div>
         </div>
 
         <form class='live2d-form' aria-hidden='true'>
@@ -83,10 +102,24 @@ const coreUrl = import.meta.env.PUBLIC_LIVE2D_CUBISM_CORE_URL || '/live2dcubismc
 }
 
 <script>
-  import { BlogAgentApi, parseLive2DEvent, type Live2DEvent, type Live2DSnapshot } from './client'
+  import {
+    BlogAgentApi,
+    parseLive2DEvent,
+    type Live2DEvent,
+    type Live2DSnapshot,
+    type PageContext
+  } from './client'
+  import { SpeechSegmenter } from './speech-segments'
+  import { SpeechMotionController } from './voice-motion'
 
   interface CoreModel {
     setParameterValueById(id: string, value: number): void
+  }
+
+  interface InternalModel {
+    coreModel?: CoreModel
+    on?(event: string, listener: () => void): void
+    off?(event: string, listener: () => void): void
   }
 
   interface AvatarModel {
@@ -97,7 +130,19 @@ const coreUrl = import.meta.env.PUBLIC_LIVE2D_CUBISM_CORE_URL || '/live2dcubismc
     position: { set(x: number, y: number): void }
     expression(name: string): Promise<unknown>
     motion(group: string, index: number): Promise<unknown>
-    internalModel?: { coreModel?: CoreModel }
+    internalModel?: InternalModel
+  }
+
+  interface SpeechTurn {
+    generation: number
+    context: AudioContext
+    abortController: AbortController
+    queue: string[]
+    complete: boolean
+    wake?: () => void
+    nextStartTime: number
+    sampleRate?: number
+    lastFinished?: Promise<void>
   }
 
   const root = document.querySelector<HTMLElement>('[data-live2d-agent]')
@@ -113,10 +158,19 @@ const coreUrl = import.meta.env.PUBLIC_LIVE2D_CUBISM_CORE_URL || '/live2dcubismc
     const prompt = agentRoot.querySelector<HTMLInputElement>('.live2d-prompt')!
     const send = agentRoot.querySelector<HTMLButtonElement>('.live2d-send')!
     const launcher = agentRoot.querySelector<HTMLButtonElement>('.live2d-launcher')!
+    const actionCard = agentRoot.querySelector<HTMLElement>('[data-live2d-action-card]')!
+    const actionTitle = agentRoot.querySelector<HTMLElement>('[data-live2d-action-title]')!
+    const actionReason = agentRoot.querySelector<HTMLElement>('[data-live2d-action-reason]')!
+    const actionConfirm = agentRoot.querySelector<HTMLButtonElement>(
+      '[data-live2d-action-confirm]'
+    )!
+    const actionDismiss = agentRoot.querySelector<HTMLButtonElement>(
+      '[data-live2d-action-dismiss]'
+    )!
     const minimize = agentRoot.querySelector<HTMLButtonElement>('.live2d-minimize')!
     const api = new BlogAgentApi(agentRoot.dataset.apiBase || '/agent-api')
     const provider = agentRoot.dataset.provider || 'dashscope'
-    const modelId = agentRoot.dataset.model || 'qwen-plus'
+    const modelId = agentRoot.dataset.model || 'qwen3-max'
     let app: import('pixi.js').Application | undefined
     let avatar: AvatarModel | undefined
     let sessionId = ''
@@ -124,6 +178,118 @@ const coreUrl = import.meta.env.PUBLIC_LIVE2D_CUBISM_CORE_URL || '/live2dcubismc
     let speech = ''
     let speechHideTimer: number | undefined
     let eventQueue = Promise.resolve()
+    let pendingAction: Record<string, unknown> | undefined
+    let audioContext: AudioContext | undefined
+    const speechSources = new Set<AudioBufferSourceNode>()
+    let speechAnalyser: AnalyserNode | undefined
+    let speechAnimationFrame: number | undefined
+    let speechGeneration = 0
+    let speechTurn: SpeechTurn | undefined
+    const speechSegmenter = new SpeechSegmenter()
+    const speechMotion = new SpeechMotionController()
+    let mouthLevel = 0
+    let avatarSpeaking = false
+    let talkMotionGroup: string | undefined
+    let idleMotionGroup = 'Idle'
+    let avatarBaseWidth: number | undefined
+    let avatarBaseHeight: number | undefined
+    let cameraScale: number | undefined
+    let cameraY: number | undefined
+    let cameraTargetScale: number | undefined
+    let cameraTargetY: number | undefined
+    let cameraAnimationFrame: number | undefined
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
+
+    const allowedRoutePrefixes = [
+      '/blog/',
+      '/notes/',
+      '/pages/',
+      '/collection/',
+      '/projects/',
+      '/search',
+      '/about',
+      '/links',
+      '/academic'
+    ]
+
+    function safeInternalHref(value: unknown): string | undefined {
+      if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//')) return
+      try {
+        const url = new URL(value, window.location.origin)
+        if (url.origin !== window.location.origin) return
+        if (
+          decodeURIComponent(url.pathname)
+            .split('/')
+            .some((part) => part === '.' || part === '..')
+        )
+          return
+        if (
+          url.pathname !== '/' &&
+          !allowedRoutePrefixes.some(
+            (prefix) =>
+              url.pathname === prefix.replace(/\/$/, '') ||
+              url.pathname.startsWith(`${prefix.replace(/\/$/, '')}/`)
+          )
+        )
+          return
+        if (url.hash && !/^#[A-Za-z][A-Za-z0-9_-]{0,127}$/.test(url.hash)) return
+        return `${url.pathname}${url.search}${url.hash}`
+      } catch {
+        return
+      }
+    }
+
+    function hideActionCard() {
+      pendingAction = undefined
+      actionCard.hidden = true
+    }
+
+    function showActionCard(action: Record<string, unknown>) {
+      pendingAction = action
+      actionTitle.textContent = typeof action.title === 'string' ? action.title : '发现一个页面动作'
+      actionReason.textContent = typeof action.reason === 'string' ? action.reason : ''
+      actionConfirm.textContent = action.action === 'scroll_to' ? '定位' : '打开'
+      actionCard.hidden = false
+      setComposerOpen(false)
+    }
+
+    function executeAction(action: Record<string, unknown>) {
+      if (action.action === 'navigate') {
+        const href = safeInternalHref(action.href)
+        if (!href) throw new Error('页面地址未通过安全校验')
+        window.location.assign(href)
+        return
+      }
+      if (action.action === 'scroll_to') {
+        const anchor = action.anchor
+        if (typeof anchor !== 'string' || !/^[A-Za-z][A-Za-z0-9_-]{0,127}$/.test(anchor)) {
+          throw new Error('页面定位目标未通过安全校验')
+        }
+        const target = document.getElementById(anchor)
+        if (!target) throw new Error('当前页面没有找到这个章节')
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        target.animate(
+          [
+            { backgroundColor: 'transparent' },
+            {
+              backgroundColor: 'color-mix(in srgb, var(--color-primary, #8b5cf6) 18%, transparent)'
+            },
+            { backgroundColor: 'transparent' }
+          ],
+          { duration: 1_600, easing: 'ease-out' }
+        )
+        return
+      }
+      throw new Error('不支持的页面动作')
+    }
+
+    function currentPageContext(): PageContext {
+      return {
+        href: `${window.location.pathname}${window.location.search}${window.location.hash}`,
+        title: document.title.slice(0, 160),
+        language: document.documentElement.lang || 'zh'
+      }
+    }
     let bootstrapPromise: Promise<void> | undefined
 
     const language = document.documentElement.lang.startsWith('en') ? 'en' : 'zh'
@@ -148,6 +314,7 @@ const coreUrl = import.meta.env.PUBLIC_LIVE2D_CUBISM_CORE_URL || '/live2dcubismc
     function setState(value: string, label?: string) {
       agentRoot.dataset.state = value
       status.textContent = label || value
+      if (avatar) requestAnimationFrame(() => fitAvatar())
     }
 
     function setSpeech(value: string, visible = value.trim().length > 0, hideAfterMs = 0) {
@@ -165,11 +332,15 @@ const coreUrl = import.meta.env.PUBLIC_LIVE2D_CUBISM_CORE_URL || '/live2dcubismc
     function setComposerOpen(open: boolean) {
       agentRoot.dataset.composerOpen = String(open)
       stage.setAttribute('aria-expanded', String(open))
+      requestAnimationFrame(() => fitAvatar())
       if (open) {
         form.setAttribute('aria-hidden', 'false')
         requestAnimationFrame(() => prompt.focus({ preventScroll: true }))
       } else {
-        if (document.activeElement instanceof HTMLElement && form.contains(document.activeElement)) {
+        if (
+          document.activeElement instanceof HTMLElement &&
+          form.contains(document.activeElement)
+        ) {
           document.activeElement.blur()
         }
         form.setAttribute('aria-hidden', 'true')
@@ -184,26 +355,375 @@ const coreUrl = import.meta.env.PUBLIC_LIVE2D_CUBISM_CORE_URL || '/live2dcubismc
       console.error('[live2d-agent]', error)
     }
 
+    function ensureAudioContext(): AudioContext | undefined {
+      if (agentRoot.dataset.ttsEnabled !== 'true') return
+      audioContext ??= new AudioContext()
+      if (audioContext.state === 'suspended') void audioContext.resume()
+      return audioContext
+    }
+
+    function stopSpeechAudio() {
+      speechGeneration += 1
+      speechTurn?.abortController.abort()
+      speechTurn?.wake?.()
+      speechTurn = undefined
+      speechSegmenter.reset()
+      if (speechAnimationFrame !== undefined) cancelAnimationFrame(speechAnimationFrame)
+      speechAnimationFrame = undefined
+      for (const source of speechSources) {
+        try {
+          source.stop()
+        } catch {
+          // The source may have already ended.
+        }
+        source.disconnect()
+      }
+      speechSources.clear()
+      speechAnalyser?.disconnect()
+      speechAnalyser = undefined
+      avatarSpeaking = false
+      agentRoot.dataset.audioActive = 'false'
+      mouthLevel = 0
+      if (talkMotionGroup) void avatar?.motion(idleMotionGroup, 0)
+    }
+
+    function startSpeechTracking(context: AudioContext): AnalyserNode {
+      const analyser = context.createAnalyser()
+      analyser.fftSize = 512
+      analyser.smoothingTimeConstant = 0.35
+      analyser.connect(context.destination)
+      speechAnalyser = analyser
+      avatarSpeaking = true
+      agentRoot.dataset.audioActive = 'true'
+      setState('speaking')
+      if (talkMotionGroup) void avatar?.motion(talkMotionGroup, 0)
+
+      const samples = new Float32Array(analyser.fftSize)
+      const updateMouth = () => {
+        if (speechAnalyser !== analyser) return
+        analyser.getFloatTimeDomainData(samples)
+        let energy = 0
+        for (const sample of samples) {
+          energy += sample * sample
+        }
+        const rms = Math.sqrt(energy / samples.length)
+        const target = Math.min(1, Math.max(0, (rms - 0.015) * 7.5))
+        const smoothing = target > mouthLevel ? 0.55 : 0.22
+        mouthLevel += (target - mouthLevel) * smoothing
+        speechAnimationFrame = requestAnimationFrame(updateMouth)
+      }
+      updateMouth()
+      return analyser
+    }
+
+    function sourceFinished(source: AudioBufferSourceNode, signal: AbortSignal): Promise<void> {
+      return new Promise((resolve) => {
+        const cleanup = () => {
+          source.removeEventListener('ended', finish)
+          signal?.removeEventListener('abort', onAbort)
+        }
+        const finish = () => {
+          cleanup()
+          resolve()
+        }
+        const onAbort = () => finish()
+        if (signal?.aborted) return onAbort()
+        source.addEventListener('ended', finish, { once: true })
+        signal?.addEventListener('abort', onAbort, { once: true })
+      })
+    }
+
+    async function streamSpeechSegment(turn: SpeechTurn, text: string) {
+      const { context, abortController, generation } = turn
+      const response = await api.synthesizeSpeech(sessionId, text, abortController.signal)
+      if (generation !== speechGeneration || speechTurn !== turn) return
+      if (!response.body) throw new Error('TTS returned no PCM stream')
+      const mediaType = response.headers.get('content-type')?.split(';')[0]
+      const sampleRate = Number(response.headers.get('x-audio-sample-rate'))
+      const channels = Number(response.headers.get('x-audio-channels'))
+      const sampleFormat = response.headers.get('x-audio-sample-format')
+      if (
+        mediaType !== 'audio/pcm' ||
+        !Number.isInteger(sampleRate) ||
+        sampleRate < 8_000 ||
+        sampleRate > 48_000 ||
+        channels !== 1 ||
+        sampleFormat !== 's16le'
+      ) {
+        throw new Error('TTS returned an unsupported PCM format')
+      }
+      if (turn.sampleRate !== undefined && turn.sampleRate !== sampleRate) {
+        throw new Error('TTS changed PCM sample rate during a reply')
+      }
+      turn.sampleRate = sampleRate
+
+      const reader = response.body.getReader()
+      let trailingByte: number | undefined
+      let pendingSamples = new Float32Array(0)
+      let playbackStarted = speechAnalyser !== undefined
+      let segmentScheduled = false
+      const batchFrames = Math.round(sampleRate * 0.12)
+      const startupFrames = Math.round(sampleRate * 0.18)
+
+      const schedule = (samples: Float32Array) => {
+        segmentScheduled = true
+        const analyser = speechAnalyser ?? startSpeechTracking(context)
+        const buffer = context.createBuffer(1, samples.length, sampleRate)
+        buffer.getChannelData(0).set(samples)
+        const source = context.createBufferSource()
+        source.buffer = buffer
+        source.connect(analyser)
+        speechSources.add(source)
+        source.addEventListener(
+          'ended',
+          () => {
+            speechSources.delete(source)
+            source.disconnect()
+          },
+          { once: true }
+        )
+        turn.lastFinished = sourceFinished(source, abortController.signal)
+        const startAt = Math.max(turn.nextStartTime, context.currentTime + 0.015)
+        source.start(startAt)
+        turn.nextStartTime = startAt + buffer.duration
+      }
+
+      const flushReadySamples = (finished = false) => {
+        if (!playbackStarted && (pendingSamples.length >= startupFrames || finished)) {
+          if (pendingSamples.length > 0) schedule(pendingSamples)
+          pendingSamples = new Float32Array(0)
+          playbackStarted = true
+        }
+        while (playbackStarted && pendingSamples.length >= batchFrames) {
+          schedule(pendingSamples.slice(0, batchFrames))
+          pendingSamples = pendingSamples.slice(batchFrames)
+        }
+        if (finished && pendingSamples.length > 0) {
+          schedule(pendingSamples)
+          pendingSamples = new Float32Array(0)
+        }
+      }
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (generation !== speechGeneration || speechTurn !== turn) {
+          await reader.cancel()
+          return
+        }
+        if (done) break
+
+        let bytes = value
+        if (trailingByte !== undefined) {
+          const joined = new Uint8Array(value.byteLength + 1)
+          joined[0] = trailingByte
+          joined.set(value, 1)
+          bytes = joined
+          trailingByte = undefined
+        }
+        if (bytes.byteLength % 2 === 1) {
+          trailingByte = bytes[bytes.byteLength - 1]
+          bytes = bytes.subarray(0, bytes.byteLength - 1)
+        }
+        if (bytes.byteLength === 0) continue
+
+        const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+        const samples = new Float32Array(bytes.byteLength / 2)
+        for (let index = 0; index < samples.length; index += 1) {
+          samples[index] = view.getInt16(index * 2, true) / 32_768
+        }
+        const joined = new Float32Array(pendingSamples.length + samples.length)
+        joined.set(pendingSamples)
+        joined.set(samples, pendingSamples.length)
+        pendingSamples = joined
+        flushReadySamples()
+      }
+      if (trailingByte !== undefined) throw new Error('TTS returned incomplete PCM data')
+      flushReadySamples(true)
+      if (!segmentScheduled) throw new Error('TTS returned no audio')
+    }
+
+    async function closeSpeechTurn(turn: SpeechTurn) {
+      if (turn.lastFinished) await turn.lastFinished
+      if (turn.generation !== speechGeneration || speechTurn !== turn) return
+
+      avatarSpeaking = false
+      agentRoot.dataset.audioActive = 'false'
+      const deadline = performance.now() + 1_200
+      while (
+        (mouthLevel > 0.01 || (!talkMotionGroup && !speechMotion.settled)) &&
+        performance.now() < deadline
+      ) {
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+        if (turn.generation !== speechGeneration || speechTurn !== turn) return
+      }
+
+      if (talkMotionGroup) void avatar?.motion(idleMotionGroup, 0)
+      if (speechAnimationFrame !== undefined) cancelAnimationFrame(speechAnimationFrame)
+      speechAnimationFrame = undefined
+      speechAnalyser?.disconnect()
+      speechAnalyser = undefined
+      mouthLevel = 0
+      speechTurn = undefined
+      setState('idle', copy.ready)
+    }
+
+    async function runSpeechTurn(turn: SpeechTurn) {
+      try {
+        while (turn.generation === speechGeneration && speechTurn === turn) {
+          const segment = turn.queue.shift()
+          if (segment) {
+            await streamSpeechSegment(turn, segment)
+            continue
+          }
+          if (turn.complete) break
+          await new Promise<void>((resolve) => {
+            turn.wake = resolve
+          })
+          turn.wake = undefined
+        }
+        await closeSpeechTurn(turn)
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return
+        if (turn.generation !== speechGeneration || speechTurn !== turn) return
+        stopSpeechAudio()
+        setState('idle', copy.ready)
+        console.warn('[live2d-agent] TTS unavailable', error)
+      }
+    }
+
+    function enqueueSpeechSegment(text: string) {
+      const context = ensureAudioContext()
+      const segment = text.trim()
+      if (!context || !segment) return
+      let turn = speechTurn
+      if (!turn) {
+        const abortController = new AbortController()
+        turn = {
+          generation: speechGeneration,
+          context,
+          abortController,
+          queue: [],
+          complete: false,
+          nextStartTime: context.currentTime + 0.04
+        }
+        speechTurn = turn
+        void runSpeechTurn(turn)
+      }
+      turn.queue.push(segment)
+      turn.wake?.()
+    }
+
+    function completeSpeechTurn() {
+      if (!speechTurn) {
+        setState('idle', copy.ready)
+        return
+      }
+      speechTurn.complete = true
+      speechTurn.wake?.()
+    }
+
+    const applyVoiceParameters = () => {
+      const coreModel = avatar?.internalModel?.coreModel
+      if (!coreModel) return
+      coreModel.setParameterValueById('ParamMouthOpenY', mouthLevel)
+      if (!talkMotionGroup) {
+        speechMotion.update(coreModel, {
+          timeSeconds: performance.now() / 1_000,
+          energy: mouthLevel,
+          speaking: avatarSpeaking,
+          ambient: true
+        })
+      }
+    }
+
     function loadScript(source: string): Promise<void> {
       const coreWindow = window as typeof window & { Live2DCubismCore?: unknown }
       if (coreWindow.Live2DCubismCore) return Promise.resolve()
-      return new Promise((resolve, reject) => {
-        const script = document.createElement('script')
-        script.src = source
-        script.crossOrigin = 'anonymous'
-        script.onload = () => resolve()
-        script.onerror = () => reject(new Error(`Cubism Core 加载失败: ${source}`))
-        document.head.append(script)
-      })
+      const fallback = agentRoot.dataset.coreFallbackUrl
+      const candidates = fallback && fallback !== source ? [source, fallback] : [source]
+      let lastError: Error | undefined
+      return candidates
+        .reduce<Promise<void>>(
+          (promise, candidate) =>
+            promise.catch(async (error: unknown) => {
+              lastError = error instanceof Error ? error : new Error(String(error))
+              await new Promise<void>((resolve, reject) => {
+                const script = document.createElement('script')
+                script.src = candidate
+                script.crossOrigin = 'anonymous'
+                script.onload = () => resolve()
+                script.onerror = () => {
+                  script.remove()
+                  reject(new Error(`Cubism Core 加载失败: ${candidate}`))
+                }
+                document.head.append(script)
+              })
+            }),
+          Promise.reject(new Error(`Cubism Core 加载失败: ${source}`))
+        )
+        .catch((error: unknown) => {
+          throw lastError || (error instanceof Error ? error : new Error(String(error)))
+        })
     }
 
     function fitAvatar() {
       if (!avatar || !stage.clientWidth || !stage.clientHeight) return
-      avatar.scale.set(1)
-      const scale = Math.min(stage.clientWidth / avatar.width, stage.clientHeight / avatar.height)
-      avatar.scale.set(scale * 1.02)
-      avatar.anchor.set(0.5, 0.5)
-      avatar.position.set(stage.clientWidth / 2, stage.clientHeight / 2 + 12)
+      if (avatarBaseWidth === undefined || avatarBaseHeight === undefined) {
+        avatar.scale.set(1)
+        avatarBaseWidth = avatar.width
+        avatarBaseHeight = avatar.height
+        avatar.anchor.set(0.5, 0.5)
+      }
+
+      const scale = Math.min(
+        stage.clientWidth / avatarBaseWidth,
+        stage.clientHeight / avatarBaseHeight
+      )
+      const closeState = ['thinking', 'speaking', 'working'].includes(
+        agentRoot.dataset.state || ''
+      )
+      const close = agentRoot.dataset.composerOpen === 'true' || closeState
+      const zoom = close ? 1.95 : 1.52
+      const targetScale = scale * zoom
+      const targetY = stage.clientHeight / 2 + stage.clientHeight * (zoom - 1) * 0.42 + 8
+      const targetX = stage.clientWidth / 2
+
+      if (
+        cameraTargetScale !== undefined &&
+        Math.abs(cameraTargetScale - targetScale) < 0.0001 &&
+        cameraTargetY !== undefined &&
+        Math.abs(cameraTargetY - targetY) < 0.1
+      ) {
+        return
+      }
+      cameraTargetScale = targetScale
+      cameraTargetY = targetY
+
+      if (cameraAnimationFrame !== undefined) cancelAnimationFrame(cameraAnimationFrame)
+      if (cameraScale === undefined || cameraY === undefined || prefersReducedMotion.matches) {
+        cameraScale = targetScale
+        cameraY = targetY
+        avatar.scale.set(targetScale)
+        avatar.position.set(targetX, targetY)
+        cameraAnimationFrame = undefined
+        return
+      }
+
+      const startScale = cameraScale
+      const startY = cameraY
+      const startedAt = performance.now()
+      const animateCamera = (now: number) => {
+        if (!avatar) return
+        const progress = Math.min(1, Math.max(0, (now - startedAt) / 280))
+        const eased = 1 - Math.pow(1 - progress, 3)
+        cameraScale = startScale + (targetScale - startScale) * eased
+        cameraY = startY + (targetY - startY) * eased
+        avatar.scale.set(cameraScale)
+        avatar.position.set(targetX, cameraY)
+        if (progress < 1) cameraAnimationFrame = requestAnimationFrame(animateCamera)
+        else cameraAnimationFrame = undefined
+      }
+      cameraAnimationFrame = requestAnimationFrame(animateCamera)
     }
 
     async function applySnapshot(snapshot: Live2DSnapshot) {
@@ -236,15 +756,22 @@ const coreUrl = import.meta.env.PUBLIC_LIVE2D_CUBISM_CORE_URL || '/live2dcubismc
         speech += data.delta
         setSpeech(speech)
         setState('speaking')
+        for (const segment of speechSegmenter.push(data.delta)) enqueueSpeechSegment(segment)
       }
       if (event.type === 'live2d.speech.completed') {
         speech = typeof data.text === 'string' ? data.text : speech
         setSpeech(speech, Boolean(speech), 12_000)
-        setState('idle', copy.ready)
+        for (const segment of speechSegmenter.finish(speech)) enqueueSpeechSegment(segment)
+        completeSpeechTurn()
         send.disabled = false
       }
       if (event.type === 'live2d.error') {
+        stopSpeechAudio()
         throw new Error(typeof data.message === 'string' ? data.message : copy.unavailable)
+      }
+      if (event.type === 'live2d.web.action.intent') {
+        showActionCard(data)
+        return
       }
       if (event.type !== 'live2d.command') return
       if (typeof data.expression === 'string') {
@@ -278,7 +805,8 @@ const coreUrl = import.meta.env.PUBLIC_LIVE2D_CUBISM_CORE_URL || '/live2dcubismc
         'live2d.command',
         'live2d.speech.delta',
         'live2d.speech.completed',
-        'live2d.error'
+        'live2d.error',
+        'live2d.web.action.intent'
       ]) {
         eventSource.addEventListener(type, (raw) => {
           eventQueue = eventQueue
@@ -315,6 +843,13 @@ const coreUrl = import.meta.env.PUBLIC_LIVE2D_CUBISM_CORE_URL || '/live2dcubismc
         autoInteract: true,
         idleMotionGroup: 'Idle'
       })) as AvatarModel
+      talkMotionGroup = Object.keys(modelInfo.motion_groups).find(
+        (group) => group.toLowerCase() === 'talk'
+      )
+      idleMotionGroup =
+        Object.keys(modelInfo.motion_groups).find((group) => group.toLowerCase() === 'idle') ||
+        'Idle'
+      avatar.internalModel?.on?.('afterMotionUpdate', applyVoiceParameters)
       app.stage.addChild(avatar as unknown as import('pixi.js').DisplayObject)
       fitAvatar()
       window.addEventListener('resize', fitAvatar)
@@ -357,22 +892,40 @@ const coreUrl = import.meta.env.PUBLIC_LIVE2D_CUBISM_CORE_URL || '/live2dcubismc
       event.preventDefault()
       setComposerOpen(true)
     })
+    prompt.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' || event.isComposing) return
+      event.preventDefault()
+      form.requestSubmit()
+    })
     form.addEventListener('submit', async (event) => {
       event.preventDefault()
       const text = prompt.value.trim()
       if (!text || !sessionId) return
       send.disabled = true
+      stopSpeechAudio()
+      ensureAudioContext()
       speech = ''
       setSpeech(copy.thinking)
       setState('thinking')
       prompt.value = ''
       setComposerOpen(false)
       try {
-        await api.run(sessionId, text, provider, modelId)
+        await api.run(sessionId, text, provider, modelId, currentPageContext())
       } catch (error) {
         fail(error)
       }
     })
+    actionConfirm.addEventListener('click', () => {
+      if (!pendingAction) return
+      try {
+        executeAction(pendingAction)
+        hideActionCard()
+      } catch (error) {
+        hideActionCard()
+        fail(error)
+      }
+    })
+    actionDismiss.addEventListener('click', hideActionCard)
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) app?.stop()
       else if (agentRoot.dataset.minimized !== 'true') app?.start()
@@ -383,7 +936,13 @@ const coreUrl = import.meta.env.PUBLIC_LIVE2D_CUBISM_CORE_URL || '/live2dcubismc
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') setComposerOpen(false)
     })
-    window.addEventListener('beforeunload', () => eventSource?.close())
+    window.addEventListener('beforeunload', () => {
+      eventSource?.close()
+      stopSpeechAudio()
+      if (cameraAnimationFrame !== undefined) cancelAnimationFrame(cameraAnimationFrame)
+      avatar?.internalModel?.off?.('afterMotionUpdate', applyVoiceParameters)
+      void audioContext?.close()
+    })
 
     if (window.matchMedia('(max-width: 520px)').matches) setMinimized(true)
     else ensureBootstrap()
@@ -579,6 +1138,67 @@ const coreUrl = import.meta.env.PUBLIC_LIVE2D_CUBISM_CORE_URL || '/live2dcubismc
     opacity: 1;
     pointer-events: auto;
     transform: translateY(0) scale(1);
+  }
+
+  .live2d-action-card {
+    position: absolute;
+    z-index: 5;
+    right: 8px;
+    bottom: 68px;
+    left: 18px;
+    border: 1px solid rgb(var(--agent-accent) / 0.28);
+    border-radius: 14px;
+    padding: 10px 11px;
+    background: hsl(var(--background) / 0.72);
+    box-shadow: 0 14px 40px rgb(18 10 32 / 0.14);
+    backdrop-filter: blur(20px) saturate(1.2);
+  }
+
+  .live2d-action-card[hidden] {
+    display: none;
+  }
+
+  .live2d-action-title,
+  .live2d-action-reason {
+    margin: 0;
+  }
+
+  .live2d-action-title {
+    color: hsl(var(--foreground));
+    font-size: 12px;
+    font-weight: 650;
+  }
+
+  .live2d-action-reason {
+    margin-top: 3px;
+    color: hsl(var(--muted-foreground));
+    font-size: 11px;
+    line-height: 1.45;
+  }
+
+  .live2d-action-buttons {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .live2d-action-confirm,
+  .live2d-action-dismiss {
+    border: 0;
+    border-radius: 999px;
+    padding: 5px 10px;
+    font-size: 11px;
+    cursor: pointer;
+  }
+
+  .live2d-action-confirm {
+    background: rgb(var(--agent-accent));
+    color: white;
+  }
+
+  .live2d-action-dismiss {
+    background: hsl(var(--muted) / 0.7);
+    color: hsl(var(--muted-foreground));
   }
 
   .live2d-form {
