@@ -34,8 +34,19 @@ export class SpeechMotionController {
   private lastTimeSeconds: number | undefined
   private activity = 0
   private values = neutralValues()
+  private ownsParameters = false
+
+  get settled(): boolean {
+    return !this.ownsParameters
+  }
 
   update(target: VoiceMotionTarget, frame: SpeechMotionFrame): void {
+    if (frame.speaking) this.ownsParameters = true
+    if (!this.ownsParameters) {
+      this.lastTimeSeconds = undefined
+      return
+    }
+
     const deltaSeconds =
       this.lastTimeSeconds === undefined
         ? 1 / 60
@@ -43,7 +54,7 @@ export class SpeechMotionController {
     this.lastTimeSeconds = frame.timeSeconds
 
     const activityTarget = frame.speaking ? 1 : 0
-    const activityRate = frame.speaking ? 3.2 : 4.5
+    const activityRate = frame.speaking ? 3.2 : 5.2
     this.activity = damp(this.activity, activityTarget, activityRate, deltaSeconds)
 
     const time = frame.timeSeconds
@@ -76,14 +87,33 @@ export class SpeechMotionController {
     this.values.headTilt = damp(this.values.headTilt, headTiltTarget, 5.1, deltaSeconds)
     this.values.headX = damp(this.values.headX, headXTarget, 4.6, deltaSeconds)
     this.values.headY = damp(this.values.headY, headYTarget, 4, deltaSeconds)
+
+    if (!frame.speaking && this.isNearNeutral()) {
+      this.activity = 0
+      this.values = neutralValues()
+      this.write(target)
+      this.ownsParameters = false
+      this.lastTimeSeconds = undefined
+      return
+    }
+
     this.write(target)
   }
 
   reset(target: VoiceMotionTarget): void {
+    if (!this.ownsParameters) return
     this.lastTimeSeconds = undefined
     this.activity = 0
     this.values = neutralValues()
     this.write(target)
+    this.ownsParameters = false
+  }
+
+  private isNearNeutral(): boolean {
+    return (
+      this.activity < 0.002 &&
+      Object.values(this.values).every((value) => Math.abs(value) < 0.02)
+    )
   }
 
   private write(target: VoiceMotionTarget): void {

@@ -47,8 +47,7 @@ test('speech motion eases out and resets every controlled parameter', () => {
     controller.update(target, { timeSeconds: frame / 60, energy: 0, speaking: false })
   }
 
-  assert.ok(Math.abs(target.values.get('ParamBodyAngleZ') || 0) < 0.25)
-  controller.reset(target)
+  assert.equal(controller.settled, true)
 
   for (const id of [
     'ParamAngleX',
@@ -59,4 +58,16 @@ test('speech motion eases out and resets every controlled parameter', () => {
   ]) {
     assert.equal(target.values.get(id), 0)
   }
+})
+
+test('an inactive controller leaves the model idle motion parameters untouched', () => {
+  const target = new ParameterTarget()
+  const controller = new SpeechMotionController()
+  target.values.set('ParamAngleX', 7)
+  target.values.set('ParamBodyAngleZ', -3)
+
+  controller.update(target, { timeSeconds: 1, energy: 0, speaking: false })
+
+  assert.equal(target.values.get('ParamAngleX'), 7)
+  assert.equal(target.values.get('ParamBodyAngleZ'), -3)
 })

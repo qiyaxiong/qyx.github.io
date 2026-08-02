@@ -374,8 +374,6 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
       avatarSpeaking = false
       agentRoot.dataset.audioActive = 'false'
       mouthLevel = 0
-      const coreModel = avatar?.internalModel?.coreModel
-      if (coreModel) speechMotion.reset(coreModel)
       if (talkMotionGroup) void avatar?.motion(idleMotionGroup, 0)
     }
 
@@ -540,15 +538,18 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
 
       avatarSpeaking = false
       agentRoot.dataset.audioActive = 'false'
-      const deadline = performance.now() + 240
-      while (mouthLevel > 0.01 && performance.now() < deadline) {
+      const deadline = performance.now() + 1_200
+      while (
+        (mouthLevel > 0.01 || (!talkMotionGroup && !speechMotion.settled)) &&
+        performance.now() < deadline
+      ) {
         await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
         if (turn.generation !== speechGeneration || speechTurn !== turn) return
       }
 
       if (talkMotionGroup) void avatar?.motion(idleMotionGroup, 0)
       const coreModel = avatar?.internalModel?.coreModel
-      if (coreModel) speechMotion.reset(coreModel)
+      if (coreModel && !talkMotionGroup && !speechMotion.settled) speechMotion.reset(coreModel)
       if (speechAnimationFrame !== undefined) cancelAnimationFrame(speechAnimationFrame)
       speechAnimationFrame = undefined
       speechAnalyser?.disconnect()
@@ -617,11 +618,13 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
       const coreModel = avatar?.internalModel?.coreModel
       if (!coreModel) return
       coreModel.setParameterValueById('ParamMouthOpenY', mouthLevel)
-      speechMotion.update(coreModel, {
-        timeSeconds: performance.now() / 1_000,
-        energy: mouthLevel,
-        speaking: avatarSpeaking
-      })
+      if (!talkMotionGroup) {
+        speechMotion.update(coreModel, {
+          timeSeconds: performance.now() / 1_000,
+          energy: mouthLevel,
+          speaking: avatarSpeaking
+        })
+      }
     }
 
     function loadScript(source: string): Promise<void> {
