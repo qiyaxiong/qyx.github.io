@@ -20,6 +20,7 @@ Required:
 
 Optional:
   --slug <slug>            Override the slug derived from the file directory
+  --update-published       Update an existing Published Notion post
   --dry-run                Parse the article and print the Notion block summary
   -h, --help               Show this help message
 `
@@ -288,6 +289,15 @@ function markdownToBlocks(markdown) {
   return tree.children.flatMap(nodeToBlocks)
 }
 
+function normalizeNotionEmbeds(markdown) {
+  return markdown
+    .replace(
+      /^import AgentTurnTimeline from ['"]@\/components\/blog\/AgentTurnTimeline\.astro['"]\s*$/m,
+      ''
+    )
+    .replace(/<AgentTurnTimeline\s*\/>/g, '{{agent-turn-timeline}}')
+}
+
 async function getPostDataSourceId(notion, databaseId) {
   const database = await notion.databases.retrieve({ database_id: databaseId })
   const dataSource = database.data_sources?.find((item) =>
@@ -382,7 +392,7 @@ function inferSlug(filePath) {
 export default async function main(argv) {
   const args = minimist(argv, {
     string: ['file', 'slug'],
-    boolean: ['dry-run', 'help'],
+    boolean: ['dry-run', 'help', 'update-published'],
     alias: { h: 'help' }
   })
 
@@ -397,7 +407,7 @@ export default async function main(argv) {
   const source = readFileSync(filePath, 'utf8')
   const { metadata, body } = parseFrontmatter(source)
   const slug = args.slug || inferSlug(filePath)
-  const blocks = markdownToBlocks(body)
+  const blocks = markdownToBlocks(normalizeNotionEmbeds(body))
   const properties = buildDraftProperties(metadata, slug)
   const blockTypes = blocks.reduce((counts, block) => {
     counts[block.type] = (counts[block.type] || 0) + 1
@@ -433,7 +443,11 @@ export default async function main(argv) {
   const dataSourceId = await getPostDataSourceId(notion, databaseId)
   const existingPost = await findExistingPostBySlug(notion, dataSourceId, slug)
 
-  if (existingPost && getSelectProperty(existingPost, 'Status') !== 'Draft') {
+  if (
+    existingPost &&
+    getSelectProperty(existingPost, 'Status') !== 'Draft' &&
+    !args['update-published']
+  ) {
     throw new Error(`Post already exists for slug "${slug}": ${existingPost.id}`)
   }
 

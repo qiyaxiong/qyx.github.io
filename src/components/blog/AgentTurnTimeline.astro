@@ -1,0 +1,764 @@
+---
+const events = [
+  {
+    stage: 'run',
+    stageLabel: 'Agent Run',
+    type: 'lifecycle',
+    name: 'Agent Start',
+    short: '一次任务开始，运行时建立本次 Run 的边界。',
+    detail:
+      '这是整次 Agent Run 的起点。Session、取消信号、事件订阅和运行统计都可以在这里挂上。它只发生一次，不要把它和模型调用次数混在一起。',
+    emits: 'agent_start',
+    payload: 'runId · sessionId · prompt'
+  },
+  {
+    stage: 'turn-1',
+    stageLabel: 'Turn 1',
+    type: 'turn',
+    name: 'Turn Start',
+    short: '第一次调用模型，开始让模型决定下一步动作。',
+    detail:
+      '一个 Turn 对应一次模型调用。从这里开始，模型看到当前上下文、工具定义和前面的消息，并准备产生 Assistant 消息。',
+    emits: 'turn_start',
+    payload: 'turnId · model · contextTokens'
+  },
+  {
+    stage: 'turn-1',
+    stageLabel: 'Turn 1',
+    type: 'message',
+    name: 'Message Start',
+    short: 'Assistant 流式消息创建，UI 可以先画出空消息壳。',
+    detail:
+      '此时还没有完整回复，只有一条正在生成的 Assistant 消息。UI 可以先显示思考中状态，但不应该把它当成已经持久化的最终消息。',
+    emits: 'message_start',
+    payload: 'messageId · role=assistant'
+  },
+  {
+    stage: 'turn-1',
+    stageLabel: 'Turn 1',
+    type: 'message',
+    name: 'Message Update',
+    short: '文本、思考、工具名和参数以增量持续到达。',
+    detail:
+      '这是最频繁的事件。一次回复可能包含很多个 Update：先有思考片段，再有工具调用名称和参数增量。它适合驱动实时渲染，不适合作为唯一的持久化来源。',
+    emits: 'message_update × N',
+    payload: 'delta: text | thinking | toolCall'
+  },
+  {
+    stage: 'turn-1',
+    stageLabel: 'Turn 1',
+    type: 'message',
+    name: 'Message End',
+    short: 'Assistant 消息收束，确认模型这次回复已经完整。',
+    detail:
+      'Message End 代表这一条流式 Assistant 消息完成。它不一定代表整个任务完成，因为消息里可能刚刚提出了工具调用。',
+    emits: 'message_end',
+    payload: 'messageId · stopReason=toolUse'
+  },
+  {
+    stage: 'tool',
+    stageLabel: 'Tool Execution',
+    type: 'tool',
+    name: 'Tool Execution Start',
+    short: '运行时接受模型的工具调用，开始执行 read。',
+    detail:
+      '模型只能提出结构化调用，不能直接改变环境。运行时在这里校验参数、检查权限，并把调用交给真正的工具函数。',
+    emits: 'tool_execution_start',
+    payload: 'toolCallId · tool=read · path=src/...'
+  },
+  {
+    stage: 'tool',
+    stageLabel: 'Tool Execution',
+    type: 'tool',
+    name: 'Tool Execution Update',
+    short: '工具执行过程报告进度，UI 可以显示读取/测试进度。',
+    detail:
+      '长时间运行的工具可以持续报告进度，例如已读取多少文件、测试运行到哪个阶段。它仍然属于执行过程，不是模型的新一轮思考。',
+    emits: 'tool_execution_update × N',
+    payload: 'progress · stdout · partialDetails'
+  },
+  {
+    stage: 'tool',
+    stageLabel: 'Tool Execution',
+    type: 'tool',
+    name: 'Tool Execution End',
+    short: '工具执行结束，得到成功、失败或取消结果。',
+    detail:
+      '工具结束后，运行时把结果整理成 Tool Result。成功、失败和取消都应该有可识别的结构，这样模型才能在下一 Turn 里修正行动。',
+    emits: 'tool_execution_end',
+    payload: 'isError · durationMs · details'
+  },
+  {
+    stage: 'run',
+    stageLabel: 'Agent Run',
+    type: 'result',
+    name: 'Tool Result 入上下文',
+    short: '工具结果被追加成新消息，下一次模型调用才有事实可读。',
+    detail:
+      '这是 Turn 与 Turn 之间的接缝。工具结果先成为消息历史的一部分，接着才允许新的 Turn 开始。不要在工具完成的瞬间把它误画成最终答案。',
+    emits: 'message_added',
+    payload: 'role=tool · toolCallId · content'
+  },
+  {
+    stage: 'turn-2',
+    stageLabel: 'Turn 2',
+    type: 'turn',
+    name: 'Turn Start',
+    short: '第二次模型调用，模型读取 Tool Result 并决定收束。',
+    detail:
+      '现在上下文里已经有了工具返回的真实内容。模型可以继续调用工具，也可以像这个例子一样直接生成最终回答。只要它继续请求工具，就会再重复一段 Tool Execution。',
+    emits: 'turn_start',
+    payload: 'turnId=2 · context += toolResult'
+  },
+  {
+    stage: 'turn-2',
+    stageLabel: 'Turn 2',
+    type: 'message',
+    name: 'Message Start → Update → End',
+    short: '第二条 Assistant 消息流式完成，这次没有新的工具调用。',
+    detail:
+      '这里把三个连续的消息事件合并展示：先创建消息，再接收文本增量，最后收束。因为 stopReason 不再是 toolUse，所以循环可以退出。',
+    emits: 'message_start · update × N · message_end',
+    payload: 'stopReason=stop · finalText'
+  },
+  {
+    stage: 'run',
+    stageLabel: 'Agent Run',
+    type: 'lifecycle',
+    name: 'Turn End → Agent End',
+    short: '最后一个 Turn 和整次 Agent Run 依次结束。',
+    detail:
+      '只有当模型不再请求工具时，运行时才发出 Turn End；随后 Agent End 标记整次任务结束。SessionManager 此时可以安全地保存可恢复的完成条目。',
+    emits: 'turn_end · agent_end',
+    payload: 'usage · totalDurationMs · finalState'
+  }
+]
+---
+
+<section
+  class='turn-timeline'
+  data-turn-timeline
+  data-events={JSON.stringify(events)}
+  aria-labelledby='turn-timeline-title'
+>
+  <div class='timeline-heading'>
+    <div>
+      <p class='eyebrow'>EVENT TRACE / 01</p>
+      <h3 id='turn-timeline-title'>一次 Agent Run，沿时间发生了什么？</h3>
+      <p class='timeline-intro'>
+        把抽象的 Loop
+        拆成可观察事件。点击任意节点查看它的职责、可携带的数据，以及它为什么不能被另一个阶段替代。
+      </p>
+    </div>
+    <div class='run-badge' aria-label='本例包含两次 Turn 和一次工具执行'>
+      <span class='status-dot'></span>
+      <span><strong>1 Run</strong><small>2 Turns · 1 Tool</small></span>
+    </div>
+  </div>
+
+  <div class='control-bar'>
+    <button class='play-button' type='button' data-action='play' aria-label='按顺序播放事件'>
+      <span aria-hidden='true'>▶</span> 播放一遍事件
+    </button>
+    <button class='reset-button' type='button' data-action='reset'>重置</button>
+    <span class='control-hint' data-status aria-live='polite'>点击事件卡片，查看详细说明</span>
+  </div>
+
+  <div class='overview' aria-label='运行阶段概览'>
+    <div class='overview-node is-run'>
+      <span>01</span><strong>Agent Run</strong><small>任务边界</small>
+    </div>
+    <div class='overview-arrow' aria-hidden='true'>→</div>
+    <div class='overview-node is-turn'>
+      <span>02</span><strong>Turn 1</strong><small>请求工具</small>
+    </div>
+    <div class='overview-arrow' aria-hidden='true'>→</div>
+    <div class='overview-node is-tool'>
+      <span>03</span><strong>Tool</strong><small>执行 read</small>
+    </div>
+    <div class='overview-arrow' aria-hidden='true'>→</div>
+    <div class='overview-node is-turn'>
+      <span>04</span><strong>Turn 2</strong><small>最终回答</small>
+    </div>
+    <div class='overview-arrow' aria-hidden='true'>→</div>
+    <div class='overview-node is-run'>
+      <span>05</span><strong>End</strong><small>保存恢复</small>
+    </div>
+  </div>
+
+  <div class='trace-layout'>
+    <div class='event-list' role='list' aria-label='事件时间线'>
+      {
+        events.map((event, index) => (
+          <div
+            class:list={['event-row', `stage-${event.stage}`, index === 0 && 'is-selected']}
+            data-event-index={index}
+            role='listitem'
+          >
+            <div class='event-marker' aria-hidden='true'>
+              <span>{String(index + 1).padStart(2, '0')}</span>
+            </div>
+            <button
+              class='event-card'
+              type='button'
+              data-event-button={index}
+              aria-controls='event-detail'
+              aria-pressed={index === 0 ? 'true' : 'false'}
+            >
+              <span class='event-meta'>
+                <>
+                  <span class='stage-label'>{event.stageLabel}</span>
+                  <span class={`event-kind kind-${event.type}`}>{event.type}</span>
+                </>
+              </span>
+              <strong>{event.name}</strong>
+              <span>{event.short}</span>
+            </button>
+          </div>
+        ))
+      }
+    </div>
+
+    <aside class='event-detail' id='event-detail' aria-live='polite'>
+      <div class='detail-kicker'>SELECTED EVENT <span data-detail-number>01</span></div>
+      <h4 data-detail-title>{events[0].name}</h4>
+      <p data-detail-copy>{events[0].detail}</p>
+      <div class='detail-block'>
+        <span>发出的事件</span>
+        <code data-detail-emits>{events[0].emits}</code>
+      </div>
+      <div class='detail-block'>
+        <span>典型数据</span>
+        <code data-detail-payload>{events[0].payload}</code>
+      </div>
+      <div class='detail-rule'>
+        <span class='rule-line'></span>
+        <span data-detail-stage>Agent Run / lifecycle</span>
+      </div>
+    </aside>
+  </div>
+
+  <div class='timeline-footnote'>
+    <span class='footnote-icon' aria-hidden='true'>↳</span>
+    <p>
+      <strong>关键边界：</strong>Tool Result 会进入上下文，才会开启下一个
+      Turn；如果模型继续请求工具，就从 Turn Start 再次循环。只有没有新的工具调用时，Turn End 和
+      Agent End 才会出现。
+    </p>
+  </div>
+</section>
+
+<script>
+  const root = document.querySelector<HTMLElement>('[data-turn-timeline]')
+
+  if (root) {
+    const events = JSON.parse(root.dataset.events || '[]')
+    const rows = [...root.querySelectorAll<HTMLElement>('[data-event-index]')]
+    const buttons = [...root.querySelectorAll<HTMLButtonElement>('[data-event-button]')]
+    const status = root.querySelector<HTMLElement>('[data-status]')!
+    const playButton = root.querySelector<HTMLButtonElement>('[data-action="play"]')!
+    const resetButton = root.querySelector<HTMLButtonElement>('[data-action="reset"]')!
+    const detailNumber = root.querySelector<HTMLElement>('[data-detail-number]')!
+    const detailTitle = root.querySelector<HTMLElement>('[data-detail-title]')!
+    const detailCopy = root.querySelector<HTMLElement>('[data-detail-copy]')!
+    const detailEmits = root.querySelector<HTMLElement>('[data-detail-emits]')!
+    const detailPayload = root.querySelector<HTMLElement>('[data-detail-payload]')!
+    const detailStage = root.querySelector<HTMLElement>('[data-detail-stage]')!
+    let timer: number | undefined
+
+    function selectEvent(index: number) {
+      const event = events[index]
+      rows.forEach((row, rowIndex) => row.classList.toggle('is-selected', rowIndex === index))
+      buttons.forEach((button, buttonIndex) =>
+        button.setAttribute('aria-pressed', String(buttonIndex === index))
+      )
+      detailNumber.textContent = String(index + 1).padStart(2, '0')
+      detailTitle.textContent = event.name
+      detailCopy.textContent = event.detail
+      detailEmits.textContent = event.emits
+      detailPayload.textContent = event.payload
+      detailStage.textContent = `${event.stageLabel} / ${event.type}`
+      status.textContent = `${String(index + 1).padStart(2, '0')} / ${String(events.length).padStart(2, '0')} · ${event.name}`
+    }
+
+    function stopPlayback() {
+      window.clearInterval(timer)
+      timer = undefined
+      playButton.classList.remove('is-playing')
+      playButton.innerHTML = '<span aria-hidden="true">▶</span> 播放一遍事件'
+    }
+
+    buttons.forEach((button, index) =>
+      button.addEventListener('click', () => {
+        stopPlayback()
+        selectEvent(index)
+      })
+    )
+
+    playButton.addEventListener('click', () => {
+      if (timer) {
+        stopPlayback()
+        return
+      }
+
+      let index = 0
+      selectEvent(index)
+      playButton.classList.add('is-playing')
+      playButton.innerHTML = '<span aria-hidden="true">Ⅱ</span> 暂停播放'
+      timer = window.setInterval(() => {
+        index += 1
+        if (index >= events.length) {
+          stopPlayback()
+          return
+        }
+        selectEvent(index)
+      }, 1150)
+    })
+
+    resetButton.addEventListener('click', () => {
+      stopPlayback()
+      selectEvent(0)
+    })
+
+    selectEvent(0)
+  }
+</script>
+
+<style>
+  .turn-timeline {
+    --timeline-bg: hsl(240 16% 8%);
+    --timeline-panel: hsl(240 13% 11%);
+    --timeline-panel-strong: hsl(240 12% 14%);
+    --timeline-border: hsl(240 10% 23%);
+    --timeline-text: hsl(0 0% 96%);
+    --timeline-muted: hsl(240 7% 67%);
+    --timeline-dim: hsl(240 7% 49%);
+    --cyan: hsl(184 85% 66%);
+    --violet: hsl(259 83% 78%);
+    --orange: hsl(29 94% 69%);
+    --green: hsl(151 65% 62%);
+    margin: 2.75rem 0 3.5rem;
+    overflow: hidden;
+    border: 1px solid var(--timeline-border);
+    border-radius: 1.25rem;
+    background:
+      radial-gradient(circle at 100% 0%, hsl(259 70% 60% / 0.12), transparent 32%),
+      radial-gradient(circle at 0% 100%, hsl(184 80% 55% / 0.08), transparent 32%),
+      var(--timeline-bg);
+    color: var(--timeline-text);
+    box-shadow: 0 20px 60px hsl(240 30% 4% / 0.24);
+    font-family: 'Satoshi', 'Noto Sans SC', sans-serif;
+  }
+
+  .timeline-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1.5rem;
+    padding: 2rem 2rem 1.25rem;
+  }
+
+  .eyebrow,
+  .detail-kicker,
+  .stage-label,
+  .event-kind,
+  .detail-block > span,
+  .run-badge small {
+    font-family: 'ComicShannsMono', ui-monospace, monospace;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .eyebrow {
+    margin: 0 0 0.65rem;
+    color: var(--cyan);
+    font-size: 0.68rem;
+  }
+
+  .timeline-heading h3 {
+    margin: 0;
+    color: var(--timeline-text);
+    font-size: clamp(1.2rem, 2vw, 1.65rem);
+    font-weight: 650;
+    letter-spacing: -0.025em;
+  }
+
+  .timeline-intro {
+    max-width: 45rem;
+    margin: 0.75rem 0 0;
+    color: var(--timeline-muted);
+    font-size: 0.92rem;
+    line-height: 1.75;
+  }
+
+  .run-badge {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.55rem 0.75rem;
+    border: 1px solid hsl(151 65% 62% / 0.2);
+    border-radius: 0.7rem;
+    background: hsl(151 65% 62% / 0.08);
+    color: var(--green);
+    font-size: 0.78rem;
+  }
+
+  .run-badge span:not(.status-dot) {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+  .run-badge strong {
+    font-weight: 600;
+  }
+  .run-badge small {
+    color: hsl(151 35% 72%);
+    font-size: 0.55rem;
+  }
+  .status-dot {
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 999px;
+    background: var(--green);
+    box-shadow: 0 0 0 0.25rem hsl(151 65% 62% / 0.12);
+  }
+
+  .control-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0 2rem 1.25rem;
+  }
+
+  .play-button,
+  .reset-button {
+    cursor: pointer;
+    border-radius: 0.55rem;
+    font: inherit;
+    font-size: 0.78rem;
+    transition: 160ms ease;
+  }
+
+  .play-button {
+    border: 1px solid hsl(184 85% 66% / 0.35);
+    background: hsl(184 85% 66% / 0.12);
+    color: var(--cyan);
+    padding: 0.58rem 0.8rem;
+  }
+
+  .play-button:hover,
+  .play-button:focus-visible {
+    background: hsl(184 85% 66% / 0.2);
+    outline: none;
+    transform: translateY(-1px);
+  }
+  .play-button.is-playing {
+    border-color: hsl(29 94% 69% / 0.4);
+    background: hsl(29 94% 69% / 0.13);
+    color: var(--orange);
+  }
+  .reset-button {
+    border: 0;
+    background: transparent;
+    color: var(--timeline-dim);
+    padding: 0.58rem 0.35rem;
+  }
+  .reset-button:hover,
+  .reset-button:focus-visible {
+    color: var(--timeline-text);
+    outline: none;
+  }
+  .control-hint {
+    margin-left: auto;
+    color: var(--timeline-dim);
+    font-size: 0.72rem;
+  }
+
+  .overview {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin: 0 2rem 1.75rem;
+    padding: 0.85rem;
+    overflow-x: auto;
+    border: 1px solid hsl(240 10% 23% / 0.75);
+    border-radius: 0.85rem;
+    background: hsl(240 10% 5% / 0.48);
+  }
+
+  .overview-node {
+    display: grid;
+    min-width: 6.6rem;
+    gap: 0.2rem;
+    padding: 0.45rem 0.55rem;
+    border-left: 2px solid var(--green);
+  }
+  .overview-node.is-turn {
+    border-color: var(--violet);
+  }
+  .overview-node.is-tool {
+    border-color: var(--orange);
+  }
+  .overview-node span {
+    color: var(--timeline-dim);
+    font-family: 'ComicShannsMono', monospace;
+    font-size: 0.58rem;
+  }
+  .overview-node strong {
+    color: var(--timeline-text);
+    font-size: 0.76rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .overview-node small {
+    color: var(--timeline-muted);
+    font-size: 0.65rem;
+    white-space: nowrap;
+  }
+  .overview-arrow {
+    color: var(--timeline-dim);
+    font-size: 1rem;
+  }
+
+  .trace-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(15rem, 0.65fr);
+    gap: 1.25rem;
+    padding: 0 2rem;
+  }
+  .event-list {
+    position: relative;
+    padding-bottom: 0.35rem;
+  }
+  .event-list::before {
+    content: '';
+    position: absolute;
+    top: 1.2rem;
+    bottom: 1.2rem;
+    left: 1rem;
+    width: 1px;
+    background: linear-gradient(var(--green), var(--violet) 45%, var(--orange) 65%, var(--green));
+    opacity: 0.42;
+  }
+  .event-row {
+    position: relative;
+    display: grid;
+    grid-template-columns: 2rem minmax(0, 1fr);
+    gap: 0.85rem;
+    align-items: center;
+    padding: 0.28rem 0;
+  }
+  .event-marker {
+    z-index: 1;
+    display: grid;
+    width: 2rem;
+    height: 2rem;
+    place-items: center;
+    border: 1px solid var(--timeline-border);
+    border-radius: 0.55rem;
+    background: var(--timeline-bg);
+    color: var(--timeline-dim);
+    font-family: 'ComicShannsMono', monospace;
+    font-size: 0.58rem;
+    transition: 180ms ease;
+  }
+  .stage-turn-1 .event-marker,
+  .stage-turn-2 .event-marker {
+    border-color: hsl(259 83% 78% / 0.4);
+  }
+  .stage-tool .event-marker {
+    border-color: hsl(29 94% 69% / 0.45);
+  }
+  .event-row.is-selected .event-marker {
+    border-color: var(--cyan);
+    background: var(--cyan);
+    color: hsl(240 20% 8%);
+    box-shadow: 0 0 0 0.28rem hsl(184 85% 66% / 0.12);
+  }
+  .event-card {
+    display: grid;
+    gap: 0.25rem;
+    width: 100%;
+    cursor: pointer;
+    border: 1px solid var(--timeline-border);
+    border-radius: 0.72rem;
+    background: hsl(240 12% 11% / 0.76);
+    padding: 0.7rem 0.85rem;
+    text-align: left;
+    color: var(--timeline-muted);
+    font: inherit;
+    transition: 180ms ease;
+  }
+  .event-card:hover,
+  .event-card:focus-visible {
+    border-color: hsl(184 85% 66% / 0.46);
+    background: var(--timeline-panel-strong);
+    outline: none;
+    transform: translateX(0.18rem);
+  }
+  .event-row.is-selected .event-card {
+    border-color: hsl(184 85% 66% / 0.5);
+    background: linear-gradient(100deg, hsl(184 85% 66% / 0.11), hsl(240 12% 14% / 0.88));
+    box-shadow: inset 3px 0 var(--cyan);
+  }
+  .event-card strong {
+    color: var(--timeline-text);
+    font-size: 0.88rem;
+    font-weight: 600;
+  }
+  .event-card > span:last-child {
+    font-size: 0.74rem;
+    line-height: 1.5;
+  }
+  .event-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+  .stage-label {
+    color: var(--timeline-dim);
+    font-size: 0.59rem;
+  }
+  .event-kind {
+    border-radius: 999px;
+    padding: 0.16rem 0.38rem;
+    background: hsl(240 10% 22%);
+    color: var(--timeline-muted);
+    font-size: 0.53rem;
+  }
+  .kind-tool {
+    background: hsl(29 94% 69% / 0.13);
+    color: var(--orange);
+  }
+  .kind-turn {
+    background: hsl(259 83% 78% / 0.13);
+    color: var(--violet);
+  }
+  .kind-result {
+    background: hsl(184 85% 66% / 0.12);
+    color: var(--cyan);
+  }
+
+  .event-detail {
+    align-self: start;
+    position: sticky;
+    top: 1rem;
+    border: 1px solid hsl(240 10% 23%);
+    border-radius: 0.85rem;
+    background: linear-gradient(145deg, hsl(240 13% 14% / 0.9), hsl(240 13% 9% / 0.86));
+    padding: 1.25rem;
+  }
+  .detail-kicker {
+    display: flex;
+    justify-content: space-between;
+    color: var(--cyan);
+    font-size: 0.6rem;
+  }
+  .event-detail h4 {
+    margin: 1rem 0 0.6rem;
+    color: var(--timeline-text);
+    font-size: 1.18rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  .event-detail > p {
+    margin: 0 0 1.15rem;
+    color: var(--timeline-muted);
+    font-size: 0.8rem;
+    line-height: 1.75;
+  }
+  .detail-block {
+    display: grid;
+    gap: 0.35rem;
+    margin-top: 0.7rem;
+  }
+  .detail-block > span {
+    color: var(--timeline-dim);
+    font-size: 0.57rem;
+  }
+  .detail-block code {
+    overflow-wrap: anywhere;
+    border: 1px solid hsl(240 10% 23%);
+    border-radius: 0.45rem;
+    background: hsl(240 20% 5% / 0.7);
+    padding: 0.48rem 0.55rem;
+    color: var(--green);
+    font-family: 'ComicShannsMono', ui-monospace, monospace;
+    font-size: 0.64rem;
+    line-height: 1.5;
+  }
+  .detail-rule {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin-top: 1.25rem;
+    color: var(--timeline-dim);
+    font-family: 'ComicShannsMono', monospace;
+    font-size: 0.58rem;
+  }
+  .rule-line {
+    width: 1.15rem;
+    height: 1px;
+    background: var(--cyan);
+  }
+
+  .timeline-footnote {
+    display: flex;
+    gap: 0.7rem;
+    margin: 1.4rem 2rem 2rem;
+    border-top: 1px solid hsl(240 10% 23% / 0.78);
+    padding-top: 1.1rem;
+  }
+  .footnote-icon {
+    flex: 0 0 auto;
+    color: var(--cyan);
+    font-size: 1.35rem;
+    line-height: 1.15;
+  }
+  .timeline-footnote p {
+    margin: 0;
+    color: var(--timeline-muted);
+    font-size: 0.78rem;
+    line-height: 1.7;
+  }
+  .timeline-footnote strong {
+    color: var(--timeline-text);
+    font-weight: 600;
+  }
+
+  @media (max-width: 720px) {
+    .timeline-heading {
+      display: block;
+      padding: 1.35rem 1rem 1rem;
+    }
+    .run-badge {
+      width: fit-content;
+      margin-top: 1rem;
+    }
+    .control-bar,
+    .trace-layout {
+      padding-right: 1rem;
+      padding-left: 1rem;
+    }
+    .control-hint {
+      display: none;
+    }
+    .overview {
+      margin-right: 1rem;
+      margin-left: 1rem;
+    }
+    .trace-layout {
+      display: block;
+    }
+    .event-detail {
+      position: static;
+      margin-top: 1rem;
+    }
+    .timeline-footnote {
+      margin-right: 1rem;
+      margin-left: 1rem;
+    }
+  }
+</style>

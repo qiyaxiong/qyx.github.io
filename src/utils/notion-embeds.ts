@@ -6,6 +6,7 @@ const CLAUDE_MEMORY_TAXONOMY_MARKER = '{{claude-memory-taxonomy}}'
 const CLAUDE_MEMORY_WRITE_RECALL_MARKER = '{{claude-memory-write-recall}}'
 const CLAUDE_MEMORY_INJECTION_MARKER = '{{claude-memory-injection}}'
 const CLAUDE_MEMORY_TRUST_MARKER = '{{claude-memory-trust-boundary}}'
+const AGENT_TURN_TIMELINE_MARKER = '{{agent-turn-timeline}}'
 
 const CODEX_TOOL_DESIGN_HTML = `
 <section class="notion-codex-tool-map" aria-label="Codex 通用工具设计示意">
@@ -414,6 +415,66 @@ const CLAUDE_MEMORY_TRUST_HTML = `<section class="notion-memory-trust" aria-labe
   <div class="compare"><div class="cell"><span>memory</span><strong>历史线索</strong><p>保存写入那一刻的认知：曾经有某个文件、函数、flag、约束或协作偏好。</p></div><div class="cell dark"><span>verify</span><strong>回到当前现场</strong><p>真正给建议或改代码前，要读取当前仓库、当前分支、当前工具结果。</p></div><div class="cell"><span>answer</span><strong>带边界地使用</strong><p>把记忆当作行动约束和检索线索，而不是当作无需验证的事实库。</p></div></div>
 </section>`
 
+const AGENT_TURN_TIMELINE_HTML = `<section class="notion-agent-turn-trace" aria-label="一次 Agent Run 的事件时序">
+  <style>
+    .notion-agent-turn-trace { --bg: hsl(240 16% 8%); --card: hsl(240 13% 12%); --border: hsl(240 10% 24%); --text: hsl(0 0% 96%); --muted: hsl(240 7% 68%); --cyan: hsl(184 85% 66%); --violet: hsl(259 83% 78%); --orange: hsl(29 94% 69%); margin: 2.5rem 0; overflow: hidden; border: 1px solid var(--border); border-radius: 18px; background: radial-gradient(circle at 100% 0%, hsl(259 70% 60% / .13), transparent 32%), var(--bg); color: var(--text); box-shadow: 0 18px 55px hsl(240 30% 4% / .24); }
+    .notion-agent-turn-trace * { box-sizing: border-box; }
+    .notion-agent-turn-trace .head { display: flex; justify-content: space-between; gap: 1rem; padding: 1.5rem 1.5rem 1rem; }
+    .notion-agent-turn-trace .eyebrow, .notion-agent-turn-trace .label { color: var(--cyan); font: .65rem/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .08em; text-transform: uppercase; }
+    .notion-agent-turn-trace .eyebrow { margin: 0 0 .45rem; }
+    .notion-agent-turn-trace h2 { margin: 0; color: var(--text); font-size: 1.35rem; line-height: 1.35; }
+    .notion-agent-turn-trace .intro { max-width: 44rem; margin: .6rem 0 0; color: var(--muted); font-size: .88rem; line-height: 1.7; }
+    .notion-agent-turn-trace .pill { flex: 0 0 auto; border: 1px solid hsl(151 65% 62% / .25); border-radius: 10px; background: hsl(151 65% 62% / .09); padding: .55rem .7rem; color: hsl(151 65% 62%); font: .65rem/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: nowrap; }
+    .notion-agent-turn-trace .pill small { display: block; color: hsl(151 35% 72%); }
+    .notion-agent-turn-trace .stages { display: flex; align-items: center; gap: .4rem; margin: 0 1.5rem 1.4rem; overflow-x: auto; border: 1px solid hsl(240 10% 24% / .8); border-radius: 11px; background: hsl(240 20% 5% / .5); padding: .75rem; }
+    .notion-agent-turn-trace .stage { min-width: 6rem; border-left: 2px solid hsl(151 65% 62%); padding: .2rem .45rem; }
+    .notion-agent-turn-trace .stage.turn { border-color: var(--violet); }
+    .notion-agent-turn-trace .stage.tool { border-color: var(--orange); }
+    .notion-agent-turn-trace .stage strong, .notion-agent-turn-trace .stage small { display: block; white-space: nowrap; }
+    .notion-agent-turn-trace .stage strong { color: var(--text); font-size: .7rem; }
+    .notion-agent-turn-trace .stage small { margin-top: .16rem; color: var(--muted); font-size: .6rem; }
+    .notion-agent-turn-trace .arrow { color: hsl(240 7% 48%); }
+    .notion-agent-turn-trace .grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(14rem, .65fr); gap: 1rem; padding: 0 1.5rem 1.4rem; }
+    .notion-agent-turn-trace ol { position: relative; margin: 0; padding: 0; list-style: none; }
+    .notion-agent-turn-trace ol::before { content: ''; position: absolute; top: 1.2rem; bottom: 1.2rem; left: .85rem; width: 1px; background: linear-gradient(var(--cyan), var(--violet) 45%, var(--orange) 70%, var(--cyan)); opacity: .55; }
+    .notion-agent-turn-trace li { position: relative; display: grid; grid-template-columns: 1.7rem minmax(0, 1fr); gap: .7rem; align-items: start; padding: .22rem 0; }
+    .notion-agent-turn-trace .number { z-index: 1; display: grid; width: 1.7rem; height: 1.7rem; place-items: center; border: 1px solid var(--border); border-radius: 7px; background: var(--bg); color: hsl(240 7% 50%); font: .55rem ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .notion-agent-turn-trace li.turn .number { border-color: hsl(259 83% 78% / .5); }
+    .notion-agent-turn-trace li.tool .number { border-color: hsl(29 94% 69% / .5); }
+    .notion-agent-turn-trace details { border: 1px solid var(--border); border-radius: 9px; background: var(--card); }
+    .notion-agent-turn-trace details[open] { border-color: hsl(184 85% 66% / .42); background: linear-gradient(100deg, hsl(184 85% 66% / .1), var(--card)); }
+    .notion-agent-turn-trace summary { cursor: pointer; padding: .62rem .75rem; color: var(--text); font-size: .78rem; font-weight: 600; }
+    .notion-agent-turn-trace summary::marker { color: var(--cyan); }
+    .notion-agent-turn-trace .label { display: block; margin-bottom: .18rem; color: hsl(240 7% 52%); font-size: .55rem; }
+    .notion-agent-turn-trace .copy { margin: 0; border-top: 1px solid hsl(240 10% 24% / .75); padding: .65rem .75rem .75rem; color: var(--muted); font-size: .72rem; line-height: 1.65; }
+    .notion-agent-turn-trace code { display: block; overflow-wrap: anywhere; margin-top: .45rem; border: 1px solid hsl(240 10% 24%); border-radius: 6px; background: hsl(240 20% 5% / .72); padding: .42rem .5rem; color: hsl(151 65% 62%); font: .6rem/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .notion-agent-turn-trace aside { align-self: start; border: 1px solid var(--border); border-radius: 11px; background: hsl(240 13% 15% / .82); padding: 1rem; }
+    .notion-agent-turn-trace aside h3 { margin: 0 0 .65rem; color: var(--text); font-size: .95rem; }
+    .notion-agent-turn-trace aside p { margin: 0 0 .7rem; color: var(--muted); font-size: .75rem; line-height: 1.7; }
+    .notion-agent-turn-trace .rule { margin-top: .7rem; border-top: 1px solid var(--border); padding-top: .7rem; color: var(--cyan); font: .6rem/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .notion-agent-turn-trace .foot { display: flex; gap: .55rem; margin: 0 1.5rem 1.5rem; border-top: 1px solid hsl(240 10% 24% / .8); padding-top: 1rem; color: var(--muted); font-size: .74rem; line-height: 1.65; }
+    .notion-agent-turn-trace .foot strong { color: var(--text); }
+    @media (max-width: 720px) { .notion-agent-turn-trace .head { display: block; padding: 1.1rem 1rem .9rem; } .notion-agent-turn-trace .pill { width: fit-content; margin-top: .8rem; } .notion-agent-turn-trace .stages { margin-right: 1rem; margin-left: 1rem; } .notion-agent-turn-trace .grid { display: block; padding: 0 1rem 1rem; } .notion-agent-turn-trace aside { margin-top: .8rem; } .notion-agent-turn-trace .foot { margin-right: 1rem; margin-left: 1rem; } }
+  </style>
+  <div class="head"><div><p class="eyebrow">event trace / 01</p><h2>一次 Agent Run，沿时间发生了什么？</h2><p class="intro">把抽象的 Loop 拆成可观察事件。展开任意节点，可以看到它的职责、事件名和典型数据。</p></div><div class="pill">● 1 RUN<small>2 TURNS · 1 TOOL</small></div></div>
+  <div class="stages" aria-label="运行阶段概览"><div class="stage"><strong>Agent Run</strong><small>任务边界</small></div><span class="arrow">→</span><div class="stage turn"><strong>Turn 1</strong><small>请求工具</small></div><span class="arrow">→</span><div class="stage tool"><strong>Tool</strong><small>执行 read</small></div><span class="arrow">→</span><div class="stage turn"><strong>Turn 2</strong><small>最终回答</small></div><span class="arrow">→</span><div class="stage"><strong>Agent End</strong><small>保存恢复</small></div></div>
+  <div class="grid"><ol>
+    <li><span class="number">01</span><details open><summary><span class="label">Agent Run · lifecycle</span>Agent Start</summary><p class="copy">整次任务的起点，建立 Session、取消信号、事件订阅和运行统计。<code>agent_start · runId · sessionId · prompt</code></p></details></li>
+    <li class="turn"><span class="number">02</span><details><summary><span class="label">Turn 1 · model call</span>Turn Start</summary><p class="copy">第一次模型调用开始。模型看到当前上下文、工具定义和前面的消息，决定下一步动作。<code>turn_start · model · contextTokens</code></p></details></li>
+    <li class="turn"><span class="number">03</span><details><summary><span class="label">Turn 1 · assistant stream</span>Message Start</summary><p class="copy">创建正在生成的 Assistant 消息，UI 可以先画出空消息壳，但它还不是最终持久消息。<code>message_start · messageId · role=assistant</code></p></details></li>
+    <li class="turn"><span class="number">04</span><details><summary><span class="label">Turn 1 · assistant stream</span>Message Update × N</summary><p class="copy">文本、思考、工具名和参数以增量到达，适合驱动实时渲染。<code>message_update · delta=text|thinking|toolCall</code></p></details></li>
+    <li class="turn"><span class="number">05</span><details><summary><span class="label">Turn 1 · assistant stream</span>Message End</summary><p class="copy">Assistant 流式消息收束，但不代表任务完成，因为这条消息可能刚刚提出了工具调用。<code>message_end · stopReason=toolUse</code></p></details></li>
+    <li class="tool"><span class="number">06</span><details><summary><span class="label">Tool Execution · start</span>Tool Execution Start</summary><p class="copy">运行时校验参数、检查权限，并把结构化调用交给真正的工具函数。<code>tool_execution_start · tool=read · path=src/...</code></p></details></li>
+    <li class="tool"><span class="number">07</span><details><summary><span class="label">Tool Execution · progress</span>Tool Execution Update × N</summary><p class="copy">长时间工具持续报告进度，例如已读取多少文件、测试运行到哪个阶段。<code>tool_execution_update · progress · stdout</code></p></details></li>
+    <li class="tool"><span class="number">08</span><details><summary><span class="label">Tool Execution · end</span>Tool Execution End</summary><p class="copy">工具结束，得到成功、失败或取消结果；结果必须结构化，模型才能修正行动。<code>tool_execution_end · isError · durationMs</code></p></details></li>
+    <li><span class="number">09</span><details><summary><span class="label">Run boundary · context</span>Tool Result 入上下文</summary><p class="copy">工具结果被追加成新消息，成为下一次模型调用可以读取的事实。<code>message_added · role=tool · content</code></p></details></li>
+    <li class="turn"><span class="number">10</span><details><summary><span class="label">Turn 2 · model call</span>Turn Start</summary><p class="copy">第二次模型调用开始。上下文里已经有 Tool Result，模型可以继续调用工具，也可以直接收束。<code>turn_start · turnId=2 · context += toolResult</code></p></details></li>
+    <li class="turn"><span class="number">11</span><details><summary><span class="label">Turn 2 · assistant stream</span>Message Start → Update → End</summary><p class="copy">第二条 Assistant 消息流式完成；这次 stopReason 不是 toolUse，所以循环可以退出。<code>message_start · update × N · message_end · stop</code></p></details></li>
+    <li><span class="number">12</span><details><summary><span class="label">Agent Run · lifecycle</span>Turn End → Agent End</summary><p class="copy">只有模型不再请求工具时，运行时才发出 Turn End，随后 Agent End 标记任务结束。<code>turn_end · agent_end · usage · finalState</code></p></details></li>
+  </ol><aside><h3>关键边界</h3><p>Tool Result 会进入上下文，才会开启下一个 Turn；如果模型继续请求工具，就从 Turn Start 再次循环。</p><p>流式内容、工具进度和最终持久消息处于不同阶段，UI 应订阅事件，而不是只轮询消息数组。</p><div class="rule">NO TOOL CALL → TURN END → AGENT END</div></aside></div>
+  <div class="foot"><span aria-hidden="true">↳</span><span><strong>可观测性：</strong>Run 有多少 Turn、每个 Turn 的模型延迟、工具占用时间、哪次 Tool Result 后发生重试，都可以从这条事件流自然计算出来。</span></div>
+</section>`
+
 export function renderNotionEmbeds(html: string): string {
   return html
     .replaceAll(`<p>${CODEX_TOOL_DESIGN_MARKER}</p>`, CODEX_TOOL_DESIGN_HTML)
@@ -424,4 +485,5 @@ export function renderNotionEmbeds(html: string): string {
     .replaceAll(`<p>${CLAUDE_MEMORY_WRITE_RECALL_MARKER}</p>`, CLAUDE_MEMORY_WRITE_RECALL_HTML)
     .replaceAll(`<p>${CLAUDE_MEMORY_INJECTION_MARKER}</p>`, CLAUDE_MEMORY_INJECTION_HTML)
     .replaceAll(`<p>${CLAUDE_MEMORY_TRUST_MARKER}</p>`, CLAUDE_MEMORY_TRUST_HTML)
+    .replaceAll(`<p>${AGENT_TURN_TIMELINE_MARKER}</p>`, AGENT_TURN_TIMELINE_HTML)
 }

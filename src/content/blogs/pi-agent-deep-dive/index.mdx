@@ -14,6 +14,8 @@ tags:
 language: zh
 ---
 
+import AgentTurnTimeline from '@/components/blog/AgentTurnTimeline.astro'
+
 如果只看终端界面，Pi 很容易被理解成“又一个能写代码的聊天机器人”。输入一句需求，模型读取文件、修改代码、运行命令，看起来与 Claude Code、Codex CLI、Aider 或其他 Coding Agent 没有本质区别。
 
 但 Pi 真正吸引开发者的地方，不是它又包装了一个大模型，而是它公开了一套很薄、很清楚、很容易替换的 Agent Harness。模型、循环、工具、会话、终端界面与扩展机制被拆成独立层，开发者可以只拿其中一层，也可以把整套系统改造成自己的产品。
@@ -132,6 +134,8 @@ Agent Core 维护的状态包括消息列表、当前模型、思考等级、系
 事件订阅同样重要。TUI、日志、测试器或 Web UI 都可以监听 `message_update` 等事件。核心只宣布发生了什么，不规定必须怎样显示，从而避免 Agent Loop 与界面框架绑死。
 
 ### 一次 Turn 的事件时序
+
+<AgentTurnTimeline />
 
 把 Loop 只画成圆环仍然太抽象。实现观察面板或自定义 UI 时，更有用的是沿时间查看事件。
 
