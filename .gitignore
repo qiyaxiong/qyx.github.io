@@ -83,3 +83,6 @@ bun.lockb
 AGENTS.md
 public/live2dcubismcore.min.js
 .env*
+
+# Local-only Notion publish helper (contains Deploy Hook URL)
+scripts/publish-from-notion.sh
