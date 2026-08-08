@@ -597,7 +597,14 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
         while (turn.generation === speechGeneration && speechTurn === turn) {
           const segment = turn.queue.shift()
           if (segment) {
-            await streamSpeechSegment(turn, segment)
+            try {
+              await streamSpeechSegment(turn, segment)
+            } catch (error) {
+              if (error instanceof DOMException && error.name === 'AbortError') return
+              if (turn.generation !== speechGeneration || speechTurn !== turn) return
+              // A single provider failure must not discard the rest of a spoken reply.
+              console.warn('[live2d-agent] TTS segment skipped', { segment, error })
+            }
             continue
           }
           if (turn.complete) break

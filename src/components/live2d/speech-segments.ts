@@ -1,4 +1,5 @@
-const sentenceBoundary = /^([\s\S]*?[。！？!?；;，,：:\n]+)/
+const sentenceBoundary = /^([\s\S]*?[。！？!?；;\n]+)/
+const speakableContent = /[\p{L}\p{N}]/u
 
 function codePointLength(value: string): number {
   return Array.from(value).length
@@ -13,7 +14,7 @@ export class SpeechSegmenter {
   private emitted = false
   private readonly maxLength: number
 
-  constructor(maxLength = 48) {
+  constructor(maxLength = 120) {
     if (!Number.isInteger(maxLength) || maxLength < 1) {
       throw new RangeError('maxLength must be a positive integer')
     }
@@ -31,7 +32,7 @@ export class SpeechSegmenter {
           : codePointPrefix(this.buffer, this.maxLength)
       const segment = rawSegment.trim()
       this.buffer = this.buffer.slice(rawSegment.length)
-      if (segment) {
+      if (segment && speakableContent.test(segment)) {
         segments.push(segment)
         this.emitted = true
       }
@@ -42,9 +43,9 @@ export class SpeechSegmenter {
 
   finish(fallback = ''): string[] {
     const remainder = this.buffer.trim()
-    const segments = remainder
+    const segments = remainder && speakableContent.test(remainder)
       ? [remainder]
-      : !this.emitted && fallback.trim()
+      : !this.emitted && fallback.trim() && speakableContent.test(fallback)
         ? [fallback.trim()]
         : []
     this.buffer = ''
