@@ -180,6 +180,7 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
     let eventQueue = Promise.resolve()
     let pendingAction: Record<string, unknown> | undefined
     let audioContext: AudioContext | undefined
+    let audioContextPrimed = false
     const speechSources = new Set<AudioBufferSourceNode>()
     let speechAnalyser: AnalyserNode | undefined
     let speechAnimationFrame: number | undefined
@@ -359,6 +360,7 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
       if (agentRoot.dataset.ttsEnabled !== 'true') return
       if (!audioContext || audioContext.state === 'closed') {
         audioContext = new AudioContext()
+        audioContextPrimed = false
       }
       return audioContext
     }
@@ -366,10 +368,18 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
     async function unlockAudioContext(): Promise<AudioContext | undefined> {
       const context = ensureAudioContext()
       if (!context) return
+      if (!audioContextPrimed) {
+        const source = context.createBufferSource()
+        source.buffer = context.createBuffer(1, 1, context.sampleRate)
+        source.connect(context.destination)
+        source.addEventListener('ended', () => source.disconnect(), { once: true })
+        source.start()
+      }
       if (context.state === 'suspended') await context.resume()
       if (context.state !== 'running') {
         throw new Error('浏览器阻止了语音播放，请点击页面后重试')
       }
+      audioContextPrimed = true
       return context
     }
 
