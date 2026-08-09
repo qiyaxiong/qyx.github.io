@@ -2,9 +2,15 @@
 title: P1：课程导论与机器学习基本概念
 description: 对应 B 站 P1 与 CS229 Lecture 1，建立课程地图、三类机器学习问题、学习算法的组成部分和完整学习方法。
 publishDate: 2026-07-26
-updatedDate: 2026-07-26
+updatedDate: 2026-08-08
 language: zh
 ---
+
+## 一图理解本章
+
+![机器学习项目从任务定义、数据、模型和优化到离线评价与线上监控的六步图解](/images/notes/cs229/storyboards/p01-ml-workflow-storyboard.png)
+
+先沿图中的六个步骤建立本章主线，再进入后文的公式推导、实现细节和失败诊断。
 
 ## 这一节在整门课中的位置
 

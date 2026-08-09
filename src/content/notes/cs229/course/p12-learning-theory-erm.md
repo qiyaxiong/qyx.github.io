@@ -2,9 +2,15 @@
 title: P12：近似误差、估计误差与经验风险最小化
 description: 对应 B 站 P12 与 CS229 Lecture 9，用 ERM、Hoeffding 不等式、Union Bound 和 VC 维解释训练误差怎样推广。
 publishDate: 2026-07-26
-updatedDate: 2026-07-26
+updatedDate: 2026-08-08
 language: zh
 ---
+
+## 一图理解本章
+
+![学习理论从总体风险、经验风险和 ERM 到一致收敛、容量与正则化的六步图解](/images/notes/cs229/storyboards/p12-learning-theory-storyboard.png)
+
+先沿图中的六个步骤建立本章主线，再进入后文的公式推导、实现细节和失败诊断。
 
 ## 真风险与经验风险
 

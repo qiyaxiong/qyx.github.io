@@ -2,7 +2,7 @@
 title: P21：主成分分析
 description: 对应 B 站 P21 的 2018-11-12 原始课堂录像，用最大方差和最小重建误差两种视角推导 PCA。
 publishDate: 2026-07-26
-updatedDate: 2026-07-26
+updatedDate: 2026-08-08
 language: zh
 ---
 
@@ -88,7 +88,9 @@ $$
 
 ## 特征值推导
 
-![PCA 对中心化数据协方差进行特征分解并选取主方向](/images/notes/cs229/tikz/p21-pca-covariance-eigen.png)
+![PCA 从中心化、协方差和特征分解到低维投影、重建与解释方差的六步图解](/images/notes/cs229/storyboards/p21-pca-storyboard.png)
+
+这张图覆盖 PCA 的最短学习路径；后文继续证明最大方差与最小重建误差为何等价。
 
 拉格朗日函数：
 

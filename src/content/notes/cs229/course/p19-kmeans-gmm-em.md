@@ -2,9 +2,15 @@
 title: P19：K-means、高斯混合与 EM
 description: 对应 B 站 P19 与 CS229 Lecture 14，从硬聚类、失真函数进入高斯混合、隐变量、责任度与 EM 基本结构。
 publishDate: 2026-07-26
-updatedDate: 2026-07-26
+updatedDate: 2026-08-08
 language: zh
 ---
+
+## 一图理解本章
+
+![无监督学习从 K-means 硬分配到 GMM 概率建模与 EM 软责任度的六步图解](/images/notes/cs229/storyboards/p19-clustering-em-storyboard.png)
+
+先沿图中的六个步骤建立本章主线，再进入后文的公式推导、实现细节和失败诊断。
 
 ## 无监督学习设定
 

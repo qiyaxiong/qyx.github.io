@@ -2,9 +2,15 @@
 title: P11：数据划分、模型选择与交叉验证
 description: 对应 B 站 P11 与 CS229 Lecture 8，建立训练/验证/测试协议，推导交叉验证、特征选择、正则化和贝叶斯解释。
 publishDate: 2026-07-26
-updatedDate: 2026-07-26
+updatedDate: 2026-08-08
 language: zh
 ---
+
+## 一图理解本章
+
+![模型选择从数据职责、交叉验证和时间切分到折内预处理与最终测试的六步图解](/images/notes/cs229/storyboards/p11-model-selection-storyboard.png)
+
+先沿图中的六个步骤建立本章主线，再进入后文的公式推导、实现细节和失败诊断。
 
 ## 为什么训练误差不能选模型
 

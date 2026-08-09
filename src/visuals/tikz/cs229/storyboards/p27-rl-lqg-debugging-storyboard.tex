@@ -1,0 +1,65 @@
+
+\documentclass[tikz,border=8pt]{standalone}
+\usepackage[UTF8,fontset=fandol]{ctex}
+\usepackage{amsmath,amssymb}
+\usetikzlibrary{arrows.meta,calc,positioning}
+\definecolor{ink}{HTML}{172033}
+\definecolor{muted}{HTML}{637083}
+\definecolor{blue}{HTML}{4F86C6}
+\definecolor{green}{HTML}{61A66A}
+\definecolor{red}{HTML}{D55E5E}
+\definecolor{amber}{HTML}{D59B3D}
+\definecolor{paperblue}{HTML}{F2F7FD}
+\definecolor{papergreen}{HTML}{F3F9F1}
+\definecolor{paperamber}{HTML}{FFF8E8}
+\tikzset{
+  panel/.style={anchor=north west,minimum width=9.15cm,minimum height=6.05cm,
+    text width=8.45cm,align=left,inner sep=10pt,draw=black!12,rounded corners=5pt,fill=white},
+  title/.style={font=\bfseries\large,text=ink,anchor=west},
+  body/.style={font=\small,text=muted,align=left,text width=7.9cm},
+  formula/.style={draw=blue!35,fill=paperblue,rounded corners=4pt,inner sep=8pt,
+    text=ink,align=center,text width=7.7cm},
+  insight/.style={draw=green!40,fill=papergreen,rounded corners=4pt,inner sep=7pt,
+    text=ink,align=left,text width=7.7cm,font=\small},
+  arrow/.style={-{Latex[length=2.3mm]},line width=1pt,draw=blue!70},
+  chip/.style={rounded corners=3pt,draw=black!14,fill=black!2,inner xsep=7pt,
+    inner ysep=5pt,font=\small,text=ink},
+}
+\newcommand{\Panel}[5]{%
+  \node[panel] (#1) at (#2,#3) {};
+  \node[title] at ($(#1.north west)+(0.35,-0.42)$) {#4};
+  \node[body,anchor=north west] at ($(#1.north west)+(0.35,-1.05)$) {#5};
+}
+\newcommand{\Summary}[1]{%
+  \node[draw=amber!35,fill=paperamber,rounded corners=6pt,minimum width=28.2cm,
+    minimum height=1.55cm,text width=27.2cm,align=center,font=\small,text=ink]
+    at (14.125,-13.35) {\textbf{一图总结}\quad #1};
+}
+\newcommand{\Identity}{%
+  \node[font=\scriptsize,text=black!38,anchor=east] at (28.15,-14.35)
+    {cs229-storyboard@五道口纳什};
+}
+\newcommand{\Formula}[1]{%
+  \par\vspace{5pt}\begingroup\setlength{\fboxsep}{8pt}%
+  \colorbox{paperblue}{\parbox{7.45cm}{\centering\color{ink}#1}}%
+  \endgroup\par\vspace{6pt}}
+\newcommand{\Insight}[1]{%
+  \par\vspace{5pt}\begingroup\setlength{\fboxsep}{7pt}%
+  \colorbox{papergreen}{\parbox{7.55cm}{\color{ink}#1}}%
+  \endgroup\par\vspace{6pt}}
+\newcommand{\Chip}[1]{%
+  \begingroup\setlength{\fboxsep}{5pt}\colorbox{black!4}{\strut\color{ink}#1}\endgroup}
+
+\begin{document}
+\begin{tikzpicture}[x=1cm,y=1cm]
+\fill[white] (-0.35,0.35) rectangle (28.6,-14.55);
+\Panel{p1}{0}{0}{1. 先验证环境与奖励}{\Insight{检查终止条件、奖励符号、动作边界和观测延迟。许多“算法失败”其实是环境接口错误。}}
+\Panel{p2}{9.55}{0}{2. 分开看数据与更新}{\Chip{状态覆盖}\quad\Chip{动作分布}\quad\Chip{回报尺度}\quad\Chip{梯度/TD 误差}只看总回报无法定位问题。}
+\Panel{p3}{19.1}{0}{3. DDP 在名义轨迹附近展开}{对动力学与成本做局部二阶近似。\Formula{$Q_x,Q_u,Q_{xx},Q_{uu},Q_{ux}$}反向求局部控制律，前向更新轨迹。}
+\Panel{p4}{0}{-6.45}{4. 部分可观测时先估计状态}{\Formula{$y_t=Cx_t+v_t$}传感器只提供含噪观测，控制器需要状态估计 $\hat x_t$。}
+\Panel{p5}{9.55}{-6.45}{5. Kalman Filter 预测再校正}{\Formula{$\hat x_{t|t-1}=A\hat x_{t-1|t-1}+Bu_{t-1}$\\$\hat x_{t|t}=\hat x_{t|t-1}+K_t(y_t-C\hat x_{t|t-1})$}}
+\Panel{p6}{19.1}{-6.45}{6. LQG 组合估计与控制}{\Formula{$u_t=-K\hat x_t$}\Insight{分离原理允许分别设计 Kalman Filter 与 LQR，但仍需检查模型失配和噪声假设。}}
+\Summary{环境诊断 $\rightarrow$ 学习信号诊断 $\rightarrow$ DDP 局部控制 $\rightarrow$ Kalman 状态估计 $\rightarrow$ LQG 闭环。}
+\Identity
+\end{tikzpicture}
+\end{document}

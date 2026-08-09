@@ -2,7 +2,7 @@
 title: P20：EM 算法与因子分析
 description: 对应 B 站 P20 与 CS229 Lecture 15，用 Jensen 不等式解释 EM 下界、单调性，再用低维隐因子建模高维协方差。
 publishDate: 2026-07-26
-updatedDate: 2026-07-26
+updatedDate: 2026-08-08
 language: zh
 ---
 
@@ -58,7 +58,9 @@ $$
 
 ## ELBO 与 KL 分解
 
-![EM 在辅助后验与模型参数两个坐标上交替提高 ELBO](/images/notes/cs229/tikz/p20-em-elbo-coordinate-ascent.png)
+![EM 从困难似然、Jensen 下界、E 步和 M 步到单调改进与高斯混合例子的六步图解](/images/notes/cs229/storyboards/p20-em-storyboard.png)
+
+图中先给出 EM 的闭环；正文保留 ELBO、KL 分解和单调性证明的严格版本。
 
 定义：
 

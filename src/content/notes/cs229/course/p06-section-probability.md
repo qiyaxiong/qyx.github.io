@@ -2,9 +2,15 @@
 title: P6：讨论课——概率论复习
 description: 对应 B 站 P6 和 2018-10-05 Discussion Section，复习条件概率、Bayes 公式、随机变量、期望方差、常见分布与最大似然。
 publishDate: 2026-07-26
-updatedDate: 2026-07-26
+updatedDate: 2026-08-08
 language: zh
 ---
+
+## 一图理解本章
+
+![概率论从随机变量、期望和联合分布到 Bayes、条件独立与大数定律的六步图解](/images/notes/cs229/storyboards/p06-probability-storyboard.png)
+
+先沿图中的六个步骤建立本章主线，再进入后文的公式推导、实现细节和失败诊断。
 
 ## 概率模型在 CS229 中做什么
 

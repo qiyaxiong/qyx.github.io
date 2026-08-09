@@ -1,0 +1,65 @@
+
+\documentclass[tikz,border=8pt]{standalone}
+\usepackage[UTF8,fontset=fandol]{ctex}
+\usepackage{amsmath,amssymb}
+\usetikzlibrary{arrows.meta,calc,positioning}
+\definecolor{ink}{HTML}{172033}
+\definecolor{muted}{HTML}{637083}
+\definecolor{blue}{HTML}{4F86C6}
+\definecolor{green}{HTML}{61A66A}
+\definecolor{red}{HTML}{D55E5E}
+\definecolor{amber}{HTML}{D59B3D}
+\definecolor{paperblue}{HTML}{F2F7FD}
+\definecolor{papergreen}{HTML}{F3F9F1}
+\definecolor{paperamber}{HTML}{FFF8E8}
+\tikzset{
+  panel/.style={anchor=north west,minimum width=9.15cm,minimum height=6.05cm,
+    text width=8.45cm,align=left,inner sep=10pt,draw=black!12,rounded corners=5pt,fill=white},
+  title/.style={font=\bfseries\large,text=ink,anchor=west},
+  body/.style={font=\small,text=muted,align=left,text width=7.9cm},
+  formula/.style={draw=blue!35,fill=paperblue,rounded corners=4pt,inner sep=8pt,
+    text=ink,align=center,text width=7.7cm},
+  insight/.style={draw=green!40,fill=papergreen,rounded corners=4pt,inner sep=7pt,
+    text=ink,align=left,text width=7.7cm,font=\small},
+  arrow/.style={-{Latex[length=2.3mm]},line width=1pt,draw=blue!70},
+  chip/.style={rounded corners=3pt,draw=black!14,fill=black!2,inner xsep=7pt,
+    inner ysep=5pt,font=\small,text=ink},
+}
+\newcommand{\Panel}[5]{%
+  \node[panel] (#1) at (#2,#3) {};
+  \node[title] at ($(#1.north west)+(0.35,-0.42)$) {#4};
+  \node[body,anchor=north west] at ($(#1.north west)+(0.35,-1.05)$) {#5};
+}
+\newcommand{\Summary}[1]{%
+  \node[draw=amber!35,fill=paperamber,rounded corners=6pt,minimum width=28.2cm,
+    minimum height=1.55cm,text width=27.2cm,align=center,font=\small,text=ink]
+    at (14.125,-13.35) {\textbf{一图总结}\quad #1};
+}
+\newcommand{\Identity}{%
+  \node[font=\scriptsize,text=black!38,anchor=east] at (28.15,-14.35)
+    {cs229-storyboard@五道口纳什};
+}
+\newcommand{\Formula}[1]{%
+  \par\vspace{5pt}\begingroup\setlength{\fboxsep}{8pt}%
+  \colorbox{paperblue}{\parbox{7.45cm}{\centering\color{ink}#1}}%
+  \endgroup\par\vspace{6pt}}
+\newcommand{\Insight}[1]{%
+  \par\vspace{5pt}\begingroup\setlength{\fboxsep}{7pt}%
+  \colorbox{papergreen}{\parbox{7.55cm}{\color{ink}#1}}%
+  \endgroup\par\vspace{6pt}}
+\newcommand{\Chip}[1]{%
+  \begingroup\setlength{\fboxsep}{5pt}\colorbox{black!4}{\strut\color{ink}#1}\endgroup}
+
+\begin{document}
+\begin{tikzpicture}[x=1cm,y=1cm]
+\fill[white] (-0.35,0.35) rectangle (28.6,-14.55);
+\Panel{p1}{0}{0}{1. 先定义任务}{明确输入 $x$、输出 $y$ 与成功标准。\Formula{监督学习：$(x,y)$\\无监督学习：只有 $x$}指标必须对应真实业务目标。}
+\Panel{p2}{9.55}{0}{2. 数据决定上限}{训练集只是未来数据的样本。\Insight{先检查标签质量、采样偏差、时间泄漏和覆盖范围，再讨论模型。}}
+\Panel{p3}{19.1}{0}{3. 选择表示与假设}{特征把原始对象映射到模型可处理的空间：\Formula{$x\xrightarrow{\phi}\phi(x)\xrightarrow{h_\theta}\hat y$}模型假设决定可表达范围。}
+\Panel{p4}{0}{-6.45}{4. 用损失训练}{把预测错误压成一个可优化标量：\Formula{$\hat\theta=\arg\min_\theta\dfrac1m\sum_i\ell(h_\theta(x_i),y_i)$}}
+\Panel{p5}{9.55}{-6.45}{5. 用未见数据评价}{\Chip{训练集：拟合}\quad\Chip{验证集：选择}\quad\Chip{测试集：一次验收}不要用测试集反复调参。}
+\Panel{p6}{19.1}{-6.45}{6. 部署后仍要闭环}{\Insight{监控输入漂移、性能衰减、延迟和反馈偏差；出现问题时回到数据与目标，而不只是换模型。}}
+\Summary{任务定义 $\rightarrow$ 数据 $\rightarrow$ 表示与模型 $\rightarrow$ 优化 $\rightarrow$ 离线评价 $\rightarrow$ 线上监控。}
+\Identity
+\end{tikzpicture}
+\end{document}

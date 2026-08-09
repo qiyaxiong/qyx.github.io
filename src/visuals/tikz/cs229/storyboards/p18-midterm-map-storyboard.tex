@@ -1,0 +1,65 @@
+
+\documentclass[tikz,border=8pt]{standalone}
+\usepackage[UTF8,fontset=fandol]{ctex}
+\usepackage{amsmath,amssymb}
+\usetikzlibrary{arrows.meta,calc,positioning}
+\definecolor{ink}{HTML}{172033}
+\definecolor{muted}{HTML}{637083}
+\definecolor{blue}{HTML}{4F86C6}
+\definecolor{green}{HTML}{61A66A}
+\definecolor{red}{HTML}{D55E5E}
+\definecolor{amber}{HTML}{D59B3D}
+\definecolor{paperblue}{HTML}{F2F7FD}
+\definecolor{papergreen}{HTML}{F3F9F1}
+\definecolor{paperamber}{HTML}{FFF8E8}
+\tikzset{
+  panel/.style={anchor=north west,minimum width=9.15cm,minimum height=6.05cm,
+    text width=8.45cm,align=left,inner sep=10pt,draw=black!12,rounded corners=5pt,fill=white},
+  title/.style={font=\bfseries\large,text=ink,anchor=west},
+  body/.style={font=\small,text=muted,align=left,text width=7.9cm},
+  formula/.style={draw=blue!35,fill=paperblue,rounded corners=4pt,inner sep=8pt,
+    text=ink,align=center,text width=7.7cm},
+  insight/.style={draw=green!40,fill=papergreen,rounded corners=4pt,inner sep=7pt,
+    text=ink,align=left,text width=7.7cm,font=\small},
+  arrow/.style={-{Latex[length=2.3mm]},line width=1pt,draw=blue!70},
+  chip/.style={rounded corners=3pt,draw=black!14,fill=black!2,inner xsep=7pt,
+    inner ysep=5pt,font=\small,text=ink},
+}
+\newcommand{\Panel}[5]{%
+  \node[panel] (#1) at (#2,#3) {};
+  \node[title] at ($(#1.north west)+(0.35,-0.42)$) {#4};
+  \node[body,anchor=north west] at ($(#1.north west)+(0.35,-1.05)$) {#5};
+}
+\newcommand{\Summary}[1]{%
+  \node[draw=amber!35,fill=paperamber,rounded corners=6pt,minimum width=28.2cm,
+    minimum height=1.55cm,text width=27.2cm,align=center,font=\small,text=ink]
+    at (14.125,-13.35) {\textbf{一图总结}\quad #1};
+}
+\newcommand{\Identity}{%
+  \node[font=\scriptsize,text=black!38,anchor=east] at (28.15,-14.35)
+    {cs229-storyboard@五道口纳什};
+}
+\newcommand{\Formula}[1]{%
+  \par\vspace{5pt}\begingroup\setlength{\fboxsep}{8pt}%
+  \colorbox{paperblue}{\parbox{7.45cm}{\centering\color{ink}#1}}%
+  \endgroup\par\vspace{6pt}}
+\newcommand{\Insight}[1]{%
+  \par\vspace{5pt}\begingroup\setlength{\fboxsep}{7pt}%
+  \colorbox{papergreen}{\parbox{7.55cm}{\color{ink}#1}}%
+  \endgroup\par\vspace{6pt}}
+\newcommand{\Chip}[1]{%
+  \begingroup\setlength{\fboxsep}{5pt}\colorbox{black!4}{\strut\color{ink}#1}\endgroup}
+
+\begin{document}
+\begin{tikzpicture}[x=1cm,y=1cm]
+\fill[white] (-0.35,0.35) rectangle (28.6,-14.55);
+\Panel{p1}{0}{0}{1. 线性回归}{\Formula{$\nabla J=X^\top(X\theta-y)$}掌握梯度下降、正规方程、概率解释和投影视角。}
+\Panel{p2}{9.55}{0}{2. Logistic 与 GLM}{\Formula{$p(y=1\mid x)=\sigma(\theta^\top x)$}从指数族与链接函数理解分类概率。}
+\Panel{p3}{19.1}{0}{3. 生成式分类}{\Formula{$p(y\mid x)\propto p(x\mid y)p(y)$}比较 GDA、Naive Bayes 与判别式方法的假设。}
+\Panel{p4}{0}{-6.45}{4. SVM 与核}{\Formula{$f(x)=\sum_i\alpha_i y_iK(x_i,x)+b$}间隔、KKT、支持向量和核技巧是一条连续主线。}
+\Panel{p5}{9.55}{-6.45}{5. 学习理论}{\Formula{$R=\text{经验风险}+\text{泛化差距}$}能区分近似误差、估计误差与优化误差。}
+\Panel{p6}{19.1}{-6.45}{6. 解题按统一模板}{\Chip{写目标}\quad\Chip{写约束/假设}\quad\Chip{求导或构造估计量}\quad\Chip{检查维度与边界}先说明为什么，再代数计算。}
+\Summary{线性模型 $\rightarrow$ 概率分类 $\rightarrow$ 生成式模型 $\rightarrow$ 间隔与核 $\rightarrow$ 泛化理论 $\rightarrow$ 统一解题模板。}
+\Identity
+\end{tikzpicture}
+\end{document}

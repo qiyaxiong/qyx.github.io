@@ -1,0 +1,65 @@
+
+\documentclass[tikz,border=8pt]{standalone}
+\usepackage[UTF8,fontset=fandol]{ctex}
+\usepackage{amsmath,amssymb}
+\usetikzlibrary{arrows.meta,calc,positioning}
+\definecolor{ink}{HTML}{172033}
+\definecolor{muted}{HTML}{637083}
+\definecolor{blue}{HTML}{4F86C6}
+\definecolor{green}{HTML}{61A66A}
+\definecolor{red}{HTML}{D55E5E}
+\definecolor{amber}{HTML}{D59B3D}
+\definecolor{paperblue}{HTML}{F2F7FD}
+\definecolor{papergreen}{HTML}{F3F9F1}
+\definecolor{paperamber}{HTML}{FFF8E8}
+\tikzset{
+  panel/.style={anchor=north west,minimum width=9.15cm,minimum height=6.05cm,
+    text width=8.45cm,align=left,inner sep=10pt,draw=black!12,rounded corners=5pt,fill=white},
+  title/.style={font=\bfseries\large,text=ink,anchor=west},
+  body/.style={font=\small,text=muted,align=left,text width=7.9cm},
+  formula/.style={draw=blue!35,fill=paperblue,rounded corners=4pt,inner sep=8pt,
+    text=ink,align=center,text width=7.7cm},
+  insight/.style={draw=green!40,fill=papergreen,rounded corners=4pt,inner sep=7pt,
+    text=ink,align=left,text width=7.7cm,font=\small},
+  arrow/.style={-{Latex[length=2.3mm]},line width=1pt,draw=blue!70},
+  chip/.style={rounded corners=3pt,draw=black!14,fill=black!2,inner xsep=7pt,
+    inner ysep=5pt,font=\small,text=ink},
+}
+\newcommand{\Panel}[5]{%
+  \node[panel] (#1) at (#2,#3) {};
+  \node[title] at ($(#1.north west)+(0.35,-0.42)$) {#4};
+  \node[body,anchor=north west] at ($(#1.north west)+(0.35,-1.05)$) {#5};
+}
+\newcommand{\Summary}[1]{%
+  \node[draw=amber!35,fill=paperamber,rounded corners=6pt,minimum width=28.2cm,
+    minimum height=1.55cm,text width=27.2cm,align=center,font=\small,text=ink]
+    at (14.125,-13.35) {\textbf{一图总结}\quad #1};
+}
+\newcommand{\Identity}{%
+  \node[font=\scriptsize,text=black!38,anchor=east] at (28.15,-14.35)
+    {cs229-storyboard@五道口纳什};
+}
+\newcommand{\Formula}[1]{%
+  \par\vspace{5pt}\begingroup\setlength{\fboxsep}{8pt}%
+  \colorbox{paperblue}{\parbox{7.45cm}{\centering\color{ink}#1}}%
+  \endgroup\par\vspace{6pt}}
+\newcommand{\Insight}[1]{%
+  \par\vspace{5pt}\begingroup\setlength{\fboxsep}{7pt}%
+  \colorbox{papergreen}{\parbox{7.55cm}{\color{ink}#1}}%
+  \endgroup\par\vspace{6pt}}
+\newcommand{\Chip}[1]{%
+  \begingroup\setlength{\fboxsep}{5pt}\colorbox{black!4}{\strut\color{ink}#1}\endgroup}
+
+\begin{document}
+\begin{tikzpicture}[x=1cm,y=1cm]
+\fill[white] (-0.35,0.35) rectangle (28.6,-14.55);
+\Panel{p1}{0}{0}{1. 指标不是目标本身}{\Insight{当代理指标成为优化目标，它可能不再代表真实目标。先写清谁获益、谁承担错误成本。}}
+\Panel{p2}{9.55}{0}{2. 数据不是中立样本}{采集机制决定谁被看见、怎样被标注。\Formula{$p_{train}(x,y)\neq p_{deploy}(x,y)$}分布偏差会复制到模型。}
+\Panel{p3}{19.1}{0}{3. 历史标签可能含有偏见}{\Insight{标签常记录过去决策而非客观真相。高拟合度可能只是更准确地复制历史制度。}}
+\Panel{p4}{0}{-6.45}{4. 总体指标会隐藏群体差异}{\Formula{$R=\sum_gP(g)R_g$}必须同时报告关键群体、交叉群体和罕见失败模式。}
+\Panel{p5}{9.55}{-6.45}{5. 反馈回路改变未来数据}{模型输出影响行动，行动改变后续观测。\Formula{预测 $\rightarrow$ 决策 $\rightarrow$ 环境变化 $\rightarrow$ 新训练数据}}
+\Panel{p6}{19.1}{-6.45}{6. 治理是持续流程}{\Chip{用途边界}\quad\Chip{人工复核}\quad\Chip{申诉机制}\quad\Chip{审计与退出}\Insight{不是一次公平性指标就能结束。}}
+\Summary{目标审查 $\rightarrow$ 数据与标签审查 $\rightarrow$ 分群评价 $\rightarrow$ 反馈回路 $\rightarrow$ 人工与制度治理。}
+\Identity
+\end{tikzpicture}
+\end{document}

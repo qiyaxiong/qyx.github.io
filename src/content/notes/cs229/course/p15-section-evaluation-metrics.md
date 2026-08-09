@@ -2,9 +2,15 @@
 title: P15：讨论课——评估指标
 description: 对应 B 站 P15 与 2018-10-26 Discussion Section，系统解释混淆矩阵、Precision/Recall、F1、ROC、PR 曲线与校准。
 publishDate: 2026-07-26
-updatedDate: 2026-07-26
+updatedDate: 2026-08-08
 language: zh
 ---
+
+## 一图理解本章
+
+![分类评价从混淆矩阵、Precision 和 Recall 到阈值曲线、校准与错误成本的六步图解](/images/notes/cs229/storyboards/p15-evaluation-metrics-storyboard.png)
+
+先沿图中的六个步骤建立本章主线，再进入后文的公式推导、实现细节和失败诊断。
 
 ## 指标必须对应决策代价
 

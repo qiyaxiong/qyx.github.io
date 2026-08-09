@@ -2,7 +2,7 @@
 title: P8：拉普拉斯平滑与支持向量机
 description: 对应 B 站 P8 与 CS229 Lecture 6，先解决 Naive Bayes 零概率，再从函数间隔、几何间隔推导最大间隔分类器。
 publishDate: 2026-07-26
-updatedDate: 2026-07-26
+updatedDate: 2026-08-08
 language: zh
 ---
 
@@ -135,7 +135,9 @@ $$
 
 ## 支持向量
 
-![SVM 几何间隔、对偶系数和 KKT 支持向量之间的关系](/images/notes/cs229/tikz/p08-svm-margin-kkt.png)
+![SVM 从最大间隔、拉格朗日乘子和 KKT 条件到支持向量与一维例子的六步图解](/images/notes/cs229/storyboards/p08-svm-storyboard.png)
+
+这张图先给出从原问题到支持向量的完整路线；后文只继续展开对偶形式、核化和软间隔细节。
 
 只有满足：
 

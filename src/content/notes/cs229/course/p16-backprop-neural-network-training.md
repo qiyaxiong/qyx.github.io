@@ -2,7 +2,7 @@
 title: P16：反向传播与神经网络训练改进
 description: 对应 B 站 P16 与 CS229 Lecture 12，从链式法则推导反向传播，并解释初始化、优化、正则化与梯度检查。
 publishDate: 2026-07-26
-updatedDate: 2026-07-26
+updatedDate: 2026-08-08
 language: zh
 ---
 
@@ -67,7 +67,9 @@ $$
 
 ## 线性层反向传播
 
-![线性层反向传播中参数梯度与输入梯度的两条矩阵收缩路径](/images/notes/cs229/tikz/p16-backprop-shape-flow.png)
+![反向传播从前向缓存、输出误差、激活层局部导数到线性层梯度和梯度检查的六步图解](/images/notes/cs229/storyboards/p16-backprop-storyboard.png)
+
+先用图记住反向传播的顺序和形状约束，再看下面每条矩阵公式为何成立。
 
 前向：
 

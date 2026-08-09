@@ -2,9 +2,15 @@
 title: P17：机器学习调试与误差分析
 description: 对应 B 站 P17 与 CS229 Lecture 13，用学习曲线、偏差/方差诊断、误差分类和消融实验决定下一步工作。
 publishDate: 2026-07-26
-updatedDate: 2026-07-26
+updatedDate: 2026-08-08
 language: zh
 ---
+
+## 一图理解本章
+
+![机器学习调试从可靠基线、偏差方差和学习曲线到误差分桶与最小实验的六步图解](/images/notes/cs229/storyboards/p17-ml-debugging-storyboard.png)
+
+先沿图中的六个步骤建立本章主线，再进入后文的公式推导、实现细节和失败诊断。
 
 ## 诊断优先
 

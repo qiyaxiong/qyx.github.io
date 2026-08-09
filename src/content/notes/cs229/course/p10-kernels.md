@@ -2,9 +2,15 @@
 title: P10：核方法与支持向量机求解
 description: 对应 B 站 P10 与 CS229 Lecture 7，从特征映射和对偶内积进入 Kernel Trick、Mercer 条件、软间隔与 SMO。
 publishDate: 2026-07-26
-updatedDate: 2026-07-26
+updatedDate: 2026-08-08
 language: zh
 ---
+
+## 一图理解本章
+
+![核方法从非线性映射、对偶内积和合法核到支持向量预测与超参数选择的六步图解](/images/notes/cs229/storyboards/p10-kernel-methods-storyboard.png)
+
+先沿图中的六个步骤建立本章主线，再进入后文的公式推导、实现细节和失败诊断。
 
 ## 从对偶问题观察内积
 

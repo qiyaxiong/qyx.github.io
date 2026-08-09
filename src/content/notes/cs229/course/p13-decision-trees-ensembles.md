@@ -2,9 +2,15 @@
 title: P13：决策树与集成学习
 description: 对应 B 站 P13 与 CS229 Lecture 10，从递归切分、纯度和剪枝进入 Bagging、随机森林、AdaBoost 与 Gradient Boosting。
 publishDate: 2026-07-26
-updatedDate: 2026-07-26
+updatedDate: 2026-08-08
 language: zh
 ---
+
+## 一图理解本章
+
+![树模型从递归切分和纯度到剪枝、随机森林与 Boosting 的六步图解](/images/notes/cs229/storyboards/p13-trees-ensembles-storyboard.png)
+
+先沿图中的六个步骤建立本章主线，再进入后文的公式推导、实现细节和失败诊断。
 
 ## 树模型如何表示非线性
 

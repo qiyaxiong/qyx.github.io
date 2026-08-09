@@ -2,9 +2,15 @@
 title: P5：感知机、指数族与广义线性模型
 description: 对应 B 站 P5 与 CS229 Lecture 4，从感知机更新进入指数族、GLM 构造、Poisson 回归与 Softmax 回归。
 publishDate: 2026-07-26
-updatedDate: 2026-07-26
+updatedDate: 2026-08-08
 language: zh
 ---
+
+## 一图理解本章
+
+![从感知机、指数族和自然参数到链接函数与广义线性模型的六步图解](/images/notes/cs229/storyboards/p05-glm-storyboard.png)
+
+先沿图中的六个步骤建立本章主线，再进入后文的公式推导、实现细节和失败诊断。
 
 ## 感知机
 

@@ -2,9 +2,15 @@
 title: P26：状态—动作奖励与线性动力系统
 description: 对应 B 站 P26 与 CS229 Lecture 19，从有限时域 MDP、线性动力学和二次代价推导 LQR 与 Riccati 递推。
 publishDate: 2026-07-26
-updatedDate: 2026-07-26
+updatedDate: 2026-08-08
 language: zh
 ---
+
+## 一图理解本章
+
+![线性控制从动力学与二次成本到 Riccati 递推、线性反馈和闭环稳定性的六步图解](/images/notes/cs229/storyboards/p26-lds-lqr-storyboard.png)
+
+先沿图中的六个步骤建立本章主线，再进入后文的公式推导、实现细节和失败诊断。
 
 ## 状态—动作奖励
 

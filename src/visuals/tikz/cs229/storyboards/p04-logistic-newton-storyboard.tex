@@ -1,0 +1,65 @@
+
+\documentclass[tikz,border=8pt]{standalone}
+\usepackage[UTF8,fontset=fandol]{ctex}
+\usepackage{amsmath,amssymb}
+\usetikzlibrary{arrows.meta,calc,positioning}
+\definecolor{ink}{HTML}{172033}
+\definecolor{muted}{HTML}{637083}
+\definecolor{blue}{HTML}{4F86C6}
+\definecolor{green}{HTML}{61A66A}
+\definecolor{red}{HTML}{D55E5E}
+\definecolor{amber}{HTML}{D59B3D}
+\definecolor{paperblue}{HTML}{F2F7FD}
+\definecolor{papergreen}{HTML}{F3F9F1}
+\definecolor{paperamber}{HTML}{FFF8E8}
+\tikzset{
+  panel/.style={anchor=north west,minimum width=9.15cm,minimum height=6.05cm,
+    text width=8.45cm,align=left,inner sep=10pt,draw=black!12,rounded corners=5pt,fill=white},
+  title/.style={font=\bfseries\large,text=ink,anchor=west},
+  body/.style={font=\small,text=muted,align=left,text width=7.9cm},
+  formula/.style={draw=blue!35,fill=paperblue,rounded corners=4pt,inner sep=8pt,
+    text=ink,align=center,text width=7.7cm},
+  insight/.style={draw=green!40,fill=papergreen,rounded corners=4pt,inner sep=7pt,
+    text=ink,align=left,text width=7.7cm,font=\small},
+  arrow/.style={-{Latex[length=2.3mm]},line width=1pt,draw=blue!70},
+  chip/.style={rounded corners=3pt,draw=black!14,fill=black!2,inner xsep=7pt,
+    inner ysep=5pt,font=\small,text=ink},
+}
+\newcommand{\Panel}[5]{%
+  \node[panel] (#1) at (#2,#3) {};
+  \node[title] at ($(#1.north west)+(0.35,-0.42)$) {#4};
+  \node[body,anchor=north west] at ($(#1.north west)+(0.35,-1.05)$) {#5};
+}
+\newcommand{\Summary}[1]{%
+  \node[draw=amber!35,fill=paperamber,rounded corners=6pt,minimum width=28.2cm,
+    minimum height=1.55cm,text width=27.2cm,align=center,font=\small,text=ink]
+    at (14.125,-13.35) {\textbf{一图总结}\quad #1};
+}
+\newcommand{\Identity}{%
+  \node[font=\scriptsize,text=black!38,anchor=east] at (28.15,-14.35)
+    {cs229-storyboard@五道口纳什};
+}
+\newcommand{\Formula}[1]{%
+  \par\vspace{5pt}\begingroup\setlength{\fboxsep}{8pt}%
+  \colorbox{paperblue}{\parbox{7.45cm}{\centering\color{ink}#1}}%
+  \endgroup\par\vspace{6pt}}
+\newcommand{\Insight}[1]{%
+  \par\vspace{5pt}\begingroup\setlength{\fboxsep}{7pt}%
+  \colorbox{papergreen}{\parbox{7.55cm}{\color{ink}#1}}%
+  \endgroup\par\vspace{6pt}}
+\newcommand{\Chip}[1]{%
+  \begingroup\setlength{\fboxsep}{5pt}\colorbox{black!4}{\strut\color{ink}#1}\endgroup}
+
+\begin{document}
+\begin{tikzpicture}[x=1cm,y=1cm]
+\fill[white] (-0.35,0.35) rectangle (28.6,-14.55);
+\Panel{p1}{0}{0}{1. 线性分数不是概率}{先计算 $z=\theta^\top x$，它可以取任意实数。\Formula{$h_\theta(x)=\sigma(z)=\dfrac1{1+e^{-z}}$}Sigmoid 把分数压到 $(0,1)$。}
+\Panel{p2}{9.55}{0}{2. 用伯努利似然}{标签 $y\in\{0,1\}$：\Formula{$\ell(\theta)=\sum_i[y_i\log h_i+(1-y_i)\log(1-h_i)]$}训练就是最大化真实标签的概率。}
+\Panel{p3}{19.1}{0}{3. 梯度仍很简洁}{对数似然求导后：\Formula{$\nabla\ell=X^\top(y-p)$}“真实标签减预测概率”决定修正方向。}
+\Panel{p4}{0}{-6.45}{4. Hessian 给出曲率}{令 $W=\mathrm{diag}(p_i(1-p_i))$：\Formula{$H=-X^\top W X$}靠近 $p=0.5$ 的样本权重更大。}
+\Panel{p5}{9.55}{-6.45}{5. Newton / IRLS 更新}{利用曲率调整步长：\Formula{$\theta\leftarrow\theta-H^{-1}\nabla\ell$}它等价于反复求解一次加权最小二乘。}
+\Panel{p6}{19.1}{-6.45}{6. 先处理数值边界}{\Insight{完全可分时参数可能无限增大；加入正则化。计算损失时用 log-sum-exp，避免 $\log(0)$。}}
+\Summary{线性分数 $\rightarrow$ Sigmoid 概率 $\rightarrow$ 伯努利似然 $\rightarrow$ 梯度与曲率 $\rightarrow$ Newton/IRLS。}
+\Identity
+\end{tikzpicture}
+\end{document}

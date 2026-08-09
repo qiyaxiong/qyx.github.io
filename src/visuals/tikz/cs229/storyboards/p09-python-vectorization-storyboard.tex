@@ -1,0 +1,65 @@
+
+\documentclass[tikz,border=8pt]{standalone}
+\usepackage[UTF8,fontset=fandol]{ctex}
+\usepackage{amsmath,amssymb}
+\usetikzlibrary{arrows.meta,calc,positioning}
+\definecolor{ink}{HTML}{172033}
+\definecolor{muted}{HTML}{637083}
+\definecolor{blue}{HTML}{4F86C6}
+\definecolor{green}{HTML}{61A66A}
+\definecolor{red}{HTML}{D55E5E}
+\definecolor{amber}{HTML}{D59B3D}
+\definecolor{paperblue}{HTML}{F2F7FD}
+\definecolor{papergreen}{HTML}{F3F9F1}
+\definecolor{paperamber}{HTML}{FFF8E8}
+\tikzset{
+  panel/.style={anchor=north west,minimum width=9.15cm,minimum height=6.05cm,
+    text width=8.45cm,align=left,inner sep=10pt,draw=black!12,rounded corners=5pt,fill=white},
+  title/.style={font=\bfseries\large,text=ink,anchor=west},
+  body/.style={font=\small,text=muted,align=left,text width=7.9cm},
+  formula/.style={draw=blue!35,fill=paperblue,rounded corners=4pt,inner sep=8pt,
+    text=ink,align=center,text width=7.7cm},
+  insight/.style={draw=green!40,fill=papergreen,rounded corners=4pt,inner sep=7pt,
+    text=ink,align=left,text width=7.7cm,font=\small},
+  arrow/.style={-{Latex[length=2.3mm]},line width=1pt,draw=blue!70},
+  chip/.style={rounded corners=3pt,draw=black!14,fill=black!2,inner xsep=7pt,
+    inner ysep=5pt,font=\small,text=ink},
+}
+\newcommand{\Panel}[5]{%
+  \node[panel] (#1) at (#2,#3) {};
+  \node[title] at ($(#1.north west)+(0.35,-0.42)$) {#4};
+  \node[body,anchor=north west] at ($(#1.north west)+(0.35,-1.05)$) {#5};
+}
+\newcommand{\Summary}[1]{%
+  \node[draw=amber!35,fill=paperamber,rounded corners=6pt,minimum width=28.2cm,
+    minimum height=1.55cm,text width=27.2cm,align=center,font=\small,text=ink]
+    at (14.125,-13.35) {\textbf{一图总结}\quad #1};
+}
+\newcommand{\Identity}{%
+  \node[font=\scriptsize,text=black!38,anchor=east] at (28.15,-14.35)
+    {cs229-storyboard@五道口纳什};
+}
+\newcommand{\Formula}[1]{%
+  \par\vspace{5pt}\begingroup\setlength{\fboxsep}{8pt}%
+  \colorbox{paperblue}{\parbox{7.45cm}{\centering\color{ink}#1}}%
+  \endgroup\par\vspace{6pt}}
+\newcommand{\Insight}[1]{%
+  \par\vspace{5pt}\begingroup\setlength{\fboxsep}{7pt}%
+  \colorbox{papergreen}{\parbox{7.55cm}{\color{ink}#1}}%
+  \endgroup\par\vspace{6pt}}
+\newcommand{\Chip}[1]{%
+  \begingroup\setlength{\fboxsep}{5pt}\colorbox{black!4}{\strut\color{ink}#1}\endgroup}
+
+\begin{document}
+\begin{tikzpicture}[x=1cm,y=1cm]
+\fill[white] (-0.35,0.35) rectangle (28.6,-14.55);
+\Panel{p1}{0}{0}{1. 先固定数组形状}{\Formula{$X:m\times n,\quad w:n\times1,\quad y:m\times1$}第一维通常是样本，第二维是特征。}
+\Panel{p2}{9.55}{0}{2. 用矩阵运算替代样本循环}{\Formula{$\hat y=Xw$}BLAS 在底层批量执行乘加，比 Python 循环更快也更接近公式。}
+\Panel{p3}{19.1}{0}{3. 广播必须写清轴}{\Formula{$X-\mu:\ (m,n)-(n,)\to(m,n)$}广播不是复制语义；要确认被扩展的是哪一个轴。}
+\Panel{p4}{0}{-6.45}{4. 布尔掩码表达筛选}{\Formula{$M_i=\mathbf1[y_i>0],\qquad X[M]$}掩码是布尔支持，不是索引值或概率。}
+\Panel{p5}{9.55}{-6.45}{5. 数值稳定优先}{\Insight{避免显式求逆；使用 solve。计算 softmax、log-likelihood 时先减最大值或用 log-sum-exp。}}
+\Panel{p6}{19.1}{-6.45}{6. 用断言保护实现}{\Chip{检查 shape}\quad\Chip{检查 dtype}\quad\Chip{检查有限值}\quad\Chip{小样本对照循环}先保证正确，再优化速度。}
+\Summary{形状约定 $\rightarrow$ 向量化 $\rightarrow$ 广播 $\rightarrow$ 掩码 $\rightarrow$ 数值稳定 $\rightarrow$ 断言验证。}
+\Identity
+\end{tikzpicture}
+\end{document}

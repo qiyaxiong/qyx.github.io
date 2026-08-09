@@ -2,9 +2,15 @@
 title: P25：讨论课——对机器学习的批判性审视
 description: 对应 B 站 P25 和 2018-11-30 Discussion Section，从数据、目标、因果、公平性与部署反馈审视模型结论的边界。
 publishDate: 2026-07-26
-updatedDate: 2026-07-26
+updatedDate: 2026-08-08
 language: zh
 ---
+
+## 一图理解本章
+
+![机器学习批判从代理目标、数据与标签偏差到分群评价、反馈回路和治理的六步图解](/images/notes/cs229/storyboards/p25-ml-critiques-storyboard.png)
+
+先沿图中的六个步骤建立本章主线，再进入后文的公式推导、实现细节和失败诊断。
 
 ## 为什么技术课程需要批判性讨论
 

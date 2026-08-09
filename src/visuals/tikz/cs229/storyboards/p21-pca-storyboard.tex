@@ -1,0 +1,65 @@
+
+\documentclass[tikz,border=8pt]{standalone}
+\usepackage[UTF8,fontset=fandol]{ctex}
+\usepackage{amsmath,amssymb}
+\usetikzlibrary{arrows.meta,calc,positioning}
+\definecolor{ink}{HTML}{172033}
+\definecolor{muted}{HTML}{637083}
+\definecolor{blue}{HTML}{4F86C6}
+\definecolor{green}{HTML}{61A66A}
+\definecolor{red}{HTML}{D55E5E}
+\definecolor{amber}{HTML}{D59B3D}
+\definecolor{paperblue}{HTML}{F2F7FD}
+\definecolor{papergreen}{HTML}{F3F9F1}
+\definecolor{paperamber}{HTML}{FFF8E8}
+\tikzset{
+  panel/.style={anchor=north west,minimum width=9.15cm,minimum height=6.05cm,
+    text width=8.45cm,align=left,inner sep=10pt,draw=black!12,rounded corners=5pt,fill=white},
+  title/.style={font=\bfseries\large,text=ink,anchor=west},
+  body/.style={font=\small,text=muted,align=left,text width=7.9cm},
+  formula/.style={draw=blue!35,fill=paperblue,rounded corners=4pt,inner sep=8pt,
+    text=ink,align=center,text width=7.7cm},
+  insight/.style={draw=green!40,fill=papergreen,rounded corners=4pt,inner sep=7pt,
+    text=ink,align=left,text width=7.7cm,font=\small},
+  arrow/.style={-{Latex[length=2.3mm]},line width=1pt,draw=blue!70},
+  chip/.style={rounded corners=3pt,draw=black!14,fill=black!2,inner xsep=7pt,
+    inner ysep=5pt,font=\small,text=ink},
+}
+\newcommand{\Panel}[5]{%
+  \node[panel] (#1) at (#2,#3) {};
+  \node[title] at ($(#1.north west)+(0.35,-0.42)$) {#4};
+  \node[body,anchor=north west] at ($(#1.north west)+(0.35,-1.05)$) {#5};
+}
+\newcommand{\Summary}[1]{%
+  \node[draw=amber!35,fill=paperamber,rounded corners=6pt,minimum width=28.2cm,
+    minimum height=1.55cm,text width=27.2cm,align=center,font=\small,text=ink]
+    at (14.125,-13.35) {\textbf{一图总结}\quad #1};
+}
+\newcommand{\Identity}{%
+  \node[font=\scriptsize,text=black!38,anchor=east] at (28.15,-14.35)
+    {cs229-storyboard@五道口纳什};
+}
+\newcommand{\Formula}[1]{%
+  \par\vspace{5pt}\begingroup\setlength{\fboxsep}{8pt}%
+  \colorbox{paperblue}{\parbox{7.45cm}{\centering\color{ink}#1}}%
+  \endgroup\par\vspace{6pt}}
+\newcommand{\Insight}[1]{%
+  \par\vspace{5pt}\begingroup\setlength{\fboxsep}{7pt}%
+  \colorbox{papergreen}{\parbox{7.55cm}{\color{ink}#1}}%
+  \endgroup\par\vspace{6pt}}
+\newcommand{\Chip}[1]{%
+  \begingroup\setlength{\fboxsep}{5pt}\colorbox{black!4}{\strut\color{ink}#1}\endgroup}
+
+\begin{document}
+\begin{tikzpicture}[x=1cm,y=1cm]
+\fill[white] (-0.35,0.35) rectangle (28.6,-14.55);
+\Panel{p1}{0}{0}{1. 先中心化}{减去训练集均值：\Formula{$x_c^{(i)}=x^{(i)}-\mu$}否则第一主成分可能只是在追逐整体偏移。}
+\Panel{p2}{9.55}{0}{2. 计算协方差}{\Formula{$S=\dfrac1m X_c^\top X_c$}对角线是各特征方差，非对角线描述共同变化。}
+\Panel{p3}{19.1}{0}{3. 找最大方差方向}{在单位长度约束下最大化投影方差：\Formula{$\max_{\lVert u\rVert=1}u^\top S u$\\$Su=\lambda u$}答案是最大特征值对应的特征向量。}
+\Panel{p4}{0}{-6.45}{4. 取前 k 个主成分}{将前 $k$ 个正交方向排成 $U_k$：\Formula{$z=U_k^\top(x-\mu)$}原始 $n$ 维样本被编码成 $k$ 维坐标。}
+\Panel{p5}{9.55}{-6.45}{5. 投影还能重建}{\Formula{$\hat x=\mu+U_kz$}丢掉的方向越少，重建误差越小；PCA 同时最小化平方重建误差。}
+\Panel{p6}{19.1}{-6.45}{6. 用解释方差选 k}{\Formula{$\mathrm{EVR}(k)=\dfrac{\sum_{j=1}^k\lambda_j}{\sum_{j=1}^n\lambda_j}$}只在训练集拟合 PCA，再用同一均值和主轴变换验证集。}
+\Summary{中心化 $\rightarrow$ 协方差 $\rightarrow$ 特征分解 $\rightarrow$ 选择前 $k$ 个方向 $\rightarrow$ 投影与重建。}
+\Identity
+\end{tikzpicture}
+\end{document}

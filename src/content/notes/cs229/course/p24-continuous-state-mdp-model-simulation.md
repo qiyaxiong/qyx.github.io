@@ -2,9 +2,15 @@
 title: P24：连续状态 MDP、环境模型与模拟
 description: 对应 B 站 P24 与 CS229 Lecture 18，从经验转移模型进入连续状态离散化、函数近似和拟合价值迭代。
 publishDate: 2026-07-26
-updatedDate: 2026-07-26
+updatedDate: 2026-08-08
 language: zh
 ---
+
+## 一图理解本章
+
+![连续状态 MDP 从动力学模型和模拟轨迹到价值估计、函数逼近与模型诊断的六步图解](/images/notes/cs229/storyboards/p24-continuous-mdp-storyboard.png)
+
+先沿图中的六个步骤建立本章主线，再进入后文的公式推导、实现细节和失败诊断。
 
 ## 已知模型与未知模型
 

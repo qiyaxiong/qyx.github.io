@@ -2,9 +2,15 @@
 title: P14：神经网络基础
 description: 对应 B 站 P14 与 CS229 Lecture 11，从神经元、激活函数、多层表示、前向传播和向量化理解神经网络。
 publishDate: 2026-07-26
-updatedDate: 2026-07-26
+updatedDate: 2026-08-08
 language: zh
 ---
+
+## 一图理解本章
+
+![神经网络从单个神经元和矩阵化层到非线性堆叠、任务输出与反向传播的六步图解](/images/notes/cs229/storyboards/p14-neural-network-storyboard.png)
+
+先沿图中的六个步骤建立本章主线，再进入后文的公式推导、实现细节和失败诊断。
 
 ## 从线性模型到表示学习
 

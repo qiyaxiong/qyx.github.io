@@ -2,9 +2,15 @@
 title: P18：讨论课——期中复习
 description: 对应 B 站 P18 和 2018-11-02 Discussion Section，按建模假设、目标、梯度、泛化和诊断串联期中前核心内容。
 publishDate: 2026-07-26
-updatedDate: 2026-07-26
+updatedDate: 2026-08-08
 language: zh
 ---
+
+## 一图理解本章
+
+![CS229 期中内容从线性回归、GLM、生成式分类和 SVM 到学习理论与解题模板的六步图解](/images/notes/cs229/storyboards/p18-midterm-map-storyboard.png)
+
+先沿图中的六个步骤建立本章主线，再进入后文的公式推导、实现细节和失败诊断。
 
 ## 复习不是重抄公式
 

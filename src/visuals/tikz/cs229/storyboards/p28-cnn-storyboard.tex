@@ -1,0 +1,65 @@
+
+\documentclass[tikz,border=8pt]{standalone}
+\usepackage[UTF8,fontset=fandol]{ctex}
+\usepackage{amsmath,amssymb}
+\usetikzlibrary{arrows.meta,calc,positioning}
+\definecolor{ink}{HTML}{172033}
+\definecolor{muted}{HTML}{637083}
+\definecolor{blue}{HTML}{4F86C6}
+\definecolor{green}{HTML}{61A66A}
+\definecolor{red}{HTML}{D55E5E}
+\definecolor{amber}{HTML}{D59B3D}
+\definecolor{paperblue}{HTML}{F2F7FD}
+\definecolor{papergreen}{HTML}{F3F9F1}
+\definecolor{paperamber}{HTML}{FFF8E8}
+\tikzset{
+  panel/.style={anchor=north west,minimum width=9.15cm,minimum height=6.05cm,
+    text width=8.45cm,align=left,inner sep=10pt,draw=black!12,rounded corners=5pt,fill=white},
+  title/.style={font=\bfseries\large,text=ink,anchor=west},
+  body/.style={font=\small,text=muted,align=left,text width=7.9cm},
+  formula/.style={draw=blue!35,fill=paperblue,rounded corners=4pt,inner sep=8pt,
+    text=ink,align=center,text width=7.7cm},
+  insight/.style={draw=green!40,fill=papergreen,rounded corners=4pt,inner sep=7pt,
+    text=ink,align=left,text width=7.7cm,font=\small},
+  arrow/.style={-{Latex[length=2.3mm]},line width=1pt,draw=blue!70},
+  chip/.style={rounded corners=3pt,draw=black!14,fill=black!2,inner xsep=7pt,
+    inner ysep=5pt,font=\small,text=ink},
+}
+\newcommand{\Panel}[5]{%
+  \node[panel] (#1) at (#2,#3) {};
+  \node[title] at ($(#1.north west)+(0.35,-0.42)$) {#4};
+  \node[body,anchor=north west] at ($(#1.north west)+(0.35,-1.05)$) {#5};
+}
+\newcommand{\Summary}[1]{%
+  \node[draw=amber!35,fill=paperamber,rounded corners=6pt,minimum width=28.2cm,
+    minimum height=1.55cm,text width=27.2cm,align=center,font=\small,text=ink]
+    at (14.125,-13.35) {\textbf{一图总结}\quad #1};
+}
+\newcommand{\Identity}{%
+  \node[font=\scriptsize,text=black!38,anchor=east] at (28.15,-14.35)
+    {cs229-storyboard@五道口纳什};
+}
+\newcommand{\Formula}[1]{%
+  \par\vspace{5pt}\begingroup\setlength{\fboxsep}{8pt}%
+  \colorbox{paperblue}{\parbox{7.45cm}{\centering\color{ink}#1}}%
+  \endgroup\par\vspace{6pt}}
+\newcommand{\Insight}[1]{%
+  \par\vspace{5pt}\begingroup\setlength{\fboxsep}{7pt}%
+  \colorbox{papergreen}{\parbox{7.55cm}{\color{ink}#1}}%
+  \endgroup\par\vspace{6pt}}
+\newcommand{\Chip}[1]{%
+  \begingroup\setlength{\fboxsep}{5pt}\colorbox{black!4}{\strut\color{ink}#1}\endgroup}
+
+\begin{document}
+\begin{tikzpicture}[x=1cm,y=1cm]
+\fill[white] (-0.35,0.35) rectangle (28.6,-14.55);
+\Panel{p1}{0}{0}{1. 图像具有空间结构}{输入通常是 $X:H\times W\times C_{in}$。相邻像素相关，直接展平会丢失局部关系并产生大量参数。}
+\Panel{p2}{9.55}{0}{2. 卷积只连接局部区域}{\Formula{$Y_{i,j,c_o}=\sum_{u,v,c_i}K_{u,v,c_i,c_o}X_{i+u,j+v,c_i}$}卷积核在空间位置间共享。}
+\Panel{p3}{19.1}{0}{3. 输出尺寸由三项决定}{\Formula{$H_{out}=\left\lfloor\dfrac{H+2P-K}{S}\right\rfloor+1$}核大小 $K$、步幅 $S$、填充 $P$ 共同决定分辨率。}
+\Panel{p4}{0}{-6.45}{4. 通道维负责组合特征}{每个输出通道汇总所有输入通道。\Formula{$K:K_h\times K_w\times C_{in}\times C_{out}$}}
+\Panel{p5}{9.55}{-6.45}{5. 深层感受野逐步扩大}{\Insight{浅层检测边缘与纹理，深层组合成部件和对象。堆叠小卷积常比单个大卷积参数更少。}}
+\Panel{p6}{19.1}{-6.45}{6. 分类头汇总空间信息}{\Chip{卷积 + 激活}\quad\Chip{下采样}\quad\Chip{全局平均池化}\quad\Chip{线性分类}\Insight{检查尺寸链和数据增强是否保持标签语义。}}
+\Summary{空间输入 $\rightarrow$ 局部连接与权重共享 $\rightarrow$ 尺寸计算 $\rightarrow$ 多通道特征 $\rightarrow$ 深层感受野 $\rightarrow$ 分类输出。}
+\Identity
+\end{tikzpicture}
+\end{document}

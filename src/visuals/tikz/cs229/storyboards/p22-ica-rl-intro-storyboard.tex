@@ -1,0 +1,65 @@
+
+\documentclass[tikz,border=8pt]{standalone}
+\usepackage[UTF8,fontset=fandol]{ctex}
+\usepackage{amsmath,amssymb}
+\usetikzlibrary{arrows.meta,calc,positioning}
+\definecolor{ink}{HTML}{172033}
+\definecolor{muted}{HTML}{637083}
+\definecolor{blue}{HTML}{4F86C6}
+\definecolor{green}{HTML}{61A66A}
+\definecolor{red}{HTML}{D55E5E}
+\definecolor{amber}{HTML}{D59B3D}
+\definecolor{paperblue}{HTML}{F2F7FD}
+\definecolor{papergreen}{HTML}{F3F9F1}
+\definecolor{paperamber}{HTML}{FFF8E8}
+\tikzset{
+  panel/.style={anchor=north west,minimum width=9.15cm,minimum height=6.05cm,
+    text width=8.45cm,align=left,inner sep=10pt,draw=black!12,rounded corners=5pt,fill=white},
+  title/.style={font=\bfseries\large,text=ink,anchor=west},
+  body/.style={font=\small,text=muted,align=left,text width=7.9cm},
+  formula/.style={draw=blue!35,fill=paperblue,rounded corners=4pt,inner sep=8pt,
+    text=ink,align=center,text width=7.7cm},
+  insight/.style={draw=green!40,fill=papergreen,rounded corners=4pt,inner sep=7pt,
+    text=ink,align=left,text width=7.7cm,font=\small},
+  arrow/.style={-{Latex[length=2.3mm]},line width=1pt,draw=blue!70},
+  chip/.style={rounded corners=3pt,draw=black!14,fill=black!2,inner xsep=7pt,
+    inner ysep=5pt,font=\small,text=ink},
+}
+\newcommand{\Panel}[5]{%
+  \node[panel] (#1) at (#2,#3) {};
+  \node[title] at ($(#1.north west)+(0.35,-0.42)$) {#4};
+  \node[body,anchor=north west] at ($(#1.north west)+(0.35,-1.05)$) {#5};
+}
+\newcommand{\Summary}[1]{%
+  \node[draw=amber!35,fill=paperamber,rounded corners=6pt,minimum width=28.2cm,
+    minimum height=1.55cm,text width=27.2cm,align=center,font=\small,text=ink]
+    at (14.125,-13.35) {\textbf{一图总结}\quad #1};
+}
+\newcommand{\Identity}{%
+  \node[font=\scriptsize,text=black!38,anchor=east] at (28.15,-14.35)
+    {cs229-storyboard@五道口纳什};
+}
+\newcommand{\Formula}[1]{%
+  \par\vspace{5pt}\begingroup\setlength{\fboxsep}{8pt}%
+  \colorbox{paperblue}{\parbox{7.45cm}{\centering\color{ink}#1}}%
+  \endgroup\par\vspace{6pt}}
+\newcommand{\Insight}[1]{%
+  \par\vspace{5pt}\begingroup\setlength{\fboxsep}{7pt}%
+  \colorbox{papergreen}{\parbox{7.55cm}{\color{ink}#1}}%
+  \endgroup\par\vspace{6pt}}
+\newcommand{\Chip}[1]{%
+  \begingroup\setlength{\fboxsep}{5pt}\colorbox{black!4}{\strut\color{ink}#1}\endgroup}
+
+\begin{document}
+\begin{tikzpicture}[x=1cm,y=1cm]
+\fill[white] (-0.35,0.35) rectangle (28.6,-14.55);
+\Panel{p1}{0}{0}{1. ICA 从混合信号出发}{观测是独立源的线性混合：\Formula{$x=As$}目标是在不知道 $A$ 与 $s$ 时恢复源信号。}
+\Panel{p2}{9.55}{0}{2. 学习解混矩阵}{\Formula{$\hat s=Wx,\qquad W\approx A^{-1}$}只靠协方差无法区分旋转，必须利用非高斯性与独立性。}
+\Panel{p3}{19.1}{0}{3. 独立性提供目标}{\Formula{$p(s)=\prod_jp(s_j)$}最大化非高斯性或最小化互信息，使输出分量尽量独立。}
+\Panel{p4}{0}{-6.45}{4. 强化学习换成序列决策}{智能体在状态 $s_t$ 选择动作 $a_t$，环境返回奖励和新状态。\Formula{$s_t\xrightarrow{a_t,r_t}s_{t+1}$}}
+\Panel{p5}{9.55}{-6.45}{5. 目标是长期回报}{\Formula{$G_t=\sum_{k=0}^{\infty}\gamma^k r_{t+k}$}$\gamma$ 控制未来奖励的权重。}
+\Panel{p6}{19.1}{-6.45}{6. 策略决定行为}{\Formula{$a\sim\pi(a\mid s)$}\Insight{RL 的难点是当前动作改变未来数据分布，同时必须在探索与利用之间权衡。}}
+\Summary{ICA：混合 $\rightarrow$ 解混 $\rightarrow$ 独立源；RL：状态 $\rightarrow$ 动作 $\rightarrow$ 奖励 $\rightarrow$ 长期回报与策略。}
+\Identity
+\end{tikzpicture}
+\end{document}

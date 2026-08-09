@@ -2,7 +2,7 @@
 title: P4：局部加权回归、逻辑回归与牛顿法
 description: 对应 B 站 P4 与 CS229 Lecture 3，解释参数/非参数学习、局部加权回归、逻辑回归似然和牛顿法。
 publishDate: 2026-07-26
-updatedDate: 2026-07-26
+updatedDate: 2026-08-08
 language: zh
 ---
 
@@ -250,7 +250,9 @@ $$
 
 ## IRLS 视角
 
-![Logistic 回归如何通过概率曲率形成 IRLS 加权最小二乘更新](/images/notes/cs229/tikz/p04-logistic-irls.png)
+![Logistic 回归从线性分数、Sigmoid、似然、梯度和 Hessian 到 Newton 与 IRLS 的六步图解](/images/notes/cs229/storyboards/p04-logistic-newton-storyboard.png)
+
+图中串起了概率建模到二阶更新的主线；正文继续解释 IRLS 等价关系和完全可分时的数值边界。
 
 牛顿法更新可改写为迭代重加权最小二乘。每轮根据当前预测构造权重 $R$ 和工作响应，再解一个加权线性系统。
 

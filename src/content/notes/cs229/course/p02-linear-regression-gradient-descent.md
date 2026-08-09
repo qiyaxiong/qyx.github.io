@@ -2,7 +2,7 @@
 title: P2：线性回归与梯度下降
 description: 对应 B 站 P2 与 CS229 Lecture 2，从监督学习记号、最小二乘目标推导批量/随机梯度下降和正规方程。
 publishDate: 2026-07-26
-updatedDate: 2026-07-26
+updatedDate: 2026-08-08
 language: zh
 ---
 
@@ -135,7 +135,9 @@ $$
 
 ## 批量梯度下降
 
-![批量梯度下降从预测、残差、梯度聚合到参数更新的完整形状链](/images/notes/cs229/tikz/concept-gradient-descent-update.png)
+![线性回归从矩阵预测、平方损失、梯度下降到正规方程与几何投影的六步图解](/images/notes/cs229/storyboards/p02-linear-regression-storyboard.png)
+
+这张图先给出完整路线。下面只展开每一步的公式来源、求解选择和失败诊断。
 
 批量梯度下降每轮使用全部训练样本：
 
@@ -182,8 +184,6 @@ $$
 \leftarrow
 \theta-\alpha X^\top(X\theta-y)
 $$
-
-![线性回归向量化梯度：从设计矩阵、参数、预测和残差到梯度的形状传播](/images/notes/cs229/tikz/p02-vectorized-gradient.png)
 
 若目标除以 $m$，梯度也要除以 $m$。
 

@@ -2,9 +2,15 @@
 title: P9：讨论课——Python 与向量化
 description: 对应 B 站 P9 和 2018-10-12 Discussion Section，用 NumPy 的 shape、广播和矩阵运算实现可验证的机器学习代码。
 publishDate: 2026-07-26
-updatedDate: 2026-07-26
+updatedDate: 2026-08-08
 language: zh
 ---
+
+## 一图理解本章
+
+![NumPy 从数组形状、矩阵向量化和广播到掩码、数值稳定与断言验证的六步图解](/images/notes/cs229/storyboards/p09-python-vectorization-storyboard.png)
+
+先沿图中的六个步骤建立本章主线，再进入后文的公式推导、实现细节和失败诊断。
 
 ## 为什么向量化不是语法技巧
 

@@ -1,0 +1,65 @@
+
+\documentclass[tikz,border=8pt]{standalone}
+\usepackage[UTF8,fontset=fandol]{ctex}
+\usepackage{amsmath,amssymb}
+\usetikzlibrary{arrows.meta,calc,positioning}
+\definecolor{ink}{HTML}{172033}
+\definecolor{muted}{HTML}{637083}
+\definecolor{blue}{HTML}{4F86C6}
+\definecolor{green}{HTML}{61A66A}
+\definecolor{red}{HTML}{D55E5E}
+\definecolor{amber}{HTML}{D59B3D}
+\definecolor{paperblue}{HTML}{F2F7FD}
+\definecolor{papergreen}{HTML}{F3F9F1}
+\definecolor{paperamber}{HTML}{FFF8E8}
+\tikzset{
+  panel/.style={anchor=north west,minimum width=9.15cm,minimum height=6.05cm,
+    text width=8.45cm,align=left,inner sep=10pt,draw=black!12,rounded corners=5pt,fill=white},
+  title/.style={font=\bfseries\large,text=ink,anchor=west},
+  body/.style={font=\small,text=muted,align=left,text width=7.9cm},
+  formula/.style={draw=blue!35,fill=paperblue,rounded corners=4pt,inner sep=8pt,
+    text=ink,align=center,text width=7.7cm},
+  insight/.style={draw=green!40,fill=papergreen,rounded corners=4pt,inner sep=7pt,
+    text=ink,align=left,text width=7.7cm,font=\small},
+  arrow/.style={-{Latex[length=2.3mm]},line width=1pt,draw=blue!70},
+  chip/.style={rounded corners=3pt,draw=black!14,fill=black!2,inner xsep=7pt,
+    inner ysep=5pt,font=\small,text=ink},
+}
+\newcommand{\Panel}[5]{%
+  \node[panel] (#1) at (#2,#3) {};
+  \node[title] at ($(#1.north west)+(0.35,-0.42)$) {#4};
+  \node[body,anchor=north west] at ($(#1.north west)+(0.35,-1.05)$) {#5};
+}
+\newcommand{\Summary}[1]{%
+  \node[draw=amber!35,fill=paperamber,rounded corners=6pt,minimum width=28.2cm,
+    minimum height=1.55cm,text width=27.2cm,align=center,font=\small,text=ink]
+    at (14.125,-13.35) {\textbf{一图总结}\quad #1};
+}
+\newcommand{\Identity}{%
+  \node[font=\scriptsize,text=black!38,anchor=east] at (28.15,-14.35)
+    {cs229-storyboard@五道口纳什};
+}
+\newcommand{\Formula}[1]{%
+  \par\vspace{5pt}\begingroup\setlength{\fboxsep}{8pt}%
+  \colorbox{paperblue}{\parbox{7.45cm}{\centering\color{ink}#1}}%
+  \endgroup\par\vspace{6pt}}
+\newcommand{\Insight}[1]{%
+  \par\vspace{5pt}\begingroup\setlength{\fboxsep}{7pt}%
+  \colorbox{papergreen}{\parbox{7.55cm}{\color{ink}#1}}%
+  \endgroup\par\vspace{6pt}}
+\newcommand{\Chip}[1]{%
+  \begingroup\setlength{\fboxsep}{5pt}\colorbox{black!4}{\strut\color{ink}#1}\endgroup}
+
+\begin{document}
+\begin{tikzpicture}[x=1cm,y=1cm]
+\fill[white] (-0.35,0.35) rectangle (28.6,-14.55);
+\Panel{p1}{0}{0}{1. 线性边界可能不够}{原空间中不可线性分离的数据，可先映射到更高维：\Formula{$x\xrightarrow{\phi}\phi(x)$}}
+\Panel{p2}{9.55}{0}{2. 对偶只依赖内积}{SVM 对偶目标中样本只以 $\phi(x_i)^\top\phi(x_j)$ 出现。\Formula{$\max_\alpha\sum_i\alpha_i-\tfrac12\sum_{ij}\alpha_i\alpha_jy_iy_j\langle\phi_i,\phi_j\rangle$}}
+\Panel{p3}{19.1}{0}{3. 核函数跳过显式映射}{\Formula{$K(x,z)=\phi(x)^\top\phi(z)$}只计算相似度，就能获得高维线性模型的效果。}
+\Panel{p4}{0}{-6.45}{4. 合法核必须半正定}{对任意系数 $c$：\Formula{$c^\top Kc\ge0$}Gram 矩阵半正定保证它确实对应某个特征空间内积。}
+\Panel{p5}{9.55}{-6.45}{5. 预测只看支持向量}{\Formula{$f(x)=\sum_{i\in SV}\alpha_i y_iK(x_i,x)+b$}核越复杂、支持向量越多，预测代价越高。}
+\Panel{p6}{19.1}{-6.45}{6. 超参数控制边界}{\Chip{$C$：错分惩罚}\quad\Chip{$\gamma$：RBF 局部尺度}\Insight{先标准化特征，再用验证集联合选择。}}
+\Summary{非线性问题 $\rightarrow$ 特征映射 $\rightarrow$ 对偶内积 $\rightarrow$ 核技巧 $\rightarrow$ 支持向量预测 $\rightarrow$ 超参数选择。}
+\Identity
+\end{tikzpicture}
+\end{document}

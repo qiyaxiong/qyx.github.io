@@ -2,7 +2,7 @@
 title: P7：高斯判别分析与朴素贝叶斯
 description: 对应 B 站 P7 与 CS229 Lecture 5，从判别式和生成式学习的差别，推导 GDA、Naive Bayes 与文本事件模型。
 publishDate: 2026-07-26
-updatedDate: 2026-07-26
+updatedDate: 2026-08-08
 language: zh
 ---
 
@@ -67,7 +67,9 @@ $\mu_k$ 是类别中心，$\Sigma$ 描述各方向尺度和特征相关性。
 
 ## GDA 模型
 
-![GDA 使用共享协方差计算每个类别的生成式判别分数](/images/notes/cs229/tikz/p07-gda-generative-classification.png)
+![生成式分类从类先验与类条件分布、GDA 参数估计到朴素贝叶斯和平滑的六步图解](/images/notes/cs229/storyboards/p07-generative-classification-storyboard.png)
+
+这张图把 GDA 与 Naive Bayes 放进同一条生成式主线；后文分别补足高斯边界推导和文本事件模型。
 
 二分类 GDA 假设：
 

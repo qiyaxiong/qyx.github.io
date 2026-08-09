@@ -2,9 +2,15 @@
 title: P28：讨论课——卷积神经网络
 description: 对应 B 站 P28 和 2018-12-07 Discussion Section，从局部连接、参数共享和卷积尺寸进入 CNN 训练与诊断。
 publishDate: 2026-07-26
-updatedDate: 2026-07-26
+updatedDate: 2026-08-08
 language: zh
 ---
+
+## 一图理解本章
+
+![卷积神经网络从空间输入、局部连接和尺寸计算到多通道特征、感受野与分类头的六步图解](/images/notes/cs229/storyboards/p28-cnn-storyboard.png)
+
+先沿图中的六个步骤建立本章主线，再进入后文的公式推导、实现细节和失败诊断。
 
 ## 为什么图像不直接使用全连接层
 

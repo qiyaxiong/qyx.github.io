@@ -2,9 +2,15 @@
 title: P3：讨论课——线性代数复习
 description: 对应 B 站 P3 和 2018-09-28 Discussion Section，复习向量、矩阵、线性相关、秩、特征值、二次型与矩阵微分。
 publishDate: 2026-07-26
-updatedDate: 2026-07-26
+updatedDate: 2026-08-08
 language: zh
 ---
+
+## 一图理解本章
+
+![线性代数从向量与矩阵、秩和特征向量到 SVD 与最小二乘投影的六步图解](/images/notes/cs229/storyboards/p03-linear-algebra-storyboard.png)
+
+先沿图中的六个步骤建立本章主线，再进入后文的公式推导、实现细节和失败诊断。
 
 ## 为什么单独安排线性代数讨论课
 

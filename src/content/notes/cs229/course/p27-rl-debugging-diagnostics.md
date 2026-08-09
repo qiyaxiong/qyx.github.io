@@ -2,9 +2,15 @@
 title: P27：强化学习调试、DDP 与 LQG
 description: 对应 B 站 P27 与 CS229 Lecture 20，从奖励/环境/算法分层诊断进入 DDP、Kalman Filter、LQG 与分离原理。
 publishDate: 2026-07-26
-updatedDate: 2026-07-26
+updatedDate: 2026-08-08
 language: zh
 ---
+
+## 一图理解本章
+
+![强化学习从环境诊断与 DDP 到 Kalman Filter 状态估计和 LQG 控制的六步图解](/images/notes/cs229/storyboards/p27-rl-lqg-debugging-storyboard.png)
+
+先沿图中的六个步骤建立本章主线，再进入后文的公式推导、实现细节和失败诊断。
 
 ## RL 调试为什么困难
 

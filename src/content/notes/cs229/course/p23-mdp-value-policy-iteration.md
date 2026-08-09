@@ -2,9 +2,15 @@
 title: P23：MDP、价值迭代与策略迭代
 description: 对应 B 站 P23 与 CS229 Lecture 17，从马尔可夫决策过程、价值函数和 Bellman 方程推导价值迭代与策略迭代。
 publishDate: 2026-07-26
-updatedDate: 2026-07-26
+updatedDate: 2026-08-08
 language: zh
 ---
+
+## 一图理解本章
+
+![MDP 从价值函数和 Bellman 方程到最优价值、价值迭代与策略迭代的六步图解](/images/notes/cs229/storyboards/p23-mdp-planning-storyboard.png)
+
+先沿图中的六个步骤建立本章主线，再进入后文的公式推导、实现细节和失败诊断。
 
 ## 马尔可夫决策过程
 

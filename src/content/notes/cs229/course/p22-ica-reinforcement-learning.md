@@ -2,9 +2,15 @@
 title: P22：独立成分分析与强化学习导论
 description: 对应 B 站 P22 与 CS229 Lecture 16，从盲源分离、ICA 密度变换进入序列决策、状态、动作与奖励。
 publishDate: 2026-07-26
-updatedDate: 2026-07-26
+updatedDate: 2026-08-08
 language: zh
 ---
+
+## 一图理解本章
+
+![从 ICA 的信号混合与独立源恢复到强化学习状态、动作、奖励和策略的六步图解](/images/notes/cs229/storyboards/p22-ica-rl-intro-storyboard.png)
+
+先沿图中的六个步骤建立本章主线，再进入后文的公式推导、实现细节和失败诊断。
 
 ## 盲源分离
 
