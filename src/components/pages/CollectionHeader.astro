@@ -15,7 +15,7 @@ const { data } = collection
 const isEn = Astro.currentLocale === 'en'
 const title = isEn && data.title_en ? data.title_en : data.title
 const description = isEn && data.description_en ? data.description_en : data.description
-const repositoryLabel = isEn ? 'View repository' : '查看课程仓库'
+const repositoryLabel = isEn ? 'View course materials' : '查看课程资料'
 
 const imageProps = data.heroImage
   ? {

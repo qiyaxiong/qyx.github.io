@@ -6,9 +6,12 @@ import { TOC } from '@/components/pages'
 import Cs229BilingualReader from '@/components/pages/Cs229BilingualReader.astro'
 import Cs229CourseOverview from '@/components/pages/Cs229CourseOverview.astro'
 import Cs229SessionGuide from '@/components/pages/Cs229SessionGuide.astro'
+import ProgrammingThoughtsCourseOverview from '@/components/pages/ProgrammingThoughtsCourseOverview.astro'
+import ProgrammingThoughtsSessionGuide from '@/components/pages/ProgrammingThoughtsSessionGuide.astro'
 import { Icon } from '@/components/user'
 import { getCs229ReaderConfig } from '@/utils/cs229-reader'
 import { getCs229Session } from '@/utils/cs229-sessions'
+import { getProgrammingThoughtsSession } from '@/utils/programming-thoughts-sessions'
 import type { FlatNoteTreeNode, NoteTreeNode } from '@/utils/server'
 
 interface BreadcrumbItem {
@@ -46,6 +49,8 @@ const {
 const cs229ReaderConfig = getCs229ReaderConfig(currentPath)
 const cs229Session = getCs229Session(currentPath)
 const isCs229CourseIndex = currentPath === 'cs229/course'
+const programmingThoughtsSession = getProgrammingThoughtsSession(currentPath)
+const isProgrammingThoughtsCourseIndex = currentPath === 'programming-thoughts/course'
 
 const copy =
   language === 'zh'
@@ -160,6 +165,12 @@ function countDescendants(node: NoteTreeNode): number {
   {cs229Session && <Cs229SessionGuide session={cs229Session} />}
 
   {
+    programmingThoughtsSession && (
+      <ProgrammingThoughtsSessionGuide session={programmingThoughtsSession} />
+    )
+  }
+
+  {
     html &&
       (cs229ReaderConfig ? (
         <Cs229BilingualReader config={cs229ReaderConfig} {html} />
@@ -170,8 +181,10 @@ function countDescendants(node: NoteTreeNode): number {
 
   {isCs229CourseIndex && <Cs229CourseOverview />}
 
+  {isProgrammingThoughtsCourseIndex && <ProgrammingThoughtsCourseOverview />}
+
   {
-    !!childNodes.length && !isCs229CourseIndex && (
+    !!childNodes.length && !isCs229CourseIndex && !isProgrammingThoughtsCourseIndex && (
       <section class='not-prose mt-10'>
         <div class='mb-4 flex items-center justify-between gap-3'>
           <h2 class='text-lg font-semibold text-foreground'>{copy.subnotes}</h2>

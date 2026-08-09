@@ -15,7 +15,7 @@ const statusLabel = {
 } as const
 ---
 
-<section class='mb-10 space-y-8' aria-label='CS229 课程地图'>
+<section class='mb-10 space-y-8' aria-label={`${collection.data.title} 课程地图`}>
   {
     courseIntro && (
       <div class='rounded-2xl border border-border bg-muted/35 p-5 sm:p-6'>
@@ -97,7 +97,7 @@ const statusLabel = {
                 rel='noopener noreferrer'
                 target='_blank'
               >
-                查看仓库原始资料 ↗
+                查看原始资料 ↗
               </a>
             </div>
           </li>

@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 980" role="img" aria-labelledby="title desc">
+  <title id="title">P16 设计模式导入：从名字回到问题、约束与代价设计决策图</title>
+  <desc id="desc">从问题症状、设计动作到可验证结果的三步图解</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#071b27"/>
+      <stop offset="1" stop-color="#0f2630"/>
+    </linearGradient>
+    <filter id="shadow"><feDropShadow dx="0" dy="10" stdDeviation="14" flood-opacity=".24"/></filter>
+  </defs>
+  <rect width="720" height="980" rx="32" fill="url(#bg)"/>
+  <circle cx="650" cy="70" r="190" fill="#2dd4bf" opacity=".07"/>
+  <text x="60" y="70" fill="#5eead4" font-family="system-ui,sans-serif" font-size="18" font-weight="700" letter-spacing="2">PROGRAMMING THOUGHT · P16</text>
+  <text x="60" y="120" class="heading">设计模式导入：从名字回到问题、约束与代价</text>
+  <style>
+    .heading { fill: #f8fafc; font: 700 30px system-ui, sans-serif; }
+    .label { fill: #5eead4; font: 700 18px system-ui, sans-serif; letter-spacing: 1px; }
+    .body { fill: #d7e4e8; font: 500 24px system-ui, sans-serif; }
+  </style>
+  <g filter="url(#shadow)">
+        <rect x="60" y="230" width="600" height="170" rx="22" fill="#102f3a" stroke="#28505c"/>
+        <text x="88" y="272" class="label">01 · 症状</text>
+        <text x="88" y="318" class="body">看到模式名就照搬类图，却说不清问题</text>
+      </g><path d="M360 406v30" stroke="#5eead4" stroke-width="3"/><path d="m351 430 9 12 9-12" fill="none" stroke="#5eead4" stroke-width="3"/>
+<g filter="url(#shadow)">
+        <rect x="60" y="450" width="600" height="170" rx="22" fill="#102f3a" stroke="#28505c"/>
+        <text x="88" y="492" class="label">02 · 设计动作</text>
+        <text x="88" y="538" class="body">用“上下文—冲突力量—结构—后果”描述设计</text>
+      </g><path d="M360 626v30" stroke="#5eead4" stroke-width="3"/><path d="m351 650 9 12 9-12" fill="none" stroke="#5eead4" stroke-width="3"/>
+<g filter="url(#shadow)">
+        <rect x="60" y="670" width="600" height="170" rx="22" fill="#102f3a" stroke="#28505c"/>
+        <text x="88" y="712" class="label">03 · 可验证结果</text>
+        <text x="88" y="758" class="body">团队讨论从类名转向真正的工程权衡</text>
+      </g>
+  <text x="60" y="930" fill="#8ba4ad" font-family="system-ui,sans-serif" font-size="19">案例：支付渠道演进 · 先解释变化，再选择结构</text>
+</svg>
