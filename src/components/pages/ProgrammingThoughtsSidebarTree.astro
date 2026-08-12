@@ -1,0 +1,96 @@
+---
+import {
+  getProgrammingThoughtsSession,
+  programmingThoughtsPhases,
+  programmingThoughtsSessions
+} from '@/utils/programming-thoughts-sessions'
+
+interface Props {
+  currentPath: string
+  basePath: string
+}
+
+const { currentPath, basePath } = Astro.props
+const currentSession = getProgrammingThoughtsSession(currentPath)
+---
+
+<div class='mt-1 space-y-1 border-s border-border/60 ps-2' data-programming-thoughts-topic-groups>
+  <a
+    href={`${basePath}/programming-thoughts/course`}
+    class:list={[
+      'flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors',
+      currentPath === 'programming-thoughts/course'
+        ? 'bg-muted text-foreground'
+        : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground'
+    ]}
+  >
+    <span class='inline-block size-1.5 rounded-full bg-border' />
+    <span class='min-w-0 truncate'>46 讲课程首页</span>
+  </a>
+
+  {
+    programmingThoughtsPhases.map((phase) => {
+      const sessions = programmingThoughtsSessions.filter((session) => session.phase === phase.id)
+      const isCurrentPhase = currentSession?.phase === phase.id
+
+      return (
+        <details open={isCurrentPhase} data-topic-phase={phase.id} class='group/phase'>
+          <summary
+            class:list={[
+              'flex cursor-pointer list-none items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors marker:content-none [&::-webkit-details-marker]:hidden',
+              isCurrentPhase
+                ? 'text-foreground'
+                : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground'
+            ]}
+          >
+            <svg
+              aria-hidden='true'
+              class='size-3.5 shrink-0 -rotate-90 transition-transform duration-200 group-open/phase:rotate-0'
+              viewBox='0 0 24 24'
+              fill='none'
+              stroke='currentColor'
+              stroke-width='2'
+            >
+              <path d='m6 9 6 6 6-6' stroke-linecap='round' stroke-linejoin='round' />
+            </svg>
+            <span class='min-w-0 flex-1 truncate'>{phase.label} · {phase.title}</span>
+            <span class='shrink-0 text-[10px] text-muted-foreground'>{phase.range}</span>
+          </summary>
+
+          <ol class='mt-1 flex flex-col gap-1 border-s border-border/60 ps-2'>
+            {
+              sessions.map((session) => {
+                const path = `programming-thoughts/course/${session.slug}`
+                const isActive = path === currentPath
+
+                return (
+                  <li>
+                    <a
+                      href={`${basePath}/${path}`}
+                      aria-current={isActive ? 'page' : undefined}
+                      class:list={[
+                        'flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors',
+                        isActive
+                          ? 'bg-muted text-foreground'
+                          : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground'
+                      ]}
+                    >
+                      <span class:list={['inline-block size-1.5 rounded-full', isActive ? 'bg-primary' : 'bg-border']} />
+                      <span class='min-w-0 truncate'>P{session.page} · {session.title}</span>
+                    </a>
+                  </li>
+                )
+              })
+            }
+          </ol>
+        </details>
+      )
+    })
+  }
+</div>
+
+<style>
+  details[data-topic-phase]:not([open]) > ol {
+    display: none;
+  }
+</style>

@@ -1,7 +1,7 @@
 ---
 import type { MarkdownHeading } from 'astro'
 import { getNotionPageContent } from '@/lib/notion'
-import { buildNoteTree, flattenNoteTree, getNotesCollection } from '@/server'
+import { buildNoteTree, getNotesCollection } from '@/server'
 
 import NotesView from '@/components/pages/NotesView.astro'
 import { getDescriptionFromMarkdown, renderNotionMarkdown } from '@/utils/notion-markdown'
@@ -10,7 +10,7 @@ export const prerender = true
 
 const notes = await getNotesCollection()
 const root = buildNoteTree(notes, 'Notes')
-const flatTree = flattenNoteTree(root)
+const treeNodes = root.children
 
 let html: string | undefined
 let headings: MarkdownHeading[] = []
@@ -38,7 +38,7 @@ const breadcrumbs = [{ title, href: '/notes' }]
   basePath='/notes'
   currentPath=''
   rootTitle='知识地图'
-  {flatTree}
+  {treeNodes}
   {breadcrumbs}
   childNodes={root.children}
   {headings}

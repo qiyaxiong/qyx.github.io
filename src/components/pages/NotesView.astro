@@ -8,11 +8,12 @@ import Cs229CourseOverview from '@/components/pages/Cs229CourseOverview.astro'
 import Cs229SessionGuide from '@/components/pages/Cs229SessionGuide.astro'
 import ProgrammingThoughtsCourseOverview from '@/components/pages/ProgrammingThoughtsCourseOverview.astro'
 import ProgrammingThoughtsSessionGuide from '@/components/pages/ProgrammingThoughtsSessionGuide.astro'
+import NotesTree from '@/components/pages/NotesTree.astro'
 import { Icon } from '@/components/user'
 import { getCs229ReaderConfig } from '@/utils/cs229-reader'
 import { getCs229Session } from '@/utils/cs229-sessions'
 import { getProgrammingThoughtsSession } from '@/utils/programming-thoughts-sessions'
-import type { FlatNoteTreeNode, NoteTreeNode } from '@/utils/server'
+import type { NoteTreeNode } from '@/utils/server'
 
 interface BreadcrumbItem {
   title: string
@@ -26,7 +27,7 @@ interface Props {
   basePath: string
   currentPath: string
   rootTitle: string
-  flatTree: FlatNoteTreeNode[]
+  treeNodes: NoteTreeNode[]
   breadcrumbs: BreadcrumbItem[]
   childNodes: NoteTreeNode[]
   headings?: MarkdownHeading[]
@@ -40,7 +41,7 @@ const {
   basePath,
   currentPath,
   rootTitle,
-  flatTree,
+  treeNodes,
   breadcrumbs,
   childNodes,
   headings = [],
@@ -62,7 +63,8 @@ const copy =
         directory: '专题',
         nestedNotes: (count: number) => `包含 ${count} 篇下级笔记`,
         readNote: '阅读笔记',
-        directSubnotes: (count: number) => `${count} 篇子笔记`
+        directSubnotes: (count: number) => `${count} 篇子笔记`,
+        topicHome: '专题首页'
       }
     : {
         empty: 'No notes yet.',
@@ -72,7 +74,8 @@ const copy =
         directory: 'Dir',
         nestedNotes: (count: number) => `${count} nested notes`,
         readNote: 'Read note',
-        directSubnotes: (count: number) => `${count} direct subnotes`
+        directSubnotes: (count: number) => `${count} direct subnotes`,
+        topicHome: 'Topic home'
       }
 
 function getNodeHref(path: string) {
@@ -90,39 +93,16 @@ function countDescendants(node: NoteTreeNode): number {
       <section>
         <h2 class='text-xs font-semibold tracking-[0.22em] text-muted-foreground'>{rootTitle}</h2>
         {
-          flatTree.length > 0 ? (
-            <ul class='mt-4 flex flex-col gap-1 text-sm'>
-              {flatTree.map((node) => {
-                const isActive = node.path === currentPath
-
-                return (
-                  <li style={`padding-left:${Math.max(node.depth - 1, 0) * 0.9}rem`}>
-                    <a
-                      href={getNodeHref(node.path)}
-                      class:list={[
-                        'flex items-center gap-2 rounded-lg px-3 py-2 transition-colors',
-                        isActive
-                          ? 'bg-muted text-foreground'
-                          : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground'
-                      ]}
-                    >
-                      <span
-                        class:list={[
-                          'inline-block size-1.5 rounded-full',
-                          isActive ? 'bg-primary' : 'bg-border'
-                        ]}
-                      />
-                      <span class='min-w-0 truncate'>{node.title}</span>
-                      {node.hasChildren && (
-                        <span class='ms-auto text-[10px] uppercase tracking-[0.18em] text-muted-foreground'>
-                          {copy.directory}
-                        </span>
-                      )}
-                    </a>
-                  </li>
-                )
-              })}
-            </ul>
+          treeNodes.length > 0 ? (
+            <div class='mt-4'>
+              <NotesTree
+                nodes={treeNodes}
+                {basePath}
+                {currentPath}
+                directoryLabel={copy.directory}
+                homeLabel={copy.topicHome}
+              />
+            </div>
           ) : (
             <p class='mt-4 text-sm text-muted-foreground'>{copy.empty}</p>
           )

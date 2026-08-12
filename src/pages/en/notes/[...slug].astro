@@ -34,7 +34,7 @@ if (!currentNode) {
   throw new Error(`Missing note node for path: ${currentPath}`)
 }
 
-const flatTree = flattenNoteTree(root)
+const treeNodes = root.children
 const breadcrumbs = getNoteAncestors(root, currentPath).map((node, index) => ({
   title: node.page?.title || node.title,
   href: index === 0 ? '/en/notes' : `/en/notes/${node.path}`
@@ -66,7 +66,7 @@ const title = currentNode.page?.title || currentNode.title
   basePath='/en/notes'
   {currentPath}
   rootTitle='NOTEBOOK'
-  {flatTree}
+  {treeNodes}
   {breadcrumbs}
   childNodes={currentNode.children}
   {headings}
