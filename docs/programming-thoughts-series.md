@@ -40,6 +40,28 @@ node src/scripts/generate-programming-thoughts-series.mjs
 
 生成脚本会覆盖 46 篇课程正文和 46 张图。需要永久修改正文结构、案例或图解时，应修改生成脚本及 `programming-thoughts-sessions.ts`，不要只改生成后的单篇文件。
 
+## Notion 内容源
+
+本系列的正文运行时走 Notion API，而不是依赖本地 Markdown：
+
+```text
+本地 Markdown（可复现的编辑种子）
+  -> publish-notes
+  -> Notion note 数据源（48 个 Published 页面）
+  -> getNotionNotes / getNotionPageContent
+  -> Astro /notes/programming-thoughts
+```
+
+发布或更新整套专题：
+
+```bash
+node src/scripts/index.js publish-notes \
+  --dir src/content/notes/programming-thoughts \
+  --update-published
+```
+
+`programming-thoughts` 和 `programming-thoughts/course` 是两个目录 Note，另外 46 个路径对应 P1–P46。站点合并本地与 Notion 笔记时，Notion 同路径优先；本地文件只作为可复现的编辑种子和 API 不可用时的开发回退。图解会被发布为 Notion 原生图片块，图片地址指向生产站点的 `/images/notes/programming-thoughts/diagrams/`。
+
 ## 素材与转写
 
 音频和 Whisper JSON 只用于本地内容核对，不进入 Git，也不随网站发布。站内只嵌入 B 站播放器并链接原视频；正文、代码和图解均为重新组织和原创表达。

@@ -58,7 +58,7 @@ function getEnv(name, aliases = []) {
   return undefined
 }
 
-function parseFrontmatter(source) {
+export function parseFrontmatter(source) {
   const match = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/)
   if (!match) throw new Error('The Markdown file must begin with YAML frontmatter')
 
@@ -186,6 +186,44 @@ function paragraphBlock(node, type = 'paragraph') {
   }
 }
 
+function imageBlock(node) {
+  return {
+    object: 'block',
+    type: 'image',
+    image: {
+      type: 'external',
+      external: { url: normalizeLink(node.url) }
+    }
+  }
+}
+
+function paragraphOrImageBlocks(node) {
+  const children = node.children || []
+  if (!children.some((child) => child.type === 'image')) {
+    return [paragraphBlock(node)]
+  }
+
+  const blocks = []
+  let textChildren = []
+  const flushText = () => {
+    if (textChildren.length) {
+      blocks.push(paragraphBlock({ children: textChildren }))
+      textChildren = []
+    }
+  }
+
+  for (const child of children) {
+    if (child.type === 'image') {
+      flushText()
+      blocks.push(imageBlock(child))
+    } else {
+      textChildren.push(child)
+    }
+  }
+  flushText()
+  return blocks
+}
+
 function listItemBlock(node, ordered) {
   const [first, ...rest] = node.children || []
   const type = ordered ? 'numbered_list_item' : 'bulleted_list_item'
@@ -254,7 +292,7 @@ function nodeToBlocks(node) {
       ]
     }
     case 'paragraph':
-      return [paragraphBlock(node)]
+      return paragraphOrImageBlocks(node)
     case 'list':
       return node.children.map((item) => listItemBlock(item, node.ordered))
     case 'blockquote':
@@ -279,17 +317,19 @@ function nodeToBlocks(node) {
       return [{ object: 'block', type: 'divider', divider: {} }]
     case 'html':
       return [paragraphBlock({ children: [{ type: 'text', value: node.value }] })]
+    case 'image':
+      return [imageBlock(node)]
     default:
       return Array.isArray(node.children) ? node.children.flatMap(nodeToBlocks) : []
   }
 }
 
-function markdownToBlocks(markdown) {
+export function markdownToBlocks(markdown) {
   const tree = unified().use(remarkParse).use(remarkGfm).use(remarkMath).parse(markdown)
   return tree.children.flatMap(nodeToBlocks)
 }
 
-function normalizeNotionEmbeds(markdown) {
+export function normalizeNotionEmbeds(markdown) {
   return markdown
     .replace(
       /^import AgentTurnTimeline from ['"]@\/components\/blog\/AgentTurnTimeline\.astro['"]\s*$/m,

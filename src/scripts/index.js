@@ -9,6 +9,7 @@ import checkFunc from './check.mjs'
 import minimist from './libs/minimist.cjs'
 import newFunc from './new.mjs'
 import publishNotionMarkdownFunc from './publish-notion-markdown.mjs'
+import publishNotionNotesFunc from './publish-notion-notes.mjs'
 import registerNotionPostFunc from './register-notion-post.mjs'
 
 const args = minimist(process.argv.slice(2))
@@ -29,6 +30,10 @@ switch (args._[0]) {
     const publishMarkdownArgs = process.argv.slice(3)
     await publishNotionMarkdownFunc(publishMarkdownArgs)
     break
+  case 'publish-notes':
+    const publishNotesArgs = process.argv.slice(3)
+    await publishNotionNotesFunc(publishNotesArgs)
+    break
   case 'info':
     const __dirname = dirname(fileURLToPath(import.meta.url))
     const packageJson = JSON.parse(readFileSync(join(__dirname, '../package.json'), 'utf8'))
@@ -44,6 +49,7 @@ switch (args._[0]) {
     console.log('  new [args] - Create new post on blog collection')
     console.log('  register-post [args] - Register a Notion page in the blog Post data source')
     console.log('  publish-markdown [args] - Publish a Markdown file through the Notion API')
+    console.log('  publish-notes [args] - Publish Notes Markdown through the Notion API')
     console.log('  info - Show this info message')
     console.log('  help - Show this help message')
     break
