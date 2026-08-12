@@ -60,7 +60,7 @@ node src/scripts/index.js publish-notes \
   --update-published
 ```
 
-`programming-thoughts` 和 `programming-thoughts/course` 是两个目录 Note，另外 46 个路径对应 P1–P46。站点合并本地与 Notion 笔记时，Notion 同路径优先；本地文件只作为可复现的编辑种子和 API 不可用时的开发回退。图解会被发布为 Notion 原生图片块，图片地址指向生产站点的 `/images/notes/programming-thoughts/diagrams/`。
+`programming-thoughts` 和 `programming-thoughts/course` 是两个目录 Note，另外 46 个路径对应 P1–P46。站点合并本地与 Notion 笔记时，Notion 同路径优先；本地文件作为可复现的编辑种子，也可承载尚未注册到 Notion 的本地开发笔记。图解会被发布为 Notion 原生图片块，图片地址指向生产站点的 `/images/notes/programming-thoughts/diagrams/`。
 
 ## 素材与转写
 
