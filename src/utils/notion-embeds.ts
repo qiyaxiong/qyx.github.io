@@ -7,6 +7,94 @@ const CLAUDE_MEMORY_WRITE_RECALL_MARKER = '{{claude-memory-write-recall}}'
 const CLAUDE_MEMORY_INJECTION_MARKER = '{{claude-memory-injection}}'
 const CLAUDE_MEMORY_TRUST_MARKER = '{{claude-memory-trust-boundary}}'
 const AGENT_TURN_TIMELINE_MARKER = '{{agent-turn-timeline}}'
+const DEEPSEEK_HARNESS_ARCHITECTURE_MARKER = '{{deepseek-harness-architecture}}'
+const DEEPSEEK_HARNESS_LOOP_MARKER = '{{deepseek-harness-loop}}'
+
+const DEEPSEEK_HARNESS_ARCHITECTURE_HTML = `<section class="notion-harness-architecture" aria-label="DeepSeek Harness 四层架构">
+  <style>
+    .notion-harness-architecture { --ink: hsl(226 28% 12%); --muted: hsl(223 13% 42%); margin: 2.4rem 0; overflow: hidden; border: 1px solid hsl(220 19% 82%); border-radius: 18px; background: linear-gradient(145deg, hsl(215 50% 98%), hsl(166 36% 97%)); color: var(--ink); box-shadow: 0 20px 60px hsl(220 25% 18% / .1); }
+    .notion-harness-architecture * { box-sizing: border-box; }
+    .notion-harness-architecture .head { padding: 1.5rem 1.5rem 1.1rem; border-bottom: 1px solid hsl(220 19% 82%); }
+    .notion-harness-architecture .eyebrow { margin: 0 0 .35rem; color: hsl(165 55% 29%); font-size: .72rem; font-weight: 800; letter-spacing: .12em; }
+    .notion-harness-architecture h2 { margin: 0; color: var(--ink); font-size: 1.35rem; line-height: 1.35; }
+    .notion-harness-architecture .intro { display: block; margin-top: .5rem; color: var(--muted); font-size: .88rem; }
+    .notion-harness-architecture .layers { padding: 1.25rem 1.5rem; }
+    .notion-harness-architecture .layer { display: grid; grid-template-columns: 3rem minmax(0, 1fr) minmax(12rem, .8fr); gap: 1rem; align-items: center; border: 1px solid hsl(220 18% 83%); border-left-width: 4px; border-radius: 13px; background: hsl(0 0% 100% / .86); padding: 1rem; }
+    .notion-harness-architecture .composition { border-left-color: hsl(216 74% 58%); }
+    .notion-harness-architecture .cordis { border-left-color: hsl(266 62% 61%); }
+    .notion-harness-architecture .spine { border-left-color: hsl(164 53% 42%); }
+    .notion-harness-architecture .capabilities { border-left-color: hsl(31 85% 57%); }
+    .notion-harness-architecture .index { display: grid; width: 2.35rem; height: 2.35rem; place-items: center; border-radius: 999px; background: var(--ink); color: white; font-family: ui-monospace, monospace; font-size: .76rem; font-weight: 800; }
+    .notion-harness-architecture .copy strong, .notion-harness-architecture .copy small { display: block; }
+    .notion-harness-architecture .copy strong { color: var(--ink); font-size: 1rem; }
+    .notion-harness-architecture .copy small { margin-top: .2rem; color: hsl(165 47% 30%); font-family: ui-monospace, monospace; font-size: .71rem; }
+    .notion-harness-architecture .copy p { margin: .4rem 0 0; color: var(--muted); font-size: .82rem; line-height: 1.6; }
+    .notion-harness-architecture .connector { height: 1.55rem; color: hsl(220 15% 54%); text-align: center; line-height: 1.55rem; }
+    .notion-harness-architecture .chips, .notion-harness-architecture .capability-grid, .notion-harness-architecture .spine-flow { display: flex; flex-wrap: wrap; gap: .42rem; justify-content: flex-end; }
+    .notion-harness-architecture .chips span, .notion-harness-architecture .capability-grid span, .notion-harness-architecture .spine-flow span { border-radius: 999px; background: hsl(220 28% 94%); padding: .3rem .58rem; color: hsl(222 25% 26%); font-family: ui-monospace, monospace; font-size: .7rem; }
+    .notion-harness-architecture .spine-flow { align-items: center; }
+    .notion-harness-architecture .spine-flow i { color: hsl(164 53% 35%); font-style: normal; }
+    .notion-harness-architecture .capability-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .notion-harness-architecture .capability-grid span { text-align: center; }
+    .notion-harness-architecture .foot { border-top: 1px solid hsl(220 19% 82%); background: hsl(226 28% 12%); padding: .9rem 1.5rem; color: hsl(215 24% 88%); font-size: .82rem; line-height: 1.6; }
+    .notion-harness-architecture .foot strong { color: hsl(47 82% 75%); }
+    @media (max-width: 720px) { .notion-harness-architecture .head, .notion-harness-architecture .layers { padding-right: 1rem; padding-left: 1rem; } .notion-harness-architecture .layer { grid-template-columns: 2.6rem minmax(0, 1fr); } .notion-harness-architecture .chips, .notion-harness-architecture .capability-grid, .notion-harness-architecture .spine-flow { grid-column: 1 / -1; justify-content: flex-start; margin-left: 3.6rem; } .notion-harness-architecture .capability-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  </style>
+  <div class="head"><p class="eyebrow">COMPOSABLE AGENT RUNTIME</p><h2>从产品配置到 Agent 能力的四层组合</h2><span class="intro">上层决定装什么，下层提供模型可执行的真实能力</span></div>
+  <div class="layers">
+    <article class="layer composition"><div class="index">01</div><div class="copy"><strong>组合层</strong><small>Profile · Bundle · Patch</small><p>声明这次启动是 Web、Headless，还是一套定制 Agent 产品。</p></div><div class="chips"><span>web</span><span>headless</span><span>overlay</span></div></article>
+    <div class="connector" aria-hidden="true">↓</div>
+    <article class="layer cordis"><div class="index">02</div><div class="copy"><strong>Cordis 插件运行层</strong><small>Context · Service · Event · Effect</small><p>解决依赖注入、生命周期、类型化通信与卸载回滚。</p></div><div class="chips"><span>inject</span><span>waterfall</span><span>dispose</span></div></article>
+    <div class="connector" aria-hidden="true">↓</div>
+    <article class="layer spine"><div class="index">03</div><div class="copy"><strong>Agent 主干</strong><small>Session → Prompt → LLM → Tools → Loop</small><p>让一次任务可持续执行、可恢复、可回放，也能被 UI 观察。</p></div><div class="spine-flow"><span>Session</span><i>→</i><span>Prompt</span><i>→</i><span>LLM</span><i>→</i><span>Tools</span></div></article>
+    <div class="connector" aria-hidden="true">↓</div>
+    <article class="layer capabilities"><div class="index">04</div><div class="copy"><strong>能力插件层</strong><small>Replaceable capability seams</small><p>通过统一接口接入不同的 Provider、执行环境和产品能力。</p></div><div class="capability-grid"><span>FS</span><span>Shell</span><span>Sandbox</span><span>Skills</span><span>Subagent</span><span>Workflow</span><span>MCP</span><span>Telemetry</span></div></article>
+  </div>
+  <div class="foot"><strong>关键：</strong>Agent Loop 不需要知道每项能力的具体实现，只依赖稳定 Service 与 Event。</div>
+</section>`
+
+const DEEPSEEK_HARNESS_LOOP_HTML = `<section class="notion-harness-loop" aria-label="DeepSeek Harness Turn 与 Step 循环">
+  <style>
+    .notion-harness-loop { --bg: hsl(232 22% 9%); --card: hsl(231 18% 14%); --border: hsl(230 14% 26%); --text: hsl(220 25% 96%); --muted: hsl(226 10% 68%); margin: 2.4rem 0; overflow: hidden; border: 1px solid var(--border); border-radius: 18px; background: radial-gradient(circle at 80% 0%, hsl(266 77% 60% / .18), transparent 32%), var(--bg); color: var(--text); box-shadow: 0 20px 60px hsl(232 30% 4% / .24); }
+    .notion-harness-loop * { box-sizing: border-box; }
+    .notion-harness-loop .head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; border-bottom: 1px solid var(--border); padding: 1.4rem 1.5rem 1.1rem; }
+    .notion-harness-loop .eyebrow { margin: 0 0 .35rem; color: hsl(179 79% 69%); font-size: .72rem; font-weight: 800; letter-spacing: .11em; }
+    .notion-harness-loop h2 { margin: 0; color: var(--text); font-size: 1.35rem; line-height: 1.35; }
+    .notion-harness-loop .counter { border: 1px solid hsl(266 70% 64% / .55); border-radius: 10px; background: hsl(266 70% 60% / .1); padding: .5rem .7rem; color: var(--muted); font-family: ui-monospace, monospace; font-size: .68rem; line-height: 1.5; text-align: right; }
+    .notion-harness-loop .counter strong { color: hsl(266 85% 81%); }
+    .notion-harness-loop .lane { display: grid; grid-template-columns: minmax(8rem, .9fr) 1.5rem minmax(10rem, 1.1fr) 1.5rem minmax(9rem, 1fr); grid-template-areas: "start a1 first a2 tool" ". . return return return" "second a3 end . ."; gap: .75rem; padding: 1.35rem 1.5rem; }
+    .notion-harness-loop .boundary, .notion-harness-loop .step, .notion-harness-loop .tool { min-height: 10.5rem; border: 1px solid var(--border); border-radius: 12px; background: var(--card); padding: .95rem; }
+    .notion-harness-loop .start { grid-area: start; } .notion-harness-loop .first { grid-area: first; } .notion-harness-loop .tool { grid-area: tool; } .notion-harness-loop .return { grid-area: return; } .notion-harness-loop .second { grid-area: second; } .notion-harness-loop .end { grid-area: end; }
+    .notion-harness-loop .a1 { grid-area: a1; } .notion-harness-loop .a2 { grid-area: a2; } .notion-harness-loop .a3 { grid-area: a3; }
+    .notion-harness-loop .boundary small, .notion-harness-loop .step small, .notion-harness-loop .tool small { display: inline-block; border-radius: 999px; padding: .2rem .48rem; font-family: ui-monospace, monospace; font-size: .66rem; font-weight: 800; }
+    .notion-harness-loop .boundary small { background: hsl(179 56% 20%); color: hsl(179 75% 72%); }
+    .notion-harness-loop .step small { background: hsl(266 52% 23%); color: hsl(266 84% 81%); }
+    .notion-harness-loop .tool small { background: hsl(29 65% 23%); color: hsl(33 91% 75%); }
+    .notion-harness-loop .boundary strong, .notion-harness-loop .step strong, .notion-harness-loop .tool strong { display: block; margin-top: .7rem; color: var(--text); font-size: .94rem; }
+    .notion-harness-loop .boundary p, .notion-harness-loop .tool p, .notion-harness-loop .step li { color: var(--muted); font-size: .78rem; line-height: 1.55; }
+    .notion-harness-loop .boundary p, .notion-harness-loop .tool p { margin: .45rem 0 0; }
+    .notion-harness-loop .step ol { margin: .55rem 0 0; padding-left: 1.1rem; }
+    .notion-harness-loop .arrow { display: grid; place-items: center; color: hsl(179 74% 67%); font-size: 1.15rem; }
+    .notion-harness-loop .return { position: relative; height: 2.2rem; border-right: 1px dashed hsl(29 80% 62%); border-bottom: 1px dashed hsl(29 80% 62%); border-left: 1px dashed hsl(29 80% 62%); border-radius: 0 0 12px 12px; }
+    .notion-harness-loop .return span { position: absolute; right: 1rem; bottom: -.65rem; border-radius: 999px; background: var(--bg); padding: .18rem .5rem; color: hsl(33 91% 75%); font-size: .68rem; }
+    .notion-harness-loop .foot { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; border-top: 1px solid var(--border); background: var(--border); }
+    .notion-harness-loop .foot div { min-height: 5.3rem; background: hsl(232 22% 11%); padding: .9rem 1.2rem; }
+    .notion-harness-loop .foot strong, .notion-harness-loop .foot span { display: block; }
+    .notion-harness-loop .foot strong { color: hsl(179 79% 69%); font-size: .8rem; }
+    .notion-harness-loop .foot span { margin-top: .3rem; color: var(--muted); font-size: .76rem; line-height: 1.5; }
+    @media (max-width: 760px) { .notion-harness-loop .head { display: block; padding-right: 1rem; padding-left: 1rem; } .notion-harness-loop .counter { display: inline-block; margin-top: .8rem; text-align: left; } .notion-harness-loop .lane { display: block; padding-right: 1rem; padding-left: 1rem; } .notion-harness-loop .boundary, .notion-harness-loop .step, .notion-harness-loop .tool { min-height: 0; margin-bottom: .75rem; } .notion-harness-loop .arrow, .notion-harness-loop .return { display: none; } .notion-harness-loop .foot { grid-template-columns: 1fr; } }
+  </style>
+  <div class="head"><div><p class="eyebrow">TURN / STEP STATE MACHINE</p><h2>一次 Turn，为什么会调用模型多次？</h2></div><div class="counter">1 TURN<br><strong>2+ STEPS</strong></div></div>
+  <div class="lane">
+    <div class="boundary start"><small>TURN START</small><strong>领取用户输入</strong><p>followup 与 pending steering 从 inbox 进入当前轮次。</p></div><div class="arrow a1">→</div>
+    <div class="step first"><small>STEP 1</small><strong>模型决定调用工具</strong><ol><li>组装 Prompt 与 Tool Schema</li><li>LLM 流式输出</li><li>生成 tool-call</li></ol></div><div class="arrow a2">→</div>
+    <div class="tool"><small>TOOL PIPELINE</small><strong>执行并记录结果</strong><p>审批、Guard、执行、post hook，最终写入 tool/result。</p></div>
+    <div class="return"><span>工具结果回到上下文</span></div>
+    <div class="step second"><small>STEP 2</small><strong>模型基于新证据继续</strong><ol><li>从 Session 派生历史</li><li>读到工具结果</li><li>继续工具或最终回答</li></ol></div><div class="arrow a3">→</div>
+    <div class="boundary end"><small>TURN END</small><strong>不再欠下工作</strong><p>没有工具 continuation 与 steering，关闭轮次。</p></div>
+  </div>
+  <div class="foot"><div><strong>Turn</strong><span>任务交互边界，可能包含多个 Step。</span></div><div><strong>Step</strong><span>一次模型请求，加上它要求执行的工具。</span></div><div><strong>Session</strong><span>每个边界与模型可见事实都追加到日志。</span></div></div>
+</section>`
 
 const CODEX_TOOL_DESIGN_HTML = `
 <section class="notion-codex-tool-map" aria-label="Codex 通用工具设计示意">
@@ -486,4 +574,9 @@ export function renderNotionEmbeds(html: string): string {
     .replaceAll(`<p>${CLAUDE_MEMORY_INJECTION_MARKER}</p>`, CLAUDE_MEMORY_INJECTION_HTML)
     .replaceAll(`<p>${CLAUDE_MEMORY_TRUST_MARKER}</p>`, CLAUDE_MEMORY_TRUST_HTML)
     .replaceAll(`<p>${AGENT_TURN_TIMELINE_MARKER}</p>`, AGENT_TURN_TIMELINE_HTML)
+    .replaceAll(
+      `<p>${DEEPSEEK_HARNESS_ARCHITECTURE_MARKER}</p>`,
+      DEEPSEEK_HARNESS_ARCHITECTURE_HTML
+    )
+    .replaceAll(`<p>${DEEPSEEK_HARNESS_LOOP_MARKER}</p>`, DEEPSEEK_HARNESS_LOOP_HTML)
 }
