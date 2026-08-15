@@ -1,0 +1,467 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "excalidraw-cli",
+  "elements": [
+    {
+      "type": "rectangle",
+      "id": "paper",
+      "x": 0,
+      "y": 0,
+      "width": 1200,
+      "height": 900,
+      "backgroundColor": "#fffdf7",
+      "fillStyle": "solid",
+      "strokeColor": "transparent",
+      "strokeWidth": 0,
+      "roughness": 0,
+      "roundness": {
+        "type": 3
+      }
+    },
+    {
+      "type": "text",
+      "id": "title",
+      "x": 52,
+      "y": 38,
+      "text": "Session Event Log：一份事实，派生多种视图",
+      "fontSize": 34,
+      "strokeColor": "#1e293b",
+      "fontFamily": 1
+    },
+    {
+      "type": "text",
+      "id": "subtitle",
+      "x": 54,
+      "y": 86,
+      "text": "append-only 事件流是唯一事实源；对话历史不是另一份独立状态",
+      "fontSize": 19,
+      "strokeColor": "#64748b",
+      "fontFamily": 1
+    },
+    {
+      "type": "rectangle",
+      "id": "log",
+      "x": 410,
+      "y": 235,
+      "width": 380,
+      "height": 300,
+      "backgroundColor": "#ede9fe",
+      "fillStyle": "solid",
+      "strokeColor": "#7c3aed",
+      "strokeWidth": 2,
+      "boundElements": [
+        {
+          "id": "log_label",
+          "type": "text"
+        }
+      ],
+      "roundness": {
+        "type": 3
+      },
+      "roughness": 2
+    },
+    {
+      "type": "text",
+      "id": "log_label",
+      "x": 420,
+      "y": 245,
+      "width": 360,
+      "height": 280,
+      "text": "Session Event Log\n\nturn/start · step/start\nassistant/chunk\ntool/call · tool/result\nrequest/context · step/end",
+      "fontSize": 21,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "log",
+      "strokeColor": "#1e293b"
+    },
+    {
+      "type": "rectangle",
+      "id": "model",
+      "x": 55,
+      "y": 150,
+      "width": 250,
+      "height": 92,
+      "backgroundColor": "#dbeafe",
+      "fillStyle": "solid",
+      "strokeColor": "#2563eb",
+      "strokeWidth": 2,
+      "boundElements": [
+        {
+          "id": "model_label",
+          "type": "text"
+        }
+      ],
+      "roundness": {
+        "type": 3
+      },
+      "roughness": 2
+    },
+    {
+      "type": "text",
+      "id": "model_label",
+      "x": 65,
+      "y": 160,
+      "width": 230,
+      "height": 72,
+      "text": "模型上下文",
+      "fontSize": 21,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "model",
+      "strokeColor": "#1e293b"
+    },
+    {
+      "type": "rectangle",
+      "id": "ui",
+      "x": 55,
+      "y": 335,
+      "width": 250,
+      "height": 92,
+      "backgroundColor": "#cffafe",
+      "fillStyle": "solid",
+      "strokeColor": "#0891b2",
+      "strokeWidth": 2,
+      "boundElements": [
+        {
+          "id": "ui_label",
+          "type": "text"
+        }
+      ],
+      "roundness": {
+        "type": 3
+      },
+      "roughness": 2
+    },
+    {
+      "type": "text",
+      "id": "ui_label",
+      "x": 65,
+      "y": 345,
+      "width": 230,
+      "height": 72,
+      "text": "UI · Replay",
+      "fontSize": 21,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "ui",
+      "strokeColor": "#1e293b"
+    },
+    {
+      "type": "rectangle",
+      "id": "resume",
+      "x": 55,
+      "y": 520,
+      "width": 250,
+      "height": 92,
+      "backgroundColor": "#d1fae5",
+      "fillStyle": "solid",
+      "strokeColor": "#059669",
+      "strokeWidth": 2,
+      "boundElements": [
+        {
+          "id": "resume_label",
+          "type": "text"
+        }
+      ],
+      "roundness": {
+        "type": 3
+      },
+      "roughness": 2
+    },
+    {
+      "type": "text",
+      "id": "resume_label",
+      "x": 65,
+      "y": 530,
+      "width": 230,
+      "height": 72,
+      "text": "Resume · Fork",
+      "fontSize": 21,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "resume",
+      "strokeColor": "#1e293b"
+    },
+    {
+      "type": "rectangle",
+      "id": "audit",
+      "x": 895,
+      "y": 150,
+      "width": 250,
+      "height": 92,
+      "backgroundColor": "#fef3c7",
+      "fillStyle": "solid",
+      "strokeColor": "#d97706",
+      "strokeWidth": 2,
+      "boundElements": [
+        {
+          "id": "audit_label",
+          "type": "text"
+        }
+      ],
+      "roundness": {
+        "type": 3
+      },
+      "roughness": 2
+    },
+    {
+      "type": "text",
+      "id": "audit_label",
+      "x": 905,
+      "y": 160,
+      "width": 230,
+      "height": 72,
+      "text": "审计 · 查询",
+      "fontSize": 21,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "audit",
+      "strokeColor": "#1e293b"
+    },
+    {
+      "type": "rectangle",
+      "id": "compact",
+      "x": 895,
+      "y": 335,
+      "width": 250,
+      "height": 92,
+      "backgroundColor": "#ffe4e6",
+      "fillStyle": "solid",
+      "strokeColor": "#e11d48",
+      "strokeWidth": 2,
+      "boundElements": [
+        {
+          "id": "compact_label",
+          "type": "text"
+        }
+      ],
+      "roundness": {
+        "type": 3
+      },
+      "roughness": 2
+    },
+    {
+      "type": "text",
+      "id": "compact_label",
+      "x": 905,
+      "y": 345,
+      "width": 230,
+      "height": 72,
+      "text": "Compaction",
+      "fontSize": 21,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "compact",
+      "strokeColor": "#1e293b"
+    },
+    {
+      "type": "rectangle",
+      "id": "telemetry",
+      "x": 895,
+      "y": 520,
+      "width": 250,
+      "height": 92,
+      "backgroundColor": "#dbeafe",
+      "fillStyle": "solid",
+      "strokeColor": "#2563eb",
+      "strokeWidth": 2,
+      "boundElements": [
+        {
+          "id": "telemetry_label",
+          "type": "text"
+        }
+      ],
+      "roundness": {
+        "type": 3
+      },
+      "roughness": 2
+    },
+    {
+      "type": "text",
+      "id": "telemetry_label",
+      "x": 905,
+      "y": 530,
+      "width": 230,
+      "height": 72,
+      "text": "Telemetry",
+      "fontSize": 21,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "telemetry",
+      "strokeColor": "#1e293b"
+    },
+    {
+      "type": "arrow",
+      "id": "a1",
+      "x": 410,
+      "y": 290,
+      "width": -105,
+      "height": -94,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -105,
+          -94
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#2563eb",
+      "strokeWidth": 2,
+      "roughness": 2
+    },
+    {
+      "type": "arrow",
+      "id": "a2",
+      "x": 410,
+      "y": 385,
+      "width": -105,
+      "height": -4,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -105,
+          -4
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#0891b2",
+      "strokeWidth": 2,
+      "roughness": 2
+    },
+    {
+      "type": "arrow",
+      "id": "a3",
+      "x": 410,
+      "y": 480,
+      "width": -105,
+      "height": 86,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -105,
+          86
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#059669",
+      "strokeWidth": 2,
+      "roughness": 2
+    },
+    {
+      "type": "arrow",
+      "id": "a4",
+      "x": 790,
+      "y": 290,
+      "width": 105,
+      "height": -94,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          105,
+          -94
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#d97706",
+      "strokeWidth": 2,
+      "roughness": 2
+    },
+    {
+      "type": "arrow",
+      "id": "a5",
+      "x": 790,
+      "y": 385,
+      "width": 105,
+      "height": -4,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          105,
+          -4
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#e11d48",
+      "strokeWidth": 2,
+      "roughness": 2
+    },
+    {
+      "type": "arrow",
+      "id": "a6",
+      "x": 790,
+      "y": 480,
+      "width": 105,
+      "height": 86,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          105,
+          86
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#2563eb",
+      "strokeWidth": 2,
+      "roughness": 2
+    },
+    {
+      "type": "rectangle",
+      "id": "rule",
+      "x": 180,
+      "y": 705,
+      "width": 840,
+      "height": 95,
+      "backgroundColor": "#d1fae5",
+      "fillStyle": "solid",
+      "opacity": 45,
+      "strokeColor": "#059669",
+      "strokeWidth": 2,
+      "strokeStyle": "dashed",
+      "roughness": 1,
+      "roundness": {
+        "type": 3
+      }
+    },
+    {
+      "type": "text",
+      "id": "rule_t",
+      "x": 248,
+      "y": 730,
+      "text": "模型可见的事实，必须能从 Session Log 重构",
+      "fontSize": 24,
+      "strokeColor": "#059669",
+      "fontFamily": 1
+    }
+  ],
+  "appState": {
+    "viewBackgroundColor": "#ffffff",
+    "gridSize": null
+  },
+  "files": {}
+}

@@ -1,0 +1,409 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "excalidraw-cli",
+  "elements": [
+    {
+      "type": "rectangle",
+      "id": "paper",
+      "x": 0,
+      "y": 0,
+      "width": 1200,
+      "height": 900,
+      "backgroundColor": "#fffdf7",
+      "fillStyle": "solid",
+      "strokeColor": "transparent",
+      "strokeWidth": 0,
+      "roughness": 0,
+      "roundness": {
+        "type": 3
+      }
+    },
+    {
+      "type": "text",
+      "id": "title",
+      "x": 52,
+      "y": 38,
+      "text": "Agent Loop：一个 Turn 里可以有 0…N 个 Step",
+      "fontSize": 34,
+      "strokeColor": "#1e293b",
+      "fontFamily": 1
+    },
+    {
+      "type": "text",
+      "id": "subtitle",
+      "x": 54,
+      "y": 86,
+      "text": "Step = 一次模型请求 + 这次回复要求的工具调用",
+      "fontSize": 19,
+      "strokeColor": "#64748b",
+      "fontFamily": 1
+    },
+    {
+      "type": "ellipse",
+      "id": "start",
+      "x": 52,
+      "y": 245,
+      "width": 150,
+      "height": 86,
+      "backgroundColor": "#dbeafe",
+      "fillStyle": "solid",
+      "strokeColor": "#2563eb",
+      "strokeWidth": 2,
+      "boundElements": [
+        {
+          "id": "start_label",
+          "type": "text"
+        }
+      ],
+      "roundness": {
+        "type": 3
+      },
+      "roughness": 2
+    },
+    {
+      "type": "text",
+      "id": "start_label",
+      "x": 62,
+      "y": 255,
+      "width": 130,
+      "height": 66,
+      "text": "Turn\nStart",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "start",
+      "strokeColor": "#1e293b"
+    },
+    {
+      "type": "rectangle",
+      "id": "step1",
+      "x": 258,
+      "y": 205,
+      "width": 230,
+      "height": 165,
+      "backgroundColor": "#ede9fe",
+      "fillStyle": "solid",
+      "strokeColor": "#7c3aed",
+      "strokeWidth": 2,
+      "boundElements": [
+        {
+          "id": "step1_label",
+          "type": "text"
+        }
+      ],
+      "roundness": {
+        "type": 3
+      },
+      "roughness": 2
+    },
+    {
+      "type": "text",
+      "id": "step1_label",
+      "x": 268,
+      "y": 215,
+      "width": 210,
+      "height": 145,
+      "text": "Step 1\n\n组装上下文\n请求模型",
+      "fontSize": 21,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "step1",
+      "strokeColor": "#1e293b"
+    },
+    {
+      "type": "rectangle",
+      "id": "tools",
+      "x": 545,
+      "y": 205,
+      "width": 230,
+      "height": 165,
+      "backgroundColor": "#fef3c7",
+      "fillStyle": "solid",
+      "strokeColor": "#d97706",
+      "strokeWidth": 2,
+      "boundElements": [
+        {
+          "id": "tools_label",
+          "type": "text"
+        }
+      ],
+      "roundness": {
+        "type": 3
+      },
+      "roughness": 2
+    },
+    {
+      "type": "text",
+      "id": "tools_label",
+      "x": 555,
+      "y": 215,
+      "width": 210,
+      "height": 145,
+      "text": "Tool Pipeline\n\napproval\nexecute · result",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "tools",
+      "strokeColor": "#1e293b"
+    },
+    {
+      "type": "rectangle",
+      "id": "step2",
+      "x": 832,
+      "y": 205,
+      "width": 230,
+      "height": 165,
+      "backgroundColor": "#d1fae5",
+      "fillStyle": "solid",
+      "strokeColor": "#059669",
+      "strokeWidth": 2,
+      "boundElements": [
+        {
+          "id": "step2_label",
+          "type": "text"
+        }
+      ],
+      "roundness": {
+        "type": 3
+      },
+      "roughness": 2
+    },
+    {
+      "type": "text",
+      "id": "step2_label",
+      "x": 842,
+      "y": 215,
+      "width": 210,
+      "height": 145,
+      "text": "Step 2\n\n带工具结果\n再次请求模型",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "step2",
+      "strokeColor": "#1e293b"
+    },
+    {
+      "type": "arrow",
+      "id": "a1",
+      "x": 202,
+      "y": 288,
+      "width": 56,
+      "height": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          56,
+          0
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#2563eb",
+      "strokeWidth": 2,
+      "roughness": 2
+    },
+    {
+      "type": "arrow",
+      "id": "a2",
+      "x": 488,
+      "y": 288,
+      "width": 57,
+      "height": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          57,
+          0
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#7c3aed",
+      "strokeWidth": 2,
+      "roughness": 2
+    },
+    {
+      "type": "arrow",
+      "id": "a3",
+      "x": 775,
+      "y": 288,
+      "width": 57,
+      "height": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          57,
+          0
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#d97706",
+      "strokeWidth": 2,
+      "roughness": 2
+    },
+    {
+      "type": "ellipse",
+      "id": "end",
+      "x": 508,
+      "y": 575,
+      "width": 185,
+      "height": 94,
+      "backgroundColor": "#d1fae5",
+      "fillStyle": "solid",
+      "strokeColor": "#059669",
+      "strokeWidth": 2,
+      "boundElements": [
+        {
+          "id": "end_label",
+          "type": "text"
+        }
+      ],
+      "roundness": {
+        "type": 3
+      },
+      "roughness": 2
+    },
+    {
+      "type": "text",
+      "id": "end_label",
+      "x": 518,
+      "y": 585,
+      "width": 165,
+      "height": 74,
+      "text": "Turn End",
+      "fontSize": 22,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "end",
+      "strokeColor": "#1e293b"
+    },
+    {
+      "type": "arrow",
+      "id": "a4",
+      "x": 947,
+      "y": 370,
+      "width": -254,
+      "height": 252,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -254,
+          252
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#059669",
+      "strokeWidth": 2,
+      "roughness": 2
+    },
+    {
+      "type": "text",
+      "id": "end_t",
+      "x": 790,
+      "y": 582,
+      "text": "没有欠账",
+      "fontSize": 18,
+      "strokeColor": "#059669",
+      "fontFamily": 1
+    },
+    {
+      "type": "arrow",
+      "id": "feedback",
+      "x": 947,
+      "y": 370,
+      "width": 289,
+      "height": 125,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          125
+        ],
+        [
+          -289,
+          125
+        ],
+        [
+          -289,
+          0
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#e11d48",
+      "strokeWidth": 2,
+      "strokeStyle": "dashed",
+      "roughness": 2
+    },
+    {
+      "type": "text",
+      "id": "feedback_t",
+      "x": 708,
+      "y": 518,
+      "text": "若又产生工具调用：继续下一个 Step",
+      "fontSize": 18,
+      "strokeColor": "#e11d48",
+      "fontFamily": 1
+    },
+    {
+      "type": "rectangle",
+      "id": "boundary",
+      "x": 80,
+      "y": 720,
+      "width": 1040,
+      "height": 92,
+      "backgroundColor": "#cffafe",
+      "fillStyle": "solid",
+      "strokeColor": "#0891b2",
+      "strokeWidth": 2,
+      "boundElements": [
+        {
+          "id": "boundary_label",
+          "type": "text"
+        }
+      ],
+      "roundness": {
+        "type": 3
+      },
+      "roughness": 2
+    },
+    {
+      "type": "text",
+      "id": "boundary_label",
+      "x": 90,
+      "y": 730,
+      "width": 1020,
+      "height": 72,
+      "text": "取消、错误恢复和 UI 时间线都落在明确边界：Turn / Step / Tool Call",
+      "fontSize": 22,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "boundary",
+      "strokeColor": "#1e293b"
+    }
+  ],
+  "appState": {
+    "viewBackgroundColor": "#ffffff",
+    "gridSize": null
+  },
+  "files": {}
+}

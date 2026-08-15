@@ -1,0 +1,290 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "excalidraw-cli",
+  "elements": [
+    {
+      "type": "rectangle",
+      "id": "paper",
+      "x": 0,
+      "y": 0,
+      "width": 1200,
+      "height": 900,
+      "backgroundColor": "#fffdf7",
+      "fillStyle": "solid",
+      "strokeColor": "transparent",
+      "strokeWidth": 0,
+      "roughness": 0,
+      "roundness": {
+        "type": 3
+      }
+    },
+    {
+      "type": "text",
+      "id": "title",
+      "x": 52,
+      "y": 38,
+      "text": "DeepSeek Harness：四层可组合运行底座",
+      "fontSize": 34,
+      "strokeColor": "#1e293b",
+      "fontFamily": 1
+    },
+    {
+      "type": "text",
+      "id": "subtitle",
+      "x": 54,
+      "y": 86,
+      "text": "不是一个“大核心”，而是一组可替换、可撤销的能力拼装",
+      "fontSize": 19,
+      "strokeColor": "#64748b",
+      "fontFamily": 1
+    },
+    {
+      "type": "rectangle",
+      "id": "l1",
+      "x": 90,
+      "y": 145,
+      "width": 1020,
+      "height": 112,
+      "backgroundColor": "#dbeafe",
+      "fillStyle": "solid",
+      "strokeColor": "#2563eb",
+      "strokeWidth": 2,
+      "boundElements": [
+        {
+          "id": "l1_label",
+          "type": "text"
+        }
+      ],
+      "roundness": {
+        "type": 3
+      },
+      "roughness": 2
+    },
+    {
+      "type": "text",
+      "id": "l1_label",
+      "x": 100,
+      "y": 155,
+      "width": 1000,
+      "height": 92,
+      "text": "01  组合层   Profile · Bundle · Patch",
+      "fontSize": 24,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "l1",
+      "strokeColor": "#1e293b"
+    },
+    {
+      "type": "rectangle",
+      "id": "l2",
+      "x": 90,
+      "y": 290,
+      "width": 1020,
+      "height": 112,
+      "backgroundColor": "#ede9fe",
+      "fillStyle": "solid",
+      "strokeColor": "#7c3aed",
+      "strokeWidth": 2,
+      "boundElements": [
+        {
+          "id": "l2_label",
+          "type": "text"
+        }
+      ],
+      "roundness": {
+        "type": 3
+      },
+      "roughness": 2
+    },
+    {
+      "type": "text",
+      "id": "l2_label",
+      "x": 100,
+      "y": 300,
+      "width": 1000,
+      "height": 92,
+      "text": "02  Cordis 微内核   Context · Service · Event · Effect",
+      "fontSize": 24,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "l2",
+      "strokeColor": "#1e293b"
+    },
+    {
+      "type": "rectangle",
+      "id": "l3",
+      "x": 90,
+      "y": 435,
+      "width": 1020,
+      "height": 112,
+      "backgroundColor": "#d1fae5",
+      "fillStyle": "solid",
+      "strokeColor": "#059669",
+      "strokeWidth": 2,
+      "boundElements": [
+        {
+          "id": "l3_label",
+          "type": "text"
+        }
+      ],
+      "roundness": {
+        "type": 3
+      },
+      "roughness": 2
+    },
+    {
+      "type": "text",
+      "id": "l3_label",
+      "x": 100,
+      "y": 445,
+      "width": 1000,
+      "height": 92,
+      "text": "03  Agent 主干   Session → Prompt → LLM → Tools → Loop",
+      "fontSize": 24,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "l3",
+      "strokeColor": "#1e293b"
+    },
+    {
+      "type": "rectangle",
+      "id": "l4",
+      "x": 90,
+      "y": 580,
+      "width": 1020,
+      "height": 150,
+      "backgroundColor": "#fef3c7",
+      "fillStyle": "solid",
+      "strokeColor": "#d97706",
+      "strokeWidth": 2,
+      "boundElements": [
+        {
+          "id": "l4_label",
+          "type": "text"
+        }
+      ],
+      "roundness": {
+        "type": 3
+      },
+      "roughness": 2
+    },
+    {
+      "type": "text",
+      "id": "l4_label",
+      "x": 100,
+      "y": 590,
+      "width": 1000,
+      "height": 130,
+      "text": "04  能力插件\nFS · Shell · Sandbox · Skills · Subagent · MCP · Telemetry",
+      "fontSize": 23,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "l4",
+      "strokeColor": "#1e293b"
+    },
+    {
+      "type": "arrow",
+      "id": "a12",
+      "x": 600,
+      "y": 257,
+      "width": 0,
+      "height": 33,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          33
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#2563eb",
+      "strokeWidth": 2,
+      "roughness": 2
+    },
+    {
+      "type": "arrow",
+      "id": "a23",
+      "x": 600,
+      "y": 402,
+      "width": 0,
+      "height": 33,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          33
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#7c3aed",
+      "strokeWidth": 2,
+      "roughness": 2
+    },
+    {
+      "type": "arrow",
+      "id": "a34",
+      "x": 600,
+      "y": 547,
+      "width": 0,
+      "height": 33,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          33
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#059669",
+      "strokeWidth": 2,
+      "roughness": 2
+    },
+    {
+      "type": "rectangle",
+      "id": "rule",
+      "x": 205,
+      "y": 776,
+      "width": 790,
+      "height": 72,
+      "backgroundColor": "#ffe4e6",
+      "fillStyle": "solid",
+      "opacity": 45,
+      "strokeColor": "#e11d48",
+      "strokeWidth": 2,
+      "strokeStyle": "dashed",
+      "roughness": 1,
+      "roundness": {
+        "type": 3
+      }
+    },
+    {
+      "type": "text",
+      "id": "rule_t",
+      "x": 256,
+      "y": 796,
+      "text": "Agent Loop 只依赖稳定 Service / Event，不认识具体实现",
+      "fontSize": 21,
+      "strokeColor": "#e11d48",
+      "fontFamily": 1
+    }
+  ],
+  "appState": {
+    "viewBackgroundColor": "#ffffff",
+    "gridSize": null
+  },
+  "files": {}
+}
