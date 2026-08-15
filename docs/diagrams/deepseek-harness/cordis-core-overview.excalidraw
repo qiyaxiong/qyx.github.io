@@ -1,0 +1,640 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "excalidraw-cli",
+  "elements": [
+    {
+      "type": "rectangle",
+      "id": "paper",
+      "x": 0,
+      "y": 0,
+      "width": 1200,
+      "height": 900,
+      "backgroundColor": "#fffdf7",
+      "fillStyle": "solid",
+      "strokeColor": "transparent",
+      "strokeWidth": 0,
+      "roughness": 0,
+      "roundness": {
+        "type": 3
+      }
+    },
+    {
+      "type": "text",
+      "id": "title",
+      "x": 52,
+      "y": 38,
+      "text": "Cordis 到底做什么？",
+      "fontSize": 36,
+      "strokeColor": "#1e293b",
+      "fontFamily": 1
+    },
+    {
+      "type": "text",
+      "id": "subtitle",
+      "x": 54,
+      "y": 88,
+      "text": "把独立插件组织成可组合、可撤销、可热重载的系统",
+      "fontSize": 20,
+      "strokeColor": "#64748b",
+      "fontFamily": 1
+    },
+    {
+      "type": "rectangle",
+      "id": "context",
+      "x": 55,
+      "y": 175,
+      "width": 270,
+      "height": 145,
+      "backgroundColor": "#dbeafe",
+      "fillStyle": "solid",
+      "strokeColor": "#2563eb",
+      "strokeWidth": 2,
+      "boundElements": [
+        {
+          "id": "context_label",
+          "type": "text"
+        }
+      ],
+      "roundness": {
+        "type": 3
+      },
+      "roughness": 2
+    },
+    {
+      "type": "text",
+      "id": "context_label",
+      "x": 65,
+      "y": 185,
+      "width": 250,
+      "height": 125,
+      "text": "Context\n\n作用域 · 共享环境",
+      "fontSize": 21,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "context",
+      "strokeColor": "#1e293b"
+    },
+    {
+      "type": "rectangle",
+      "id": "service",
+      "x": 875,
+      "y": 175,
+      "width": 270,
+      "height": 145,
+      "backgroundColor": "#ede9fe",
+      "fillStyle": "solid",
+      "strokeColor": "#7c3aed",
+      "strokeWidth": 2,
+      "boundElements": [
+        {
+          "id": "service_label",
+          "type": "text"
+        }
+      ],
+      "roundness": {
+        "type": 3
+      },
+      "roughness": 2
+    },
+    {
+      "type": "text",
+      "id": "service_label",
+      "x": 885,
+      "y": 185,
+      "width": 250,
+      "height": 125,
+      "text": "Service\n\n能力供给 · 依赖注入",
+      "fontSize": 21,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "service",
+      "strokeColor": "#1e293b"
+    },
+    {
+      "type": "rectangle",
+      "id": "event",
+      "x": 55,
+      "y": 385,
+      "width": 270,
+      "height": 145,
+      "backgroundColor": "#cffafe",
+      "fillStyle": "solid",
+      "strokeColor": "#0891b2",
+      "strokeWidth": 2,
+      "boundElements": [
+        {
+          "id": "event_label",
+          "type": "text"
+        }
+      ],
+      "roundness": {
+        "type": 3
+      },
+      "roughness": 2
+    },
+    {
+      "type": "text",
+      "id": "event_label",
+      "x": 65,
+      "y": 395,
+      "width": 250,
+      "height": 125,
+      "text": "Event\n\n监听 · 变换 · 门控",
+      "fontSize": 21,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "event",
+      "strokeColor": "#1e293b"
+    },
+    {
+      "type": "rectangle",
+      "id": "effect",
+      "x": 875,
+      "y": 385,
+      "width": 270,
+      "height": 145,
+      "backgroundColor": "#ffe4e6",
+      "fillStyle": "solid",
+      "strokeColor": "#e11d48",
+      "strokeWidth": 2,
+      "boundElements": [
+        {
+          "id": "effect_label",
+          "type": "text"
+        }
+      ],
+      "roundness": {
+        "type": 3
+      },
+      "roughness": 2
+    },
+    {
+      "type": "text",
+      "id": "effect_label",
+      "x": 885,
+      "y": 395,
+      "width": 250,
+      "height": 125,
+      "text": "Effect\n\n注册可逆 · 自动清理",
+      "fontSize": 21,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "effect",
+      "strokeColor": "#1e293b"
+    },
+    {
+      "type": "rectangle",
+      "id": "cordis",
+      "x": 410,
+      "y": 225,
+      "width": 380,
+      "height": 255,
+      "backgroundColor": "#d1fae5",
+      "fillStyle": "solid",
+      "strokeColor": "#059669",
+      "strokeWidth": 2,
+      "boundElements": [
+        {
+          "id": "cordis_label",
+          "type": "text"
+        }
+      ],
+      "roundness": {
+        "type": 3
+      },
+      "roughness": 2
+    },
+    {
+      "type": "text",
+      "id": "cordis_label",
+      "x": 420,
+      "y": 235,
+      "width": 360,
+      "height": 235,
+      "text": "CORDIS\n\n插件微内核\nPlugin Microkernel",
+      "fontSize": 27,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "cordis",
+      "strokeColor": "#1e293b"
+    },
+    {
+      "type": "arrow",
+      "id": "c1",
+      "x": 325,
+      "y": 247,
+      "width": 85,
+      "height": 43,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          85,
+          43
+        ]
+      ],
+      "startArrowhead": "arrow",
+      "endArrowhead": "arrow",
+      "strokeColor": "#2563eb",
+      "strokeWidth": 2,
+      "roughness": 2
+    },
+    {
+      "type": "arrow",
+      "id": "c2",
+      "x": 790,
+      "y": 290,
+      "width": 85,
+      "height": -43,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          85,
+          -43
+        ]
+      ],
+      "startArrowhead": "arrow",
+      "endArrowhead": "arrow",
+      "strokeColor": "#7c3aed",
+      "strokeWidth": 2,
+      "roughness": 2
+    },
+    {
+      "type": "arrow",
+      "id": "c3",
+      "x": 325,
+      "y": 458,
+      "width": 85,
+      "height": -43,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          85,
+          -43
+        ]
+      ],
+      "startArrowhead": "arrow",
+      "endArrowhead": "arrow",
+      "strokeColor": "#0891b2",
+      "strokeWidth": 2,
+      "roughness": 2
+    },
+    {
+      "type": "arrow",
+      "id": "c4",
+      "x": 790,
+      "y": 415,
+      "width": 85,
+      "height": 43,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          85,
+          43
+        ]
+      ],
+      "startArrowhead": "arrow",
+      "endArrowhead": "arrow",
+      "strokeColor": "#e11d48",
+      "strokeWidth": 2,
+      "roughness": 2
+    },
+    {
+      "type": "text",
+      "id": "life_title",
+      "x": 54,
+      "y": 585,
+      "text": "插件生命周期也归它管理",
+      "fontSize": 25,
+      "strokeColor": "#1e293b",
+      "fontFamily": 1
+    },
+    {
+      "type": "rectangle",
+      "id": "apply",
+      "x": 65,
+      "y": 650,
+      "width": 190,
+      "height": 88,
+      "backgroundColor": "#dbeafe",
+      "fillStyle": "solid",
+      "strokeColor": "#2563eb",
+      "strokeWidth": 2,
+      "boundElements": [
+        {
+          "id": "apply_label",
+          "type": "text"
+        }
+      ],
+      "roundness": {
+        "type": 3
+      },
+      "roughness": 2
+    },
+    {
+      "type": "text",
+      "id": "apply_label",
+      "x": 75,
+      "y": 660,
+      "width": 170,
+      "height": 68,
+      "text": "apply()",
+      "fontSize": 22,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "apply",
+      "strokeColor": "#1e293b"
+    },
+    {
+      "type": "rectangle",
+      "id": "active",
+      "x": 350,
+      "y": 650,
+      "width": 210,
+      "height": 88,
+      "backgroundColor": "#d1fae5",
+      "fillStyle": "solid",
+      "strokeColor": "#059669",
+      "strokeWidth": 2,
+      "boundElements": [
+        {
+          "id": "active_label",
+          "type": "text"
+        }
+      ],
+      "roundness": {
+        "type": 3
+      },
+      "roughness": 2
+    },
+    {
+      "type": "text",
+      "id": "active_label",
+      "x": 360,
+      "y": 660,
+      "width": 190,
+      "height": 68,
+      "text": "Active Scope",
+      "fontSize": 22,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "active",
+      "strokeColor": "#1e293b"
+    },
+    {
+      "type": "rectangle",
+      "id": "dispose",
+      "x": 655,
+      "y": 650,
+      "width": 190,
+      "height": 88,
+      "backgroundColor": "#ffe4e6",
+      "fillStyle": "solid",
+      "strokeColor": "#e11d48",
+      "strokeWidth": 2,
+      "boundElements": [
+        {
+          "id": "dispose_label",
+          "type": "text"
+        }
+      ],
+      "roundness": {
+        "type": 3
+      },
+      "roughness": 2
+    },
+    {
+      "type": "text",
+      "id": "dispose_label",
+      "x": 665,
+      "y": 660,
+      "width": 170,
+      "height": 68,
+      "text": "dispose()",
+      "fontSize": 22,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "dispose",
+      "strokeColor": "#1e293b"
+    },
+    {
+      "type": "rectangle",
+      "id": "rollback",
+      "x": 940,
+      "y": 630,
+      "width": 205,
+      "height": 128,
+      "backgroundColor": "#fef3c7",
+      "fillStyle": "solid",
+      "strokeColor": "#d97706",
+      "strokeWidth": 2,
+      "boundElements": [
+        {
+          "id": "rollback_label",
+          "type": "text"
+        }
+      ],
+      "roundness": {
+        "type": 3
+      },
+      "roughness": 2
+    },
+    {
+      "type": "text",
+      "id": "rollback_label",
+      "x": 950,
+      "y": 640,
+      "width": 185,
+      "height": 108,
+      "text": "撤销全部 Effect\n再加载新实例",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "rollback",
+      "strokeColor": "#1e293b"
+    },
+    {
+      "type": "arrow",
+      "id": "l1",
+      "x": 255,
+      "y": 694,
+      "width": 95,
+      "height": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          95,
+          0
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#2563eb",
+      "strokeWidth": 2,
+      "boundElements": [
+        {
+          "id": "l1_label",
+          "type": "text"
+        }
+      ],
+      "roughness": 2
+    },
+    {
+      "type": "text",
+      "id": "l1_label",
+      "x": 265,
+      "y": 704,
+      "width": 75,
+      "height": 40,
+      "text": "注册",
+      "fontSize": 16,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "l1",
+      "strokeColor": "#2563eb"
+    },
+    {
+      "type": "arrow",
+      "id": "l2",
+      "x": 560,
+      "y": 694,
+      "width": 95,
+      "height": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          95,
+          0
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#059669",
+      "strokeWidth": 2,
+      "boundElements": [
+        {
+          "id": "l2_label",
+          "type": "text"
+        }
+      ],
+      "roughness": 2
+    },
+    {
+      "type": "text",
+      "id": "l2_label",
+      "x": 570,
+      "y": 704,
+      "width": 75,
+      "height": 40,
+      "text": "卸载 / HMR",
+      "fontSize": 16,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "l2",
+      "strokeColor": "#059669"
+    },
+    {
+      "type": "arrow",
+      "id": "l3",
+      "x": 845,
+      "y": 694,
+      "width": 95,
+      "height": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          95,
+          0
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#e11d48",
+      "strokeWidth": 2,
+      "boundElements": [
+        {
+          "id": "l3_label",
+          "type": "text"
+        }
+      ],
+      "roughness": 2
+    },
+    {
+      "type": "text",
+      "id": "l3_label",
+      "x": 855,
+      "y": 704,
+      "width": 75,
+      "height": 40,
+      "text": "自动清理",
+      "fontSize": 16,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "l3",
+      "strokeColor": "#e11d48"
+    },
+    {
+      "type": "rectangle",
+      "id": "boundary",
+      "x": 135,
+      "y": 800,
+      "width": 930,
+      "height": 72,
+      "backgroundColor": "#ede9fe",
+      "fillStyle": "solid",
+      "opacity": 45,
+      "strokeColor": "#7c3aed",
+      "strokeWidth": 2,
+      "strokeStyle": "dashed",
+      "roughness": 1,
+      "roundness": {
+        "type": 3
+      }
+    },
+    {
+      "type": "text",
+      "id": "boundary_t",
+      "x": 190,
+      "y": 820,
+      "text": "Cordis 不负责推理；Agent Loop 是它托管的一项可替换能力",
+      "fontSize": 21,
+      "strokeColor": "#7c3aed",
+      "fontFamily": 1
+    }
+  ],
+  "appState": {
+    "viewBackgroundColor": "#ffffff",
+    "gridSize": null
+  },
+  "files": {}
+}
