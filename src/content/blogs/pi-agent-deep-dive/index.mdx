@@ -1,8 +1,8 @@
 ---
-title: Pi Agent 深度解析：为什么一个极简 Coding Agent 会突然流行
+title: Pi Agent 深度解析：从极简 Pi 到 oh-my-pi、DSH 与 Python 实现
 publishDate: 2026-07-18
-updatedDate: 2026-07-20
-description: 从四层架构、Agent Loop、工具调用、会话树、上下文压缩、扩展系统到安全边界，完整拆解 Pi Agent 的设计与二次开发方法。
+updatedDate: 2026-08-15
+description: 从四层架构、Agent Loop、工具调用、会话树、上下文压缩与扩展系统出发，对比原始 Pi、oh-my-pi、DeepSeek Harness 与 Python pi-agent-py 的不同路线。
 category: agent-engineering
 tags:
   - pi-agent
@@ -11,6 +11,9 @@ tags:
   - agent-loop
   - typescript
   - open-source
+  - oh-my-pi
+  - deepseek-harness
+  - pi-agent-py
 language: zh
 ---
 
@@ -20,7 +23,9 @@ import AgentTurnTimeline from '@/components/blog/AgentTurnTimeline.astro'
 
 但 Pi 真正吸引开发者的地方，不是它又包装了一个大模型，而是它公开了一套很薄、很清楚、很容易替换的 Agent Harness。模型、循环、工具、会话、终端界面与扩展机制被拆成独立层，开发者可以只拿其中一层，也可以把整套系统改造成自己的产品。
 
-这篇文章分析的是当前官方项目 [earendil-works/pi](https://github.com/earendil-works/pi)。它原来广为人知的地址是 `badlogic/pi-mono`，旧地址如今会重定向到新仓库。本文以 2026 年 7 月的官方代码和文档为准，安装包名也使用新的 `@earendil-works/*` 命名空间。
+这篇文章先分析当前官方项目 [earendil-works/pi](https://github.com/earendil-works/pi)，再观察它演化出的 [oh-my-pi](https://github.com/can1357/oh-my-pi)，并与 DeepSeek Harness（下文简称 DSH）和 Python 项目 [pi-agent-py](https://github.com/qiyaxiong/pi-agent-py) 对比。
+
+Pi 原来广为人知的地址是 `badlogic/pi-mono`，旧地址如今会重定向到新仓库。基础部分以 2026 年 7 月的官方代码和文档为准；四方对比更新于 2026 年 8 月，重点是架构取舍，不把短期功能数量当作稳定协议。
 
 2026 年 7 月更新时，本文又对照了 B 站中配视频[《PI 架构详解：Agent 循环、工具、TUI》](https://www.bilibili.com/video/BV1fZ7p6CEQH/)及原作者 Alejandro AO 的[配套文章](https://alejandro-ao.com/pi-architecture/)。视频擅长用一次运行过程串起各模块，本文则补充当前源码、插件加载、会话树与安全边界。
 
@@ -442,7 +447,106 @@ JSON Mode 把事件作为 JSON Lines 输出，方便非 TypeScript 程序消费�
 
 这组接口形成一条渐进路线：先在终端验证工作流，再用 Print 接入脚本，用 RPC 接入异构系统，最后用 SDK 构建深度定制产品。
 
-## 二十一、Pi 明确没有内置沙箱
+## 二十一、从 Pi 到 oh-my-pi、DSH 与 Python pi-agent-py
+
+理解原始 Pi 后，再看 oh-my-pi、DeepSeek Harness 与 pi-agent-py，会发现它们并不是“谁功能更多”的简单竞争。四者从相近的 Agent 问题出发，却选择了不同的产品边界。
+
+### 1. 原始 Pi：先把最小闭环做清楚
+
+Pi 的长处是薄。`pi-ai` 统一模型，`pi-agent-core` 执行循环，`pi-coding-agent` 提供代码工具与会话，`pi-tui` 消费事件。每层都能单独理解和替换。
+
+它更像一块透明底板：提供足够完整的 Agent Loop、Session 与 Extension，却不试图把 IDE、调试器、后台管理和远程服务全部纳入核心。
+
+这使 Pi 很适合学习、嵌入和二次开发。代价是团队若要得到完整产品，仍需自行补齐隔离、审批、统计、部署和更丰富的工程工具。
+
+### 2. oh-my-pi：把 Pi 推向完整 Coding Agent
+
+[oh-my-pi](https://github.com/can1357/oh-my-pi)（命令名 `omp`）沿着 Pi 的路线继续产品化。它的定位不是通用插件微内核，而是把 IDE、运行时和协作能力直接接入 Coding Agent。
+
+它采用 TypeScript、Bun 与 Rust 原生模块组合。仓库当前提供文件与 Shell、持久 Python/Bun Eval、LSP、DAP、浏览器、桌面操作、代码审查、子 Agent、Agent Hub 与 MCP 等能力。
+
+这里最值得关注的不是工具数量，而是工具共享同一套 Session、事件、权限和输出协议。模型不用在多个独立应用之间切换，UI 也能把读文件、调试、子任务和审查串成连续时间线。
+
+oh-my-pi 还使用 Hashline 一类带内容锚点的编辑方式。编辑目标不只依赖脆弱的行号；文件变化后，运行时可以更早识别上下文不再匹配，降低把补丁写到错误位置的概率。
+
+仓库把基础循环与产品层分开：`packages/agent` 负责 Agent Loop、追加式上下文、Compaction、Replay 与 Telemetry；`packages/coding-agent` 负责工具、命令、扩展、会话和交互。
+
+```text
+packages/agent
+  Loop · Context · Compaction · Replay
+             ↓
+packages/coding-agent
+  Tools · Extensions · Commands · Sessions
+             ↓
+omp product
+  TUI · LSP · DAP · Browser · Subagents · Native Runtime
+```
+
+### 3. oh-my-pi 的插件注册比原始 Pi 多了什么
+
+oh-my-pi 的扩展仍是 TypeScript/JavaScript 工厂，但 `ExtensionAPI` 面向的是完整 Coding Agent。插件可以注册 Tool、Command、Shortcut、Flag、Provider 与 Renderer，也可以监听 Session、Turn、Message、Tool、Compaction 和 Retry 事件。
+
+```ts
+export default function (pi: ExtensionAPI) {
+  pi.on('tool_call', async (event) => {
+    if (event.toolName === 'bash' && isDenied(event.input)) {
+      return { block: true, reason: 'policy denied' }
+    }
+  })
+
+  pi.registerTool(myDomainTool)
+  pi.registerCommand('domain-status', statusCommand)
+}
+```
+
+注册阶段与运行阶段被分开。扩展加载时声明能力，运行时初始化后才取得 Session 和 UI 上下文。受管定时器会随 Session 关闭而清理，单个扩展失败也会进入独立错误通道。
+
+扩展可来自项目 `.omp/extensions/`、用户目录、已安装包或显式路径。加载器负责路径规范化、去重和错误诊断。但扩展仍在宿主进程内执行，因此它是受信任代码，不等于沙箱内的普通 Tool Call。
+
+### 4. DSH：把插件机制继续下沉为运行底座
+
+[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（DSH）关注的不是“如何把 Coding 工具做得更多”，而是“如何让整个 Agent 产品都可以组合”。它以 Cordis 管理 Context、Service、Event 与可逆 Effect。
+
+在 DSH 中，模型适配器、工具注册表、Session Log 和 Agent Loop 都可以是插件。Profile、Bundle 与 Patch 决定一个具体产品装入哪些能力；插件卸载时，相关工具、监听器与服务会随生命周期撤销。
+
+这比 Pi/oh-my-pi 的 Extension API 更接近通用微内核。它带来更强的替换性、依赖声明与热重载语义，但概念和配置成本也更高。只做一个轻量 Agent 时，DSH 可能显得过重。
+
+DSH 的另一项核心是事件溯源 Session。Turn、Step、模型块、Tool Call、Tool Result 与请求上下文都写入追加式事件流，Replay、Resume、Fork、Compaction 和 UI 时间线从同一事实源派生。
+
+### 5. Python pi-agent-py：把重点放在独立后端服务
+
+[pi-agent-py](https://github.com/qiyaxiong/pi-agent-py) 是本文作者正在实现的 Python-first Agent 后端。它不是 Pi 或 DSH 的 Python 移植，而是借鉴两者边界后，面向 Web、Live2D、多 Channel 和后台管理重新组装。
+
+主体划分为 `pi_ai`、`pi_agent_core`、`pi_agent_runtime` 与 `pi_agent_server`。Core 只维护 Agent、Run、Turn、Tool 与 Event；Runtime 负责 Extension、Capability、Hook、Resource Loader 和 Session；Server 提供 FastAPI、SSE、SQLite 统计与运维接口。
+
+```text
+pi_agent_server   API · SSE · SQLite · Admin
+        ↓
+pi_agent_runtime  Extensions · Hooks · Session · Loader
+        ↓
+pi_agent_core     Agent · Run · Turn · Tool · Event
+        ↓
+pi_ai             Model · Message · Provider · Stream
+```
+
+它放弃把 TUI 作为主体，原因是目标本来就是可供博客、Live2D 和其他 Channel 共用的服务。JSONL 保存可恢复的会话事实，SQLite 保存统计与管理投影，两类存储承担不同职责。
+
+相较 DSH，它的 Core 边界更固定，Python 类型与后端部署更直接；相较 oh-my-pi，它没有追求庞大的本地 Coding 工具面。当前最值得继续补强的是插件注册所有权与可逆 Effect，让 Tool、Hook、订阅和后台任务都能随 Extension Scope 一次性撤销。
+
+### 6. 四条路线放在一起看
+
+| 项目 | 核心定位 | 主要技术 | 扩展中心 | Session / 运行形态 | 更适合 |
+|---|---|---|---|---|---|
+| 原始 Pi | 极简、透明的 Agent Harness | TypeScript / Node | Agent Extension API | JSONL、TUI、Print、RPC、SDK | 学习 Loop、嵌入、自定义终端 Agent |
+| oh-my-pi | 产品化 Coding Agent | TypeScript / Bun + Rust | Coding Agent ExtensionAPI | TUI、ACP、丰富本地工具与子 Agent | 直接完成复杂软件工程任务 |
+| DSH | 可组合 Agent 运行底座 | TypeScript + Cordis | Service、Event、Effect、Profile | Web、Headless、Python SDK、事件溯源 | 构建可替换、可回放的 Agent 产品族 |
+| pi-agent-py | Python-first 独立后端 | Python + FastAPI + SQLite | Capability、Hook、ExtensionHost | API、SSE、JSONL Session、管理后台 | 博客、Live2D、多 Channel 与服务化集成 |
+
+不能把这张表理解成成熟度排名。原始 Pi 有意保持薄；oh-my-pi 把 Coding 工作面做深；DSH 把“Everything is a Plugin”推进到运行时；pi-agent-py 则选择稳定 Python Core 与独立控制面。
+
+如果要继续扩展 pi-agent-py，合理做法不是复制 oh-my-pi 的 TUI，也不是完整重写 Cordis，而是分别吸收三者最强的部分：Pi 的清晰分层、oh-my-pi 的统一扩展体验、DSH 的依赖与可逆生命周期。
+
+## 二十二、Pi 明确没有内置沙箱
 
 这是整篇文章最需要强调的事实。Pi 官方安全文档明确说明：它是本地 Coding Agent，默认继承启动它的用户账户权限，没有内置文件系统、进程、网络或凭证隔离。
 
@@ -458,7 +562,7 @@ Project Trust 只决定是否加载项目中的 `.pi` 配置、扩展、技能�
 
 Pi 的立场并不是“安全不重要”，而是承认局部进程内限制很容易制造错误安全感。真正隔离需要操作系统和虚拟化边界。这种诚实值得肯定，但用户必须把责任落实到部署设计中。
 
-## 二十二、三种典型隔离方式
+## 二十三、三种典型隔离方式
 
 第一种方式是把整个 Pi 放进 Docker。模型认证、会话、工具和项目都位于容器中，配置直观，适合 CI、临时任务和不可信仓库。
 
@@ -470,7 +574,7 @@ Pi 的立场并不是“安全不重要”，而是承认局部进程内限制�
 
 不论选择哪种方式，都应遵循最小权限：只挂载一个工作区，默认不暴露宿主凭证，网络按需开放，变更复制回可信环境前检查 Diff，并为长任务设置资源上限。
 
-## 二十三、安装与第一次运行
+## 二十四、安装与第一次运行
 
 按照当前官方文档，npm 安装命令是：
 
@@ -492,7 +596,7 @@ pi
 
 第一次任务不要直接让它重构整个仓库。更好的验证是要求它读取一个小模块、解释调用关系、修改一个可测行为并运行目标测试。这样可以同时确认模型、工具、上下文和项目命令是否正常。
 
-## 二十四、全局配置与项目配置怎样分工
+## 二十五、全局配置与项目配置怎样分工
 
 全局设置位于 `~/.pi/agent/settings.json`，适合个人的模型列表、主题、通用扩展和默认行为。项目设置位于 `.pi/settings.json`，覆盖全局值，适合团队共享的包与资源。
 
@@ -504,7 +608,7 @@ pi
 
 一个好的团队配置会回答：Agent 可以访问哪些工具，必须运行哪些验证，危险动作由谁批准，会话保存在哪里，第三方扩展如何审计，以及无人值守任务运行在哪个隔离环境。
 
-## 二十五、怎样用 Pi 组装自己的 Agent
+## 二十六、怎样用 Pi 组装自己的 Agent
 
 构建领域 Agent 时，不要一开始复制整个 Coding Agent。先画出最小闭环：用户提供什么目标，模型需要哪些证据，可以执行哪些动作，结果怎样验证，失败后怎样恢复。
 
@@ -516,7 +620,7 @@ pi
 
 最后才选择界面。内部工具可以沿用 TUI，面向业务用户可以用 SDK 构建 Web UI，跨语言产品可以通过 RPC 控制。先稳定 Agent 语义，再做漂亮界面，返工会少得多。
 
-## 二十六、Pi 与 Claude Code、Codex 的差异应该怎样看
+## 二十七、Pi 与 Claude Code、Codex 的差异应该怎样看
 
 比较 Coding Agent 时，最容易犯的错误是列功能表，然后用勾选数量决定优劣。不同项目的产品目标并不相同。
 
@@ -530,7 +634,7 @@ OpenCode 等开源 Coding Agent 也提供多模型与终端体验。选择时应
 
 如果目标是今天就用一个成熟工具完成工作，产品化 Agent 可能更省事；如果目标是研究 Agent Loop、做内部工具或控制每个运行层，Pi 的透明度更有价值。
 
-## 二十七、Pi 最强的地方
+## 二十八、Pi 最强的地方
 
 第一是结构清楚。AI Provider、Agent Core、Coding 能力和 TUI 被拆开，源码阅读有明确入口，开发者不用先穿过一整套业务平台。
 
@@ -542,7 +646,7 @@ OpenCode 等开源 Coding Agent 也提供多模型与终端体验。选择时应
 
 第五是适合学习。你可以从几百行关键路径理解一个现代 Tool-using Agent，而不是只能通过 UI 猜测后台发生了什么。
 
-## 二十八、Pi 最容易被误解和滥用的地方
+## 二十九、Pi 最容易被误解和滥用的地方
 
 第一个误解是“开源等于安全”。开源让代码可审计，不会自动限制运行权限。Pi 默认没有内置沙箱，第三方扩展还能运行任意本地代码。
 
@@ -554,7 +658,7 @@ OpenCode 等开源 Coding Agent 也提供多模型与终端体验。选择时应
 
 第五个误解是“扩展能解决所有问题”。扩展适合行为与集成，真正的权限隔离、资源上限和网络边界必须由外部系统提供。
 
-## 二十九、推荐的源码阅读路线
+## 三十、推荐的源码阅读路线
 
 第一步先读仓库根 README 和 Coding Agent README，确认包结构、默认工具、运行模式和设计原则。不要从某个随机工具实现开始，否则难以判断它属于哪一层。
 
@@ -570,7 +674,7 @@ OpenCode 等开源 Coding Agent 也提供多模型与终端体验。选择时应
 
 最后再读 TUI 与 RPC。到这一步，你已经知道界面展示的事件从哪里来，也能判断自己的产品应该复用 TUI、SDK 还是进程协议。
 
-## 三十、哪些场景特别适合 Pi
+## 三十一、哪些场景特别适合 Pi
 
 第一类是 Agent 教学与研究。Pi 的层次足够完整，又没有过多业务壳，适合观察工具循环、上下文压缩、会话分支和模型差异。
 
@@ -584,7 +688,7 @@ OpenCode 等开源 Coding Agent 也提供多模型与终端体验。选择时应
 
 不太适合的场景也很明确：团队没有能力维护扩展和隔离，却期待开箱即用的企业权限系统；任务涉及高价值生产凭证，却准备直接在宿主机无人值守运行；或者只需要一次简单问答，并不需要工具循环与会话持久化。
 
-## 三十一、一个可靠的 Pi 落地清单
+## 三十二、一个可靠的 Pi 落地清单
 
 使用前先确认仓库是否可信，检查项目级 `.pi` 和 `.agents/skills`，不要在未知项目中盲目批准资源加载。
 
@@ -602,7 +706,7 @@ OpenCode 等开源 Coding Agent 也提供多模型与终端体验。选择时应
 
 最后建立小型回归任务。每次更新 Pi、模型或扩展后，用固定任务检查读取、编辑、测试、审批、压缩和恢复是否仍符合预期。
 
-## 三十二、Pi 给 Agent 工程最重要的启示
+## 三十三、Pi 给 Agent 工程最重要的启示
 
 Pi 最值得学习的不是某个命令，而是一种架构判断：把模型当作会提出行动的推理组件，把工具当作可观察、可执行的环境接口，把 Session 当作可恢复的状态机，把界面当作事件消费者。
 
@@ -630,3 +734,10 @@ Pi 最值得学习的不是某个命令，而是一种架构判断：把模型�
 - [Compaction 与 Branch Summarization](https://pi.dev/docs/latest/compaction)
 - [Pi 安全边界](https://pi.dev/docs/latest/security)
 - [容器化与隔离建议](https://pi.dev/docs/latest/containerization)
+- [oh-my-pi 官方仓库](https://github.com/can1357/oh-my-pi)
+- [oh-my-pi 扩展文档](https://github.com/can1357/oh-my-pi/blob/main/docs/extensions.md)
+- [oh-my-pi 扩展加载规则](https://github.com/can1357/oh-my-pi/blob/main/docs/extension-loading.md)
+- [DeepSeek Harness 官方仓库](https://github.com/deepseek-ai/deepseek-harness)
+- [DeepSeek Harness 架构文档](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/architecture.md)
+- [DeepSeek Harness Cordis Primer](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/cordis-primer.md)
+- [pi-agent-py 官方仓库](https://github.com/qiyaxiong/pi-agent-py)

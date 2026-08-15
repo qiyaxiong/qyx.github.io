@@ -10,7 +10,7 @@ import {
 
 test('DeepSeek Harness article publishes its diagrams as Notion embed markers', () => {
   const source = `---
-title: Agent Harness 深度解析：DeepSeek Harness、oh-my-pi 与 Python Pi Agent
+title: DeepSeek Harness 深度解析：Everything is a Plugin 的 Agent 运行底座
 publishDate: 2026-08-13
 description: DeepSeek Harness architecture
 category: agent-engineering
@@ -23,7 +23,7 @@ language: zh
   const normalized = normalizeNotionEmbeds(body)
   const blocks = markdownToBlocks(normalized)
 
-  assert.equal(metadata.title, 'Agent Harness 深度解析：DeepSeek Harness、oh-my-pi 与 Python Pi Agent')
+  assert.equal(metadata.title, 'DeepSeek Harness 深度解析：Everything is a Plugin 的 Agent 运行底座')
   assert.match(normalized, /\{\{deepseek-harness-architecture\}\}/)
   assert.match(normalized, /\{\{deepseek-harness-loop\}\}/)
   assert.ok(
