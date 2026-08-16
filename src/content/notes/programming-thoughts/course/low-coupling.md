@@ -24,15 +24,26 @@ language: zh
 
 下面的代码刻意只保留决定性的协作关系。真实项目还要补上输入校验、错误模型、日志和测试，但这些不应掩盖本节的依赖方向。
 
-```ts
-interface PaymentPort { charge(orderId: string, cents: number): Promise<Receipt> }
+```python
+from typing import Protocol
 
-class VendorAdapter implements PaymentPort {
-  constructor(private sdk: VendorSdk) {}
-  async charge(orderId: string, cents: number) {
-    return mapReceipt(await this.sdk.pay({ ref: orderId, amount: cents }))
-  }
-}
+class PaymentPort(Protocol):
+    def charge(self, order_id: str, cents: int) -> str: ...
+
+class VendorSdk:
+    def pay(self, *, ref: str, amount: int) -> dict[str, str]:
+        return {"trade_no": f"vendor-{ref}", "status": "paid"}
+
+class VendorAdapter:
+    def __init__(self, sdk: VendorSdk) -> None:
+        self.sdk = sdk
+
+    def charge(self, order_id: str, cents: int) -> str:
+        result = self.sdk.pay(ref=order_id, amount=cents)
+        return result["trade_no"]
+
+receipt: PaymentPort = VendorAdapter(VendorSdk())
+print(receipt.charge("order-1", 1999))
 ```
 
 阅读时不要只数接口和类，依次检查：

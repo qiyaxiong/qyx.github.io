@@ -273,13 +273,13 @@ export const programmingThoughtsSessions: ProgrammingThoughtsSession[] = [
     page: 18,
     cid: 769318717,
     slug: 'singleton-reflection-problem',
-    title: '单例（二）：反射如何绕过私有构造器',
+    title: '单例（二）：Python 模块如何守住唯一实例',
     sourceTitle: '17、反射&单例(1)',
     durationSeconds: 1295,
     phase: 'singleton',
-    topics: ['反射', '私有构造器', '不变量', '攻击面'],
-    example: 'Java 配置中心',
-    question: 'private 构造器为什么不等于绝对不可调用？'
+    topics: ['模块对象', '构造边界', '不变量', '攻击面'],
+    example: 'Python 配置中心',
+    question: '为什么 Python 更适合用模块边界，而不是模拟私有构造器？'
   },
   {
     page: 19,
@@ -289,21 +289,21 @@ export const programmingThoughtsSessions: ProgrammingThoughtsSession[] = [
     sourceTitle: '18、反射&单例(2)',
     durationSeconds: 303,
     phase: 'singleton',
-    topics: ['构造守卫', '枚举单例', '序列化', '边界'],
-    example: 'Java 进程级注册表',
-    question: '哪些防护只是补丁，哪些保证由语言运行时提供？'
+    topics: ['构造守卫', 'Enum 单例', '序列化', '边界'],
+    example: 'Python 模块级注册表',
+    question: '哪些防护只是补丁，哪些保证由 Python 运行时提供？'
   },
   {
     page: 20,
     cid: 769319043,
     slug: 'static-holder-singleton',
-    title: '单例（四）：静态内部类的延迟初始化',
+    title: '单例（四）：缓存函数的延迟初始化',
     sourceTitle: '19、内部静态类实现单例',
     durationSeconds: 398,
     phase: 'singleton',
-    topics: ['静态内部类', '类加载', '延迟初始化', '线程安全'],
-    example: 'Java 元数据目录',
-    question: '如何利用 JVM 类初始化语义避免手写双重检查锁？'
+    topics: ['缓存函数', '延迟初始化', '生命周期', '线程安全'],
+    example: 'Python 延迟元数据目录',
+    question: '如何利用 Python 的缓存函数避免手写双重检查锁？'
   },
   {
     page: 21,

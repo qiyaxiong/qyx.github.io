@@ -24,15 +24,24 @@ language: zh
 
 下面的代码刻意只保留决定性的协作关系。真实项目还要补上输入校验、错误模型、日志和测试，但这些不应掩盖本节的依赖方向。
 
-```ts
-interface Notifier { send(message: string): Promise<void> }
+```python
+from typing import Protocol
 
-class WelcomeUser {
-  constructor(private notifier: Notifier) {}
-  async run(name: string) {
-    await this.notifier.send(`欢迎 ${name}`)
-  }
-}
+class Notifier(Protocol):
+    def send(self, message: str) -> None: ...
+
+class ConsoleNotifier:
+    def send(self, message: str) -> None:
+        print(message)
+
+class WelcomeUser:
+    def __init__(self, notifier: Notifier) -> None:
+        self.notifier = notifier
+
+    def run(self, name: str) -> None:
+        self.notifier.send(f"欢迎 {name}")
+
+WelcomeUser(ConsoleNotifier()).run("小明")
 ```
 
 阅读时不要只数接口和类，依次检查：

@@ -24,13 +24,18 @@ language: zh
 
 下面的代码刻意只保留决定性的协作关系。真实项目还要补上输入校验、错误模型、日志和测试，但这些不应掩盖本节的依赖方向。
 
-```ts
-const handlers = new Map<string, () => CommandHandler>()
+```python
+from collections.abc import Callable
 
-export function register(name: string, factory: () => CommandHandler) {
-  if (handlers.has(name)) throw new Error(`Duplicate: ${name}`)
-  handlers.set(name, factory)
-}
+handlers: dict[str, Callable[[], str]] = {}
+
+def register(name: str, factory: Callable[[], str]) -> None:
+    if name in handlers:
+        raise ValueError(f"重复注册：{name}")
+    handlers[name] = factory
+
+register("welcome", lambda: "WelcomeHandler")
+print(handlers["welcome"]())
 ```
 
 阅读时不要只数接口和类，依次检查：

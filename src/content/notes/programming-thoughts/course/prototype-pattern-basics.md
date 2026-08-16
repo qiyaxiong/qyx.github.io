@@ -24,14 +24,22 @@ language: zh
 
 下面的代码刻意只保留决定性的协作关系。真实项目还要补上输入校验、错误模型、日志和测试，但这些不应掩盖本节的依赖方向。
 
-```ts
-class ReportTemplate {
-  clone() {
-    return new ReportTemplate(this.layout, [...this.sections])
-  }
-}
+```python
+from copy import copy
+from dataclasses import dataclass
 
-const weekly = registry.get('weekly').clone()
+@dataclass
+class ReportTemplate:
+    title: str
+    sections: list[str]
+
+    def clone(self) -> "ReportTemplate":
+        return copy(self)
+
+weekly = ReportTemplate("周报", ["摘要", "指标"])
+draft = weekly.clone()
+draft.title = "团队周报"
+print(weekly.title, draft.title)
 ```
 
 阅读时不要只数接口和类，依次检查：

@@ -24,12 +24,30 @@ language: zh
 
 下面的代码刻意只保留决定性的协作关系。真实项目还要补上输入校验、错误模型、日志和测试，但这些不应掩盖本节的依赖方向。
 
-```ts
-build(): EmailMessage {
-  if (this.to.length === 0) throw new Error('recipient required')
-  if (!this.subject.trim()) throw new Error('subject required')
-  return Object.freeze(new EmailMessage(this.to, this.subject, this.body))
-}
+```python
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class EmailMessage:
+    to: tuple[str, ...]
+    subject: str
+    body: str
+
+class EmailBuilder:
+    def __init__(self) -> None:
+        self.to: list[str] = []
+        self.subject = ""
+        self.body = ""
+
+    def build(self) -> EmailMessage:
+        if not self.to or not self.subject.strip():
+            raise ValueError("收件人和主题不能为空")
+        return EmailMessage(tuple(self.to), self.subject, self.body)
+
+message = EmailBuilder()
+message.to.append("ada@example.com")
+message.subject = "报告"
+print(message.build())
 ```
 
 阅读时不要只数接口和类，依次检查：

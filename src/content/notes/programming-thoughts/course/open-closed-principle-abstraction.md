@@ -24,12 +24,21 @@ language: zh
 
 下面的代码刻意只保留决定性的协作关系。真实项目还要补上输入校验、错误模型、日志和测试，但这些不应掩盖本节的依赖方向。
 
-```ts
-interface Exporter { export(rows: Row[]): Uint8Array }
+```python
+from typing import Protocol
 
-function download(rows: Row[], exporter: Exporter) {
-  return exporter.export(rows)
-}
+class Exporter(Protocol):
+    def export(self, rows: list[dict[str, str]]) -> str: ...
+
+class CsvExporter:
+    def export(self, rows: list[dict[str, str]]) -> str:
+        return "\n".join(",".join(row.values()) for row in rows)
+
+def download(rows: list[dict[str, str]], exporter: Exporter) -> str:
+    return exporter.export(rows)
+
+rows = [{"name": "Ada", "score": "100"}]
+print(download(rows, CsvExporter()))
 ```
 
 阅读时不要只数接口和类，依次检查：

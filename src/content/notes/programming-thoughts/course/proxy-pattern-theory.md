@@ -24,14 +24,26 @@ language: zh
 
 下面的代码刻意只保留决定性的协作关系。真实项目还要补上输入校验、错误模型、日志和测试，但这些不应掩盖本节的依赖方向。
 
-```ts
-class LazyImage implements ImageResource {
-  private real?: RemoteImage
-  render() {
-    this.real ??= new RemoteImage(this.url)
-    return this.real.render()
-  }
-}
+```python
+class RealImage:
+    def __init__(self, url: str) -> None:
+        print(f"加载大图：{url}")
+        self.url = url
+
+    def render(self) -> None:
+        print(f"显示：{self.url}")
+
+class LazyImage:
+    def __init__(self, url: str) -> None:
+        self.url, self._real = url, None
+
+    def render(self) -> None:
+        if self._real is None:
+            self._real = RealImage(self.url)
+        self._real.render()
+
+image = LazyImage("cover.png")
+image.render()
 ```
 
 阅读时不要只数接口和类，依次检查：

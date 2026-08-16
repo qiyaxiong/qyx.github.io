@@ -24,13 +24,26 @@ language: zh
 
 下面的代码刻意只保留决定性的协作关系。真实项目还要补上输入校验、错误模型、日志和测试，但这些不应掩盖本节的依赖方向。
 
-```ts
-const report = await reportQuery.load(input)
-const file = renderer.render(report)
-await storage.save(file)
-await delivery.send(file)
+```python
+from dataclasses import dataclass
 
-// 四个协作者分别对应数据、格式、存储和交付的变化。
+@dataclass(frozen=True)
+class Report:
+    rows: list[dict[str, str]]
+
+def load_report() -> Report:
+    return Report([{"name": "Ada", "score": "100"}])
+
+def render_markdown(report: Report) -> str:
+    return "\n".join(f"- {row['name']}: {row['score']}" for row in report.rows)
+
+def save_file(text: str, path: str) -> None:
+    print(f"保存到 {path}:\n{text}")
+
+def publish_report() -> None:
+    save_file(render_markdown(load_report()), "report.md")
+
+publish_report()
 ```
 
 阅读时不要只数接口和类，依次检查：

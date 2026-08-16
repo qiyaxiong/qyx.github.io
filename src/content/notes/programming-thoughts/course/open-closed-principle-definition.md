@@ -24,13 +24,26 @@ language: zh
 
 下面的代码刻意只保留决定性的协作关系。真实项目还要补上输入校验、错误模型、日志和测试，但这些不应掩盖本节的依赖方向。
 
-```ts
-interface DiscountRule { apply(subtotal: number): number }
+```python
+from typing import Protocol
 
-const total = rules.reduce(
-  (price, rule) => rule.apply(price),
-  subtotal
-)
+class DiscountRule(Protocol):
+    def apply(self, subtotal: int) -> int: ...
+
+class NewUserDiscount:
+    def apply(self, subtotal: int) -> int:
+        return subtotal - 20
+
+class Checkout:
+    def __init__(self, rules: list[DiscountRule]) -> None:
+        self.rules = rules
+
+    def total(self, subtotal: int) -> int:
+        for rule in self.rules:
+            subtotal = rule.apply(subtotal)
+        return subtotal
+
+print(Checkout([NewUserDiscount()]).total(100))
 ```
 
 阅读时不要只数接口和类，依次检查：

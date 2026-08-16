@@ -24,13 +24,27 @@ language: zh
 
 下面的代码刻意只保留决定性的协作关系。真实项目还要补上输入校验、错误模型、日志和测试，但这些不应掩盖本节的依赖方向。
 
-```ts
-interface AuditLog { append(event: AuditEvent): Promise<void> }
+```python
+from typing import Protocol
 
-class PlaceOrder {
-  constructor(private audit: AuditLog) {}
-  async run(command: OrderCommand) { /* 业务规则 */ }
-}
+class AuditLog(Protocol):
+    def append(self, event: str) -> None: ...
+
+class MemoryAudit:
+    def __init__(self) -> None:
+        self.events: list[str] = []
+
+    def append(self, event: str) -> None:
+        self.events.append(event)
+
+class PlaceOrder:
+    def __init__(self, audit: AuditLog) -> None:
+        self.audit = audit
+
+    def run(self, order_id: str) -> None:
+        self.audit.append(f"order.created:{order_id}")
+
+PlaceOrder(MemoryAudit()).run("order-1")
 ```
 
 阅读时不要只数接口和类，依次检查：

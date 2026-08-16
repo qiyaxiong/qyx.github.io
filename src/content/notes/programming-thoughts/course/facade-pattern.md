@@ -24,16 +24,24 @@ language: zh
 
 下面的代码刻意只保留决定性的协作关系。真实项目还要补上输入校验、错误模型、日志和测试，但这些不应掩盖本节的依赖方向。
 
-```ts
-class VideoPublishingFacade {
-  async publish(source: File) {
-    const video = await this.transcoder.encode(source)
-    const cover = await this.thumbnails.create(video)
-    const url = await this.storage.upload(video, cover)
-    await this.notifications.announce(url)
-    return url
-  }
-}
+```python
+class VideoPublisher:
+    def transcode(self, source: str) -> str: return f"{source}.mp4"
+    def cover(self, video: str) -> str: return f"{video}.jpg"
+    def upload(self, video: str, cover: str) -> str: return f"https://cdn/{video}"
+    def announce(self, url: str) -> None: print(f"通知：{url}")
+
+class PublishFacade:
+    def __init__(self, publisher: VideoPublisher) -> None:
+        self.publisher = publisher
+
+    def publish(self, source: str) -> str:
+        video = self.publisher.transcode(source)
+        url = self.publisher.upload(video, self.publisher.cover(video))
+        self.publisher.announce(url)
+        return url
+
+print(PublishFacade(VideoPublisher()).publish("lesson.mov"))
 ```
 
 阅读时不要只数接口和类，依次检查：

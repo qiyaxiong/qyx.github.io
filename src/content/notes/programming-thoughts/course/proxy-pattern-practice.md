@@ -24,14 +24,21 @@ language: zh
 
 下面的代码刻意只保留决定性的协作关系。真实项目还要补上输入校验、错误模型、日志和测试，但这些不应掩盖本节的依赖方向。
 
-```ts
-class ProtectedDocuments implements DocumentService {
-  constructor(private real: DocumentService, private policy: AccessPolicy) {}
-  async read(user: User, id: string) {
-    if (!this.policy.canRead(user, id)) throw new ForbiddenError()
-    return this.real.read(user, id)
-  }
-}
+```python
+class DocumentService:
+    def read(self, user: str, document_id: str) -> str:
+        return f"文档 {document_id} 内容"
+
+class ProtectedDocuments:
+    def __init__(self, real: DocumentService, allowed: set[str]) -> None:
+        self.real, self.allowed = real, allowed
+
+    def read(self, user: str, document_id: str) -> str:
+        if user not in self.allowed:
+            raise PermissionError("没有权限")
+        return self.real.read(user, document_id)
+
+print(ProtectedDocuments(DocumentService(), {"ada"}).read("ada", "doc-1"))
 ```
 
 阅读时不要只数接口和类，依次检查：

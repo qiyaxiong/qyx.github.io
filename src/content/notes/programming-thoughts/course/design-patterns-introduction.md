@@ -24,15 +24,23 @@ language: zh
 
 下面的代码刻意只保留决定性的协作关系。真实项目还要补上输入校验、错误模型、日志和测试，但这些不应掩盖本节的依赖方向。
 
-```ts
-type PatternDecision = {
-  context: string
-  forces: string[]
-  structure: string
-  consequences: { gain: string[]; cost: string[] }
-}
+```python
+from dataclasses import dataclass
 
-// 类图只是 structure，不能丢掉其余三项。
+@dataclass(frozen=True)
+class DesignDecision:
+    context: str
+    conflict: str
+    structure: str
+    consequence: str
+
+decision = DesignDecision(
+    "通知渠道会增加",
+    "稳定流程不应了解每个 SDK",
+    "Notifier 协议 + 多个实现",
+    "新增渠道只增加实现",
+)
+print(decision.structure)
 ```
 
 阅读时不要只数接口和类，依次检查：

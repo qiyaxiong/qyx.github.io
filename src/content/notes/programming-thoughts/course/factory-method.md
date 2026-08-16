@@ -24,14 +24,29 @@ language: zh
 
 下面的代码刻意只保留决定性的协作关系。真实项目还要补上输入校验、错误模型、日志和测试，但这些不应掩盖本节的依赖方向。
 
-```ts
-abstract class NotificationJob {
-  protected abstract createNotifier(): Notifier
-  async run(messages: Message[]) {
-    const notifier = this.createNotifier()
-    for (const message of messages) await notifier.send(message)
-  }
-}
+```python
+from abc import ABC, abstractmethod
+
+class Notifier(ABC):
+    @abstractmethod
+    def send(self, message: str) -> None: ...
+
+class EmailNotifier(Notifier):
+    def send(self, message: str) -> None:
+        print(f"邮件：{message}")
+
+class NotificationJob(ABC):
+    @abstractmethod
+    def create_notifier(self) -> Notifier: ...
+
+    def run(self, message: str) -> None:
+        self.create_notifier().send(message)
+
+class EmailJob(NotificationJob):
+    def create_notifier(self) -> Notifier:
+        return EmailNotifier()
+
+EmailJob().run("欢迎")
 ```
 
 阅读时不要只数接口和类，依次检查：

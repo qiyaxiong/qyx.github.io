@@ -24,14 +24,28 @@ language: zh
 
 下面的代码刻意只保留决定性的协作关系。真实项目还要补上输入校验、错误模型、日志和测试，但这些不应掩盖本节的依赖方向。
 
-```ts
-class LegacyGatewayAdapter implements PaymentPort {
-  constructor(private legacy: LegacyGateway) {}
-  async charge(command: Charge) {
-    const result = await this.legacy.makePay(command.cents / 100, command.orderId)
-    return { id: result.trade_no, status: mapStatus(result.code) }
-  }
-}
+```python
+from typing import Protocol
+
+class PaymentPort(Protocol):
+    def charge(self, cents: int) -> str: ...
+
+class LegacyGateway:
+    def make_pay(self, yuan: float) -> dict[str, str]:
+        return {"trade_no": "legacy-1", "code": "OK"}
+
+class LegacyGatewayAdapter:
+    def __init__(self, legacy: LegacyGateway) -> None:
+        self.legacy = legacy
+
+    def charge(self, cents: int) -> str:
+        result = self.legacy.make_pay(cents / 100)
+        if result["code"] != "OK":
+            raise RuntimeError("支付失败")
+        return result["trade_no"]
+
+payment: PaymentPort = LegacyGatewayAdapter(LegacyGateway())
+print(payment.charge(1999))
 ```
 
 阅读时不要只数接口和类，依次检查：

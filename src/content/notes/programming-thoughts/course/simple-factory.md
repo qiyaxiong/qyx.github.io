@@ -24,12 +24,25 @@ language: zh
 
 下面的代码刻意只保留决定性的协作关系。真实项目还要补上输入校验、错误模型、日志和测试，但这些不应掩盖本节的依赖方向。
 
-```ts
-type Parser = { parse(input: string): Document }
+```python
+class JsonParser:
+    def parse(self, text: str) -> dict[str, object]:
+        import json
+        return json.loads(text)
 
-function createParser(kind: 'json' | 'yaml'): Parser {
-  return kind === 'json' ? new JsonParser() : new YamlParser()
-}
+class YamlLikeParser:
+    def parse(self, text: str) -> dict[str, object]:
+        return {line.split(":", 1)[0]: line.split(":", 1)[1].strip()
+                for line in text.splitlines() if ":" in line}
+
+def create_parser(kind: str) -> JsonParser | YamlLikeParser:
+    factories = {"json": JsonParser, "yaml": YamlLikeParser}
+    try:
+        return factories[kind]()
+    except KeyError as exc:
+        raise ValueError(f"未知格式：{kind}") from exc
+
+print(create_parser("json").parse('{"ok": true}'))
 ```
 
 阅读时不要只数接口和类，依次检查：

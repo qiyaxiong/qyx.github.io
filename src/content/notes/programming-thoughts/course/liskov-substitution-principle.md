@@ -24,13 +24,23 @@ language: zh
 
 下面的代码刻意只保留决定性的协作关系。真实项目还要补上输入校验、错误模型、日志和测试，但这些不应掩盖本节的依赖方向。
 
-```ts
-interface CacheReader { get(key: string): Promise<string | null> }
+```python
+from typing import Protocol
 
-async function loadProfile(cache: CacheReader) {
-  // 任意实现都必须遵守：不存在时返回 null，而不是抛“不支持”
-  return cache.get('profile')
-}
+class Reader(Protocol):
+    def read(self, key: str) -> str | None: ...
+
+class MemoryReader:
+    def __init__(self, values: dict[str, str]) -> None:
+        self.values = values
+
+    def read(self, key: str) -> str | None:
+        return self.values.get(key)
+
+def show_profile(reader: Reader) -> str:
+    return reader.read("profile") or "暂无资料"
+
+print(show_profile(MemoryReader({"profile": "Ada"})))
 ```
 
 阅读时不要只数接口和类，依次检查：

@@ -3,6 +3,7 @@ import path from 'node:path'
 import process from 'node:process'
 
 import { programmingThoughtsSessions } from '../utils/programming-thoughts-sessions.ts'
+import { buildPythonCodeSample } from './programming-thoughts-python-samples.mjs'
 
 const root = process.cwd()
 const notesDir = path.join(root, 'src/content/notes/programming-thoughts/course')
@@ -26,9 +27,9 @@ const lessonDesigns = [
   ['类图中的连线随意使用，代码也说不清谁拥有谁的生命周期', '按临时使用、长期引用、整体部分、继承与接口实现区分六种关系', '关系强度与所有权变得可见，复用选择不再只靠继承', 'UML 名称必须服务于设计沟通，不能取代代码中的明确所有权'],
   ['看到模式名就照搬类图，却说不清问题', '用“上下文—冲突力量—结构—后果”描述设计', '团队讨论从类名转向真正的工程权衡', '模式不是目标，简单函数能解决时无需引入角色'],
   ['多个线程可能同时创建懒加载实例', '比较启动时创建、同步懒加载与双重检查的保证', '明确初始化时机与并发语义', '全局实例会隐藏依赖并污染测试，不要默认使用'],
-  ['private 构造器被反射设置为可访问并再次调用', '把运行时能力和单例不变量一起纳入威胁模型', '理解语言访问控制不是绝对安全边界', '普通业务通常不需要对恶意反射做过度防御'],
-  ['构造守卫在初始化顺序或序列化场景下仍有漏洞', '在 Java 中优先考虑枚举单例提供的运行时保证', '反射与序列化破坏面显著减少', '需要继承或受框架构造约束时要重新评估'],
-  ['为了延迟初始化手写复杂锁代码', '利用 JVM 静态内部类按需加载与类初始化锁', '代码短、延迟加载且线程安全', '这依赖 Java 类加载语义，不能机械搬到其他语言'],
+  ['模块级状态被不同入口重复创建或随意修改', '优先使用模块对象和显式工厂守住唯一实例边界', '调用方不需要模拟私有构造器，测试也能替换依赖', '普通业务不需要为了假想的反射攻击制造复杂框架'],
+  ['模块级状态被不同入口重复创建或随意修改', '用 Python 模块、Enum 或显式注册表承载唯一实例不变量', '实例边界清楚，调用方不需要绕过构造器', '进程单例仍可能隐藏依赖，不要把请求态数据放进去'],
+  ['为了延迟初始化手写复杂锁代码', '利用 Python 的缓存函数按需创建并复用实例', '代码短，初始化时机和缓存范围都可见', '这不是并发共享状态的万能方案，先确认生命周期'],
   ['把“只有一个实例”误写成任意位置都能访问的全局变量', '区分实例数量、生命周期和获取方式', '可由容器管理单实例，同时仍显式注入', '请求态、租户态和测试态数据不应放进进程单例'],
   ['每个调用方都复制 parser 类型判断与 new 表达式', '用一个简单工厂集中有限且稳定的创建分支', '创建规则只有一个修改点，调用方拿到统一接口', '产品频繁由第三方扩展时中央 switch 仍会成为瓶颈'],
   ['任务流程和具体产品创建紧紧绑定', '把创建步骤留给 Creator 的工厂方法，流程只用 Product', '新增整套流程变体时可以一起扩展创建决策', '只有创建差异、没有流程继承需求时简单工厂更直接'],
@@ -95,49 +96,63 @@ function textLines(value, x, y, className, max = 16) {
     .join('\n')
 }
 
+// The teaching source is intentionally kept in a separate table so every lesson
+// uses the same Python 3 vocabulary and can be checked independently.
 function buildDiagram(session, design) {
-  const [smell, move, gain] = design
+  const [smell, move, gain, cost] = design
   const cards = [
-    ['01 · 症状', smell],
-    ['02 · 设计动作', move],
-    ['03 · 可验证结果', gain]
+    ['看见问题', smell, '#f59e0b', '#fff7ed'],
+    ['换成 Python 结构', move, '#2563eb', '#eff6ff'],
+    ['得到什么', gain, '#059669', '#ecfdf5']
   ]
+  const cardMarkup = cards.map(([label, body, accent, fill], index) => {
+    const x = 44 + index * 344
+    return `<g>
+      <rect x="${x}" y="218" width="300" height="250" rx="24" fill="${fill}" stroke="${accent}" stroke-width="2"/>
+      <circle cx="${x + 38}" cy="260" r="18" fill="${accent}"/>
+      <text x="${x + 38}" y="267" text-anchor="middle" class="number">${index + 1}</text>
+      <text x="${x + 68}" y="267" class="cardLabel">${escapeXml(label)}</text>
+      ${textLines(body, x + 24, 316, 'cardBody', 15)}
+    </g>${index < 2 ? `<path d="M${x + 310} 342h24" stroke="#94a3b8" stroke-width="4" stroke-linecap="round"/><path d="m${x + 326} 332 12 10-12 10" fill="none" stroke="#94a3b8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>` : ''}`
+  }).join('\n')
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 980" role="img" aria-labelledby="title desc">
-  <title id="title">P${session.page} ${escapeXml(session.title)}设计决策图</title>
-  <desc id="desc">从问题症状、设计动作到可验证结果的三步图解</desc>
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 620" role="img" aria-labelledby="title desc">
+  <title id="title">P${session.page} ${escapeXml(session.title)}：Python 设计决策图</title>
+  <desc id="desc">用一个易懂的案例说明问题、Python 结构和收益</desc>
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#071b27"/>
-      <stop offset="1" stop-color="#0f2630"/>
-    </linearGradient>
-    <filter id="shadow"><feDropShadow dx="0" dy="10" stdDeviation="14" flood-opacity=".24"/></filter>
+    <linearGradient id="paper" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f8fafc"/><stop offset="1" stop-color="#e2e8f0"/></linearGradient>
+    <pattern id="grid" width="28" height="28" patternUnits="userSpaceOnUse"><path d="M 28 0 L 0 0 0 28" fill="none" stroke="#cbd5e1" stroke-width="1" opacity=".45"/></pattern>
+    <filter id="shadow"><feDropShadow dx="0" dy="7" stdDeviation="9" flood-color="#0f172a" flood-opacity=".15"/></filter>
   </defs>
-  <rect width="720" height="980" rx="32" fill="url(#bg)"/>
-  <circle cx="650" cy="70" r="190" fill="#2dd4bf" opacity=".07"/>
-  <text x="60" y="70" fill="#5eead4" font-family="system-ui,sans-serif" font-size="18" font-weight="700" letter-spacing="2">PROGRAMMING THOUGHT · P${session.page}</text>
-  ${textLines(session.title, 60, 120, 'heading', 22)}
+  <rect width="1120" height="620" rx="30" fill="url(#paper)"/>
+  <rect x="20" y="20" width="1080" height="580" rx="22" fill="url(#grid)" opacity=".75"/>
+  <text x="44" y="64" class="eyebrow">PROGRAMMING THOUGHT · P${session.page}</text>
+  ${textLines(session.title, 44, 108, 'heading', 24)}
+  <rect x="44" y="132" width="1032" height="52" rx="16" fill="#0f172a"/>
+  <text x="70" y="165" class="exampleLabel">现实例子</text>
+  <text x="184" y="165" class="exampleText">${escapeXml(session.example)}</text>
+  ${cardMarkup}
+  <rect x="44" y="510" width="1032" height="66" rx="18" fill="#ffffff" stroke="#cbd5e1"/>
+  <text x="70" y="551" class="boundaryLabel">边界提醒</text>
+  <text x="190" y="551" class="boundaryText">${escapeXml(cost)}</text>
   <style>
-    .heading { fill: #f8fafc; font: 700 30px system-ui, sans-serif; }
-    .label { fill: #5eead4; font: 700 18px system-ui, sans-serif; letter-spacing: 1px; }
-    .body { fill: #d7e4e8; font: 500 24px system-ui, sans-serif; }
+    .eyebrow { fill: #2563eb; font: 700 17px system-ui, sans-serif; letter-spacing: 2px; }
+    .heading { fill: #0f172a; font: 700 30px system-ui, sans-serif; }
+    .exampleLabel { fill: #93c5fd; font: 700 17px system-ui, sans-serif; }
+    .exampleText { fill: #f8fafc; font: 500 19px system-ui, sans-serif; }
+    .number { fill: white; font: 700 16px system-ui, sans-serif; }
+    .cardLabel { fill: #0f172a; font: 700 20px system-ui, sans-serif; }
+    .cardBody { fill: #334155; font: 500 21px system-ui, sans-serif; }
+    .boundaryLabel { fill: #b45309; font: 700 18px system-ui, sans-serif; }
+    .boundaryText { fill: #475569; font: 500 18px system-ui, sans-serif; }
   </style>
-  ${cards
-    .map((card, index) => {
-      const x = 60
-      const y = 230 + index * 220
-      return `<g filter="url(#shadow)">
-        <rect x="${x}" y="${y}" width="600" height="170" rx="22" fill="#102f3a" stroke="#28505c"/>
-        <text x="${x + 28}" y="${y + 42}" class="label">${card[0]}</text>
-        ${textLines(card[1], x + 28, y + 88, 'body', 23)}
-      </g>${index < 2 ? `<path d="M360 ${y + 176}v30" stroke="#5eead4" stroke-width="3"/><path d="m351 ${y + 200} 9 12 9-12" fill="none" stroke="#5eead4" stroke-width="3"/>` : ''}`
-    })
-    .join('\n')}
-  <text x="60" y="930" fill="#8ba4ad" font-family="system-ui,sans-serif" font-size="19">案例：${escapeXml(session.example)} · 先解释变化，再选择结构</text>
 </svg>`
 }
 
 function buildCodeSample(session) {
+  return buildPythonCodeSample(session.page)
+
+  /* legacy samples retained below for historical diff context; unreachable
   const topic = session.topics[0]
   const example = session.example
 
@@ -238,7 +253,7 @@ function createChannel(name: string) {
 
 class PlaceOrder {
   constructor(private audit: AuditLog) {}
-  async run(command: OrderCommand) { /* 业务规则 */ }
+  async run(command: OrderCommand) { // 业务规则 }
 }`,
     9: `function createApplication(config: Config) {
   const database = connectDatabase(config.databaseUrl)
@@ -254,7 +269,7 @@ async function loadProfile(cache: CacheReader) {
     11: `interface BlobReader { get(key: string): Promise<Uint8Array> }
 interface BlobWriter { put(key: string, data: Uint8Array): Promise<void> }
 
-class ReadOnlyAssets implements BlobReader { /* ... */ }`,
+class ReadOnlyAssets implements BlobReader { // ... }`,
     12: `// 不要：order.customer.profile.address.city
 class Order {
   shipsTo(city: string) {
@@ -473,6 +488,7 @@ class UseCase {
   run(input: Input) { return this.boundary.execute(input) }
 }`
   )
+  */
 }
 
 function buildArticle(session, design) {
@@ -508,7 +524,7 @@ language: zh
 
 下面的代码刻意只保留决定性的协作关系。真实项目还要补上输入校验、错误模型、日志和测试，但这些不应掩盖本节的依赖方向。
 
-\`\`\`${session.page >= 17 && session.page <= 20 ? 'java' : 'ts'}
+\`\`\`python
 ${sample}
 \`\`\`
 

@@ -24,14 +24,28 @@ language: zh
 
 下面的代码刻意只保留决定性的协作关系。真实项目还要补上输入校验、错误模型、日志和测试，但这些不应掩盖本节的依赖方向。
 
-```ts
-class PermissionGroup implements PermissionNode {
-  allows(action: Action) {
-    return this.children.some(child => child.allows(action))
-  }
-}
+```python
+from typing import Protocol
 
-const canPublish = organizationPermissions.allows('publish')
+class PermissionNode(Protocol):
+    def allows(self, action: str) -> bool: ...
+
+class Permission:
+    def __init__(self, actions: set[str]) -> None:
+        self.actions = actions
+
+    def allows(self, action: str) -> bool:
+        return action in self.actions
+
+class PermissionGroup:
+    def __init__(self, children: list[PermissionNode]) -> None:
+        self.children = children
+
+    def allows(self, action: str) -> bool:
+        return any(child.allows(action) for child in self.children)
+
+tree = PermissionGroup([Permission({"read"}), Permission({"publish"})])
+assert tree.allows("publish")
 ```
 
 阅读时不要只数接口和类，依次检查：

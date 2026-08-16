@@ -24,15 +24,25 @@ language: zh
 
 下面的代码刻意只保留决定性的协作关系。真实项目还要补上输入校验、错误模型、日志和测试，但这些不应掩盖本节的依赖方向。
 
-```ts
-abstract class Notification {
-  constructor(protected channel: Channel) {}
-  abstract send(message: string): Promise<void>
-}
+```python
+from typing import Protocol
 
-class UrgentNotification extends Notification {
-  send(message: string) { return this.channel.deliver(`[URGENT] ${message}`) }
-}
+class Channel(Protocol):
+    def deliver(self, message: str) -> None: ...
+
+class ConsoleChannel:
+    def deliver(self, message: str) -> None:
+        print(message)
+
+class Notification:
+    def __init__(self, channel: Channel) -> None:
+        self.channel = channel
+
+class UrgentNotification(Notification):
+    def send(self, message: str) -> None:
+        self.channel.deliver(f"[紧急] {message}")
+
+UrgentNotification(ConsoleChannel()).send("服务器告警")
 ```
 
 阅读时不要只数接口和类，依次检查：

@@ -24,13 +24,21 @@ language: zh
 
 下面的代码刻意只保留决定性的协作关系。真实项目还要补上输入校验、错误模型、日志和测试，但这些不应掩盖本节的依赖方向。
 
-```ts
-// “单实例”由组合根管理，“依赖”仍然显式传入
-const catalog = new Catalog()
-const service = new CheckoutService(catalog)
+```python
+class Catalog:
+    def find(self, sku: str) -> int:
+        return {"book": 100}.get(sku, 0)
 
-// 测试可传入独立实例，不共享全局可变状态
-const testService = new CheckoutService(new InMemoryCatalog())
+class CheckoutService:
+    def __init__(self, catalog: Catalog) -> None:
+        self.catalog = catalog
+
+    def total(self, sku: str, count: int) -> int:
+        return self.catalog.find(sku) * count
+
+# 组合根决定共享范围；业务对象仍然显式接收依赖。
+service = CheckoutService(Catalog())
+assert service.total("book", 2) == 200
 ```
 
 阅读时不要只数接口和类，依次检查：

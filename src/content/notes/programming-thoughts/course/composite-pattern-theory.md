@@ -24,12 +24,25 @@ language: zh
 
 下面的代码刻意只保留决定性的协作关系。真实项目还要补上输入校验、错误模型、日志和测试，但这些不应掩盖本节的依赖方向。
 
-```ts
-interface Node { size(): number }
-class FileNode implements Node { size() { return this.bytes } }
-class Directory implements Node {
-  size() { return this.children.reduce((sum, child) => sum + child.size(), 0) }
-}
+```python
+from dataclasses import dataclass, field
+from typing import Protocol
+
+class Node(Protocol):
+    def size(self) -> int: ...
+
+@dataclass
+class File(Node):
+    bytes: int
+    def size(self) -> int: return self.bytes
+
+@dataclass
+class Folder(Node):
+    children: list[Node] = field(default_factory=list)
+    def size(self) -> int: return sum(child.size() for child in self.children)
+
+home = Folder([File(10), Folder([File(5)])])
+print(home.size())
 ```
 
 阅读时不要只数接口和类，依次检查：

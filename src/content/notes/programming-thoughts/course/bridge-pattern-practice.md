@@ -24,14 +24,24 @@ language: zh
 
 下面的代码刻意只保留决定性的协作关系。真实项目还要补上输入校验、错误模型、日志和测试，但这些不应掩盖本节的依赖方向。
 
-```ts
-abstract class Report {
-  constructor(protected storage: Storage) {}
-  abstract render(data: Data): Uint8Array
-  save(data: Data) { return this.storage.put(this.render(data)) }
-}
+```python
+from typing import Protocol
 
-new PdfReport(new S3Storage()).save(data)
+class Storage(Protocol):
+    def put(self, text: str) -> None: ...
+
+class LocalStorage:
+    def put(self, text: str) -> None:
+        print(f"写入本地：{text}")
+
+class Report:
+    def __init__(self, storage: Storage) -> None:
+        self.storage = storage
+
+    def save(self, rows: list[str]) -> None:
+        self.storage.put("\n".join(rows))
+
+Report(LocalStorage()).save(["标题", "数据"])
 ```
 
 阅读时不要只数接口和类，依次检查：

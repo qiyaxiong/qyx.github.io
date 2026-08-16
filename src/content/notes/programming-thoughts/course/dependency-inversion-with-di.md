@@ -24,12 +24,23 @@ language: zh
 
 下面的代码刻意只保留决定性的协作关系。真实项目还要补上输入校验、错误模型、日志和测试，但这些不应掩盖本节的依赖方向。
 
-```ts
-function createApplication(config: Config) {
-  const database = connectDatabase(config.databaseUrl)
-  const payments = new VendorPaymentAdapter(config.paymentKey)
-  return new CheckoutService(database.orders(), payments)
-}
+```python
+class InMemoryCatalog:
+    def find(self, sku: str) -> int:
+        return {"book": 100}.get(sku, 0)
+
+class CheckoutService:
+    def __init__(self, catalog: InMemoryCatalog) -> None:
+        self.catalog = catalog
+
+    def total(self, sku: str, quantity: int) -> int:
+        return self.catalog.find(sku) * quantity
+
+def create_application() -> CheckoutService:
+    return CheckoutService(InMemoryCatalog())
+
+app = create_application()
+assert app.total("book", 2) == 200
 ```
 
 阅读时不要只数接口和类，依次检查：

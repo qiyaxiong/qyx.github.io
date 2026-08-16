@@ -24,13 +24,22 @@ language: zh
 
 下面的代码刻意只保留决定性的协作关系。真实项目还要补上输入校验、错误模型、日志和测试，但这些不应掩盖本节的依赖方向。
 
-```ts
-// 不要：order.customer.profile.address.city
-class Order {
-  shipsTo(city: string) {
-    return this.deliveryAddress.city === city
-  }
-}
+```python
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class Address:
+    city: str
+
+class Order:
+    def __init__(self, address: Address) -> None:
+        self._address = address
+
+    def ships_to(self, city: str) -> bool:
+        return self._address.city == city
+
+order = Order(Address("上海"))
+assert order.ships_to("上海")
 ```
 
 阅读时不要只数接口和类，依次检查：

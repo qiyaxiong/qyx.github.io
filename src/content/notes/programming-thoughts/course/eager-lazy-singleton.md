@@ -24,12 +24,21 @@ language: zh
 
 下面的代码刻意只保留决定性的协作关系。真实项目还要补上输入校验、错误模型、日志和测试，但这些不应掩盖本节的依赖方向。
 
-```java
-public final class ConfigCatalog {
-  private static final ConfigCatalog INSTANCE = new ConfigCatalog();
-  private ConfigCatalog() {}
-  public static ConfigCatalog getInstance() { return INSTANCE; }
-}
+```python
+from functools import lru_cache
+
+class Config:
+    def __init__(self, env: str) -> None:
+        self.env = env
+
+@lru_cache(maxsize=1)
+def config() -> Config:
+    return Config("production")
+
+first = config()
+second = config()
+assert first is second
+print(first.env)
 ```
 
 阅读时不要只数接口和类，依次检查：

@@ -24,13 +24,28 @@ language: zh
 
 下面的代码刻意只保留决定性的协作关系。真实项目还要补上输入校验、错误模型、日志和测试，但这些不应掩盖本节的依赖方向。
 
-```ts
-const request = new RequestBuilder('/reports')
-  .method('POST')
-  .header('authorization', token)
-  .json({ range: 'weekly' })
-  .timeout(3000)
-  .build()
+```python
+from dataclasses import dataclass, field
+
+@dataclass(frozen=True)
+class HttpRequest:
+    url: str
+    method: str
+    headers: dict[str, str] = field(default_factory=dict)
+    body: str = ""
+
+class RequestBuilder:
+    def __init__(self, url: str) -> None:
+        self._request = HttpRequest(url, "GET")
+
+    def post_json(self, body: str) -> "RequestBuilder":
+        self._request = HttpRequest(self._request.url, "POST", {"content-type": "json"}, body)
+        return self
+
+    def build(self) -> HttpRequest:
+        return self._request
+
+print(RequestBuilder("/reports").post_json("{}").build())
 ```
 
 阅读时不要只数接口和类，依次检查：

@@ -24,14 +24,25 @@ language: zh
 
 下面的代码刻意只保留决定性的协作关系。真实项目还要补上输入校验、错误模型、日志和测试，但这些不应掩盖本节的依赖方向。
 
-```ts
-for (const factory of [sqliteFactory, postgresFactory]) {
-  contract('saved order can be loaded', async () => {
-    const orders = factory.orders()
-    await orders.save(exampleOrder)
-    expect(await orders.get(exampleOrder.id)).toEqual(exampleOrder)
-  })
-}
+```python
+def repository_contract(factory: object) -> None:
+    repository = factory.orders()  # type: ignore[attr-defined]
+    repository.save("order-1")
+    assert repository.values == ["order-1"]
+
+class MemoryFactory:
+    def orders(self):
+        return MemoryRepository()
+
+class MemoryRepository:
+    def __init__(self) -> None:
+        self.values: list[str] = []
+
+    def save(self, value: str) -> None:
+        self.values.append(value)
+
+repository_contract(MemoryFactory())
+print("契约通过")
 ```
 
 阅读时不要只数接口和类，依次检查：

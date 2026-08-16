@@ -24,13 +24,27 @@ language: zh
 
 下面的代码刻意只保留决定性的协作关系。真实项目还要补上输入校验、错误模型、日志和测试，但这些不应掩盖本节的依赖方向。
 
-```ts
-let sender: Sender = new HttpSender()
-sender = new RetryingSender(sender)
-sender = new CompressingSender(sender)
-sender = new MetricsSender(sender)
+```python
+from typing import Protocol
 
-await sender.send(message)
+class Sender(Protocol):
+    def send(self, message: str) -> None: ...
+
+class ConsoleSender:
+    def send(self, message: str) -> None:
+        print(message)
+
+class RetryingSender:
+    def __init__(self, inner: Sender, attempts: int = 3) -> None:
+        self.inner, self.attempts = inner, attempts
+
+    def send(self, message: str) -> None:
+        for _ in range(self.attempts):
+            self.inner.send(message)
+            return
+
+sender: Sender = RetryingSender(ConsoleSender())
+sender.send("已发送")
 ```
 
 阅读时不要只数接口和类，依次检查：

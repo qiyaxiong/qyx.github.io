@@ -24,16 +24,32 @@ language: zh
 
 下面的代码刻意只保留决定性的协作关系。真实项目还要补上输入校验、错误模型、日志和测试，但这些不应掩盖本节的依赖方向。
 
-```ts
-class TileTypeFactory {
-  private cache = new Map<string, TileType>()
-  get(key: string, create: () => TileType) {
-    if (!this.cache.has(key)) this.cache.set(key, Object.freeze(create()))
-    return this.cache.get(key)!
-  }
-}
+```python
+from dataclasses import dataclass
 
-const tile = { x: 12, y: 8, type: factory.get('forest', loadForest) }
+@dataclass(frozen=True)
+class TileType:
+    name: str
+    texture: str
+
+class TileTypePool:
+    def __init__(self) -> None:
+        self._cache: dict[str, TileType] = {}
+
+    def get(self, name: str) -> TileType:
+        if name not in self._cache:
+            self._cache[name] = TileType(name, f"{name}.png")
+        return self._cache[name]
+
+@dataclass(frozen=True)
+class Tile:
+    x: int
+    y: int
+    kind: TileType
+
+pool = TileTypePool()
+tile = Tile(12, 8, pool.get("forest"))
+print(tile, pool.get("forest") is tile.kind)
 ```
 
 阅读时不要只数接口和类，依次检查：

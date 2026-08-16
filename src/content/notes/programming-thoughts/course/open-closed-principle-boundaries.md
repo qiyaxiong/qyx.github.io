@@ -24,15 +24,24 @@ language: zh
 
 下面的代码刻意只保留决定性的协作关系。真实项目还要补上输入校验、错误模型、日志和测试，但这些不应掩盖本节的依赖方向。
 
-```ts
-const channels = new Map<string, () => Notifier>()
-channels.set('email', () => new EmailNotifier())
+```python
+from collections.abc import Callable
 
-function createChannel(name: string) {
-  const factory = channels.get(name)
-  if (!factory) throw new Error(`Unknown channel: ${name}`)
-  return factory()
-}
+def email(message: str) -> None:
+    print(f"邮件：{message}")
+
+def sms(message: str) -> None:
+    print(f"短信：{message}")
+
+channels: dict[str, Callable[[str], None]] = {"email": email, "sms": sms}
+
+def notify(kind: str, message: str) -> None:
+    try:
+        channels[kind](message)
+    except KeyError as exc:
+        raise ValueError(f"未知渠道：{kind}") from exc
+
+notify("email", "订单已发货")
 ```
 
 阅读时不要只数接口和类，依次检查：

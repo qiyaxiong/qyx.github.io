@@ -24,13 +24,26 @@ language: zh
 
 下面的代码刻意只保留决定性的协作关系。真实项目还要补上输入校验、错误模型、日志和测试，但这些不应掩盖本节的依赖方向。
 
-```ts
-type TextStyle = Readonly<{ font: string; size: number; color: string }>
+```python
+from dataclasses import dataclass
 
-// style 可共享；x、y 与字符内容属于每次绘制的上下文
-function drawGlyph(glyph: Glyph, style: TextStyle, x: number, y: number) {
-  canvas.draw(glyph, style, x, y)
-}
+@dataclass(frozen=True)
+class TextStyle:
+    font: str
+    size: int
+    color: str
+
+class StylePool:
+    def __init__(self) -> None:
+        self._styles: dict[tuple[str, int, str], TextStyle] = {}
+
+    def get(self, font: str, size: int, color: str) -> TextStyle:
+        key = (font, size, color)
+        self._styles.setdefault(key, TextStyle(*key))
+        return self._styles[key]
+
+pool = StylePool()
+print(pool.get("sans", 14, "black") is pool.get("sans", 14, "black"))
 ```
 
 阅读时不要只数接口和类，依次检查：

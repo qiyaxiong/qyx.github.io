@@ -24,11 +24,23 @@ language: zh
 
 下面的代码刻意只保留决定性的协作关系。真实项目还要补上输入校验、错误模型、日志和测试，但这些不应掩盖本节的依赖方向。
 
-```ts
-interface BlobReader { get(key: string): Promise<Uint8Array> }
-interface BlobWriter { put(key: string, data: Uint8Array): Promise<void> }
+```python
+from typing import Protocol
 
-class ReadOnlyAssets implements BlobReader { /* ... */ }
+class Reader(Protocol):
+    def read(self, name: str) -> str: ...
+
+class Writer(Protocol):
+    def write(self, name: str, text: str) -> None: ...
+
+class ReadOnlyNotes:
+    def read(self, name: str) -> str:
+        return f"读取 {name}"
+
+def preview(reader: Reader) -> None:
+    print(reader.read("README.md"))
+
+preview(ReadOnlyNotes())
 ```
 
 阅读时不要只数接口和类，依次检查：

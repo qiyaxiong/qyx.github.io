@@ -24,14 +24,29 @@ language: zh
 
 下面的代码刻意只保留决定性的协作关系。真实项目还要补上输入校验、错误模型、日志和测试，但这些不应掩盖本节的依赖方向。
 
-```ts
-class WeatherAdapter implements WeatherPort {
-  async current(city: string): Promise<Weather> {
-    const dto = await this.client.fetch(city)
-    if (dto.temp_f == null) throw new WeatherUnavailable(city)
-    return { city, celsius: (dto.temp_f - 32) * 5 / 9 }
-  }
-}
+```python
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class Weather:
+    city: str
+    celsius: float
+
+class WeatherAdapter:
+    def __init__(self, client: object) -> None:
+        self.client = client
+
+    def current(self, city: str) -> Weather:
+        dto = self.client.fetch(city)  # type: ignore[attr-defined]
+        if dto.get("temp_f") is None:
+            raise RuntimeError(f"{city} 暂无天气")
+        return Weather(city, (dto["temp_f"] - 32) * 5 / 9)
+
+class FakeClient:
+    def fetch(self, city: str) -> dict[str, float]:
+        return {"temp_f": 68}
+
+print(WeatherAdapter(FakeClient()).current("上海"))
 ```
 
 阅读时不要只数接口和类，依次检查：

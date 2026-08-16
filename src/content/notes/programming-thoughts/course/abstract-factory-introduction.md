@@ -24,14 +24,24 @@ language: zh
 
 下面的代码刻意只保留决定性的协作关系。真实项目还要补上输入校验、错误模型、日志和测试，但这些不应掩盖本节的依赖方向。
 
-```ts
-interface WidgetFactory {
-  button(): Button
-  dialog(): Dialog
-  menu(): Menu
-}
+```python
+from typing import Protocol
 
-renderSettings(new DarkWidgetFactory())
+class Button(Protocol):
+    def draw(self) -> str: ...
+
+class LightButton:
+    def draw(self) -> str:
+        return "浅色按钮"
+
+class LightFactory:
+    def button(self) -> Button:
+        return LightButton()
+
+def render(factory: LightFactory) -> None:
+    print(factory.button().draw())
+
+render(LightFactory())
 ```
 
 阅读时不要只数接口和类，依次检查：

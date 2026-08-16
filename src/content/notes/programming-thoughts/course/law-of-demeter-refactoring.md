@@ -24,14 +24,24 @@ language: zh
 
 下面的代码刻意只保留决定性的协作关系。真实项目还要补上输入校验、错误模型、日志和测试，但这些不应掩盖本节的依赖方向。
 
-```ts
-class Order {
-  canUseSameDayDelivery(zone: DeliveryZone) {
-    return zone.accepts(this.deliveryAddress) && !this.hasHazardousGoods()
-  }
-}
+```python
+from dataclasses import dataclass
 
-if (order.canUseSameDayDelivery(zone)) schedule(order)
+@dataclass(frozen=True)
+class DeliveryZone:
+    cities: set[str]
+
+class Order:
+    def __init__(self, city: str, has_hazardous_goods: bool = False) -> None:
+        self.city = city
+        self.has_hazardous_goods = has_hazardous_goods
+
+    def can_use_same_day_delivery(self, zone: DeliveryZone) -> bool:
+        return self.city in zone.cities and not self.has_hazardous_goods
+
+order = Order("上海")
+if order.can_use_same_day_delivery(DeliveryZone({"上海"})):
+    print("安排当天配送")
 ```
 
 阅读时不要只数接口和类，依次检查：

@@ -24,19 +24,23 @@ language: zh
 
 下面的代码刻意只保留决定性的协作关系。真实项目还要补上输入校验、错误模型、日志和测试，但这些不应掩盖本节的依赖方向。
 
-```ts
-interface PricingPolicy { price(lines: OrderLine[]): number } // 实现
+```python
+from dataclasses import dataclass
+from typing import Protocol
 
-class Order { // 与 Customer 关联，组合拥有 OrderLine
-  constructor(
-    readonly customer: Customer,
-    private lines: OrderLine[],
-    private pricing: PricingPolicy
-  ) {}
-  pay(gateway: PaymentPort) { // gateway 只是方法级依赖
-    return gateway.charge(this.pricing.price(this.lines))
-  }
-}
+class PaymentPort(Protocol):
+    def charge(self, cents: int) -> str: ...
+
+@dataclass
+class Order:
+    customer_name: str
+    items: list[int]
+
+    def total(self) -> int:
+        return sum(self.items)
+
+def pay(order: Order, gateway: PaymentPort) -> str:
+    return gateway.charge(order.total())
 ```
 
 阅读时不要只数接口和类，依次检查：

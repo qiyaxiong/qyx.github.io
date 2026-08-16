@@ -24,14 +24,22 @@ language: zh
 
 下面的代码刻意只保留决定性的协作关系。真实项目还要补上输入校验、错误模型、日志和测试，但这些不应掩盖本节的依赖方向。
 
-```ts
-class ShippingQuote {
-  constructor(
-    private shipping: ShippingPolicy,
-    private discount: DiscountPolicy
-  ) {}
-  total(order: Order) { return this.discount.apply(this.shipping.price(order)) }
-}
+```python
+from typing import Protocol
+
+class DiscountPolicy(Protocol):
+    def apply(self, price: int) -> int: ...
+
+class ShippingPolicy(Protocol):
+    def price(self, distance: int) -> int: ...
+
+class OrderTotal:
+    def __init__(self, shipping: ShippingPolicy, discount: DiscountPolicy) -> None:
+        self.shipping = shipping
+        self.discount = discount
+
+    def total(self, distance: int, goods: int) -> int:
+        return self.discount.apply(goods + self.shipping.price(distance))
 ```
 
 阅读时不要只数接口和类，依次检查：

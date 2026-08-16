@@ -24,14 +24,28 @@ language: zh
 
 下面的代码刻意只保留决定性的协作关系。真实项目还要补上输入校验、错误模型、日志和测试，但这些不应掩盖本节的依赖方向。
 
-```ts
-interface PersistenceFactory {
-  users(): UserRepository
-  orders(): OrderRepository
-  transactions(): TransactionManager
-}
+```python
+from typing import Protocol
 
-const persistence = new PostgresPersistenceFactory(pool)
+class Repository(Protocol):
+    def save(self, value: str) -> None: ...
+
+class MemoryRepository:
+    def __init__(self) -> None:
+        self.values: list[str] = []
+
+    def save(self, value: str) -> None:
+        self.values.append(value)
+
+class PersistenceFactory(Protocol):
+    def orders(self) -> Repository: ...
+
+class MemoryPersistenceFactory:
+    def orders(self) -> Repository:
+        return MemoryRepository()
+
+factory: PersistenceFactory = MemoryPersistenceFactory()
+factory.orders().save("order-1")
 ```
 
 阅读时不要只数接口和类，依次检查：

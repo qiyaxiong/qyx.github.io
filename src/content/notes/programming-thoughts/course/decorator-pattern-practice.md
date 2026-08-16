@@ -24,13 +24,31 @@ language: zh
 
 下面的代码刻意只保留决定性的协作关系。真实项目还要补上输入校验、错误模型、日志和测试，但这些不应掩盖本节的依赖方向。
 
-```ts
-// 外层指标记录一次逻辑调用；内层重试记录每次尝试
-const client = new RequestMetrics(
-  new RetryMetrics(
-    new RetryingClient(new BaseHttpClient(), { attempts: 3 })
-  )
-)
+```python
+class BaseRequest:
+    def send(self, url: str) -> str:
+        return f"GET {url}"
+
+class RetryRequest:
+    def __init__(self, inner: BaseRequest, attempts: int = 3) -> None:
+        self.inner, self.attempts = inner, attempts
+
+    def send(self, url: str) -> str:
+        for _ in range(self.attempts):
+            return self.inner.send(url)
+        raise RuntimeError("重试失败")
+
+class MetricsRequest:
+    def __init__(self, inner: RetryRequest) -> None:
+        self.inner = inner
+
+    def send(self, url: str) -> str:
+        result = self.inner.send(url)
+        print("只记录一次业务调用")
+        return result
+
+client = MetricsRequest(RetryRequest(BaseRequest()))
+print(client.send("/health"))
 ```
 
 阅读时不要只数接口和类，依次检查：

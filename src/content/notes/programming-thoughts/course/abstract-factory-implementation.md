@@ -24,14 +24,24 @@ language: zh
 
 下面的代码刻意只保留决定性的协作关系。真实项目还要补上输入校验、错误模型、日志和测试，但这些不应掩盖本节的依赖方向。
 
-```ts
-class DarkWidgetFactory implements WidgetFactory {
-  button() { return new DarkButton() }
-  dialog() { return new DarkDialog() }
-  menu() { return new DarkMenu() }
-}
+```python
+from dataclasses import dataclass
 
-const factory = theme === 'dark' ? new DarkWidgetFactory() : new LightWidgetFactory()
+@dataclass(frozen=True)
+class Theme:
+    name: str
+    button: str
+    dialog: str
+
+def choose_theme(name: str) -> Theme:
+    themes = {
+        "light": Theme("浅色", "白底按钮", "白底对话框"),
+        "dark": Theme("深色", "黑底按钮", "黑底对话框"),
+    }
+    return themes[name]
+
+theme = choose_theme("dark")
+print(theme.button, theme.dialog)
 ```
 
 阅读时不要只数接口和类，依次检查：

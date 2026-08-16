@@ -24,12 +24,24 @@ language: zh
 
 下面的代码刻意只保留决定性的协作关系。真实项目还要补上输入校验、错误模型、日志和测试，但这些不应掩盖本节的依赖方向。
 
-```ts
-class PrototypeRegistry {
-  private templates = new Map<string, CardTemplate>()
-  register(name: string, value: CardTemplate) { this.templates.set(name, value.clone()) }
-  create(name: string) { return this.templates.get(name)?.clone() }
-}
+```python
+from copy import deepcopy
+
+class PrototypeRegistry:
+    def __init__(self) -> None:
+        self._templates: dict[str, dict[str, object]] = {}
+
+    def register(self, name: str, value: dict[str, object]) -> None:
+        self._templates[name] = deepcopy(value)
+
+    def create(self, name: str) -> dict[str, object]:
+        return deepcopy(self._templates[name])
+
+registry = PrototypeRegistry()
+registry.register("welcome", {"title": "欢迎", "color": "blue"})
+card = registry.create("welcome")
+card["title"] = "你好"
+print(card, registry.create("welcome"))
 ```
 
 阅读时不要只数接口和类，依次检查：
