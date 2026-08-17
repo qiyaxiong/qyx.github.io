@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 660" role="img" aria-labelledby="title desc">
+  <title id="title">PostgreSQL 8KB 数据页</title>
+  <desc id="desc">页面头、行指针、空闲空间和从页尾向前增长的元组</desc>
+  <rect width="1200" height="660" rx="28" fill="#f8fafc"/>
+  <text x="60" y="72" fill="#0f172a" font-family="system-ui,sans-serif" font-size="34" font-weight="700">一张 8KB 页面，像一张有目录的纸</text>
+  <text x="60" y="112" fill="#475569" font-family="system-ui,sans-serif" font-size="20">行指针在前面，真正的行从后面往前放，中间留下可利用的空间。</text>
+  <style>
+    .t { font:700 22px system-ui,sans-serif; fill:#0f172a; }
+    .s { font:500 18px system-ui,sans-serif; fill:#334155; }
+  </style>
+  <rect x="90" y="170" width="540" height="390" rx="20" fill="#e0f2fe" stroke="#0284c7" stroke-width="3"/>
+  <rect x="90" y="170" width="540" height="72" rx="20" fill="#0369a1"/>
+  <text x="360" y="215" text-anchor="middle" fill="white" class="t">Page Header · 页头</text>
+  <rect x="90" y="242" width="540" height="90" fill="#bae6fd"/>
+  <text x="360" y="280" text-anchor="middle" class="t">Line Pointer Array · 行目录</text><text x="360" y="310" text-anchor="middle" class="s">第 1 行 → 页尾某个位置</text>
+  <rect x="90" y="332" width="540" height="116" fill="#fef3c7"/>
+  <text x="360" y="390" text-anchor="middle" class="t">Free Space · 空闲区</text>
+  <rect x="90" y="448" width="540" height="112" rx="0 0 20 20" fill="#bbf7d0"/>
+  <text x="360" y="490" text-anchor="middle" class="t">Tuple Data · 行版本</text><text x="360" y="520" text-anchor="middle" class="s">从页尾向前增长 ←</text>
+  <path d="M700 275h160" stroke="#64748b" stroke-width="3"/><path d="m845 263 16 12-16 12" fill="none" stroke="#64748b" stroke-width="3"/>
+  <text x="890" y="260" class="t">为什么要有行目录？</text>
+  <text x="700" y="315" class="s">行搬家时，只改目录里的指针。</text><text x="700" y="350" class="s">其他行不用跟着改地址。</text>
+  <path d="M700 435h160" stroke="#64748b" stroke-width="3"/><path d="m845 423 16 12-16 12" fill="none" stroke="#64748b" stroke-width="3"/>
+  <text x="890" y="420" class="t">UPDATE 做了什么？</text>
+  <text x="700" y="475" class="s">旧版本先留着，新版本另放一份。</text><text x="700" y="510" class="s">这就是 MVCC 能让读写并行的原因。</text>
+</svg>
