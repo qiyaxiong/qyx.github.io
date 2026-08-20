@@ -1,22 +1,20 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 680" role="img" aria-labelledby="title desc">
-  <title id="title">PostgreSQL B-Tree 与 WAL</title>
-  <desc id="desc">索引定位 TID，回表读取数据，同时更新先写 WAL</desc>
-  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#111827"/><stop offset="1" stop-color="#312e81"/></linearGradient></defs>
-  <rect width="1200" height="680" rx="28" fill="url(#bg)"/>
-  <text x="60" y="70" fill="#c4b5fd" font-family="system-ui,sans-serif" font-size="20" font-weight="700" letter-spacing="2">两个比喻：电话簿 + 记账本</text>
-  <text x="60" y="116" fill="white" font-family="system-ui,sans-serif" font-size="34" font-weight="700">B-Tree 找得快，WAL 保证不丢</text>
-  <style>.h{fill:#fff;font:700 22px system-ui,sans-serif}.s{fill:#ddd6fe;font:500 18px system-ui,sans-serif}.a{stroke:#a78bfa;stroke-width:4;stroke-linecap:round}</style>
-  <rect x="60" y="180" width="500" height="390" rx="22" fill="#1e1b4b" stroke="#818cf8" stroke-width="2"/>
-  <text x="100" y="230" class="h">B-Tree：像查电话簿</text>
-  <rect x="145" y="280" width="330" height="58" rx="14" fill="#4338ca"/><text x="310" y="317" text-anchor="middle" class="h">根：50</text>
-  <path d="M310 338v38M310 376l-110 45M310 376l110 45" class="a"/>
-  <rect x="110" y="420" width="170" height="58" rx="14" fill="#6366f1"/><text x="195" y="457" text-anchor="middle" class="h">10 · TID</text>
-  <rect x="340" y="420" width="170" height="58" rx="14" fill="#6366f1"/><text x="425" y="457" text-anchor="middle" class="h">80 · TID</text>
-  <text x="100" y="530" class="s">先找到行的物理地址 TID，再回表拿完整数据。</text>
-  <rect x="640" y="180" width="500" height="390" rx="22" fill="#422006" stroke="#f59e0b" stroke-width="2"/>
-  <text x="680" y="230" class="h">WAL：像先写收据</text>
-  <rect x="705" y="285" width="370" height="76" rx="16" fill="#b45309"/><text x="890" y="332" text-anchor="middle" class="h">先写 WAL：我要改哪一页</text>
-  <path d="M890 365v48" class="a"/><path d="m878 401 12 14 12-14" fill="none" class="a"/>
-  <rect x="705" y="430" width="370" height="76" rx="16" fill="#92400e"/><text x="890" y="477" text-anchor="middle" class="h">再写数据页：真正修改内容</text>
-  <text x="680" y="545" class="s">崩溃重启时，按收据把没写完的修改补回来。</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 720" role="img" aria-labelledby="title desc">
+  <title id="title">B-Tree 负责找路，WAL 负责留证据</title><desc id="desc">一个解决“怎么快点找到”，一个解决“崩溃后怎么恢复”</desc>
+  <rect width="1200" height="720" fill="#fffdf7"/>
+  <text x="48" y="58" text-anchor="start" fill="#1f2937" font-family="'Comic Sans MS','Bradley Hand','Marker Felt','PingFang SC','Microsoft YaHei',sans-serif" font-size="32" font-weight="700"><tspan x="48" dy="0">B-Tree 负责找路，WAL 负责留证据</tspan></text>
+  <text x="50" y="95" text-anchor="start" fill="#64748b" font-family="'Comic Sans MS','Bradley Hand','Marker Felt','PingFang SC','Microsoft YaHei',sans-serif" font-size="18" font-weight="400"><tspan x="50" dy="0">一个解决“怎么快点找到”，一个解决“崩溃后怎么恢复”</tspan></text>
+  <rect x="55" y="135" width="1090" height="290" rx="26" fill="#dbeafe" fill-opacity="1" stroke="#2563eb" stroke-width="3" stroke-linejoin="round"/>
+      <text x="600" y="180" text-anchor="middle" fill="#1f2937" font-family="'Comic Sans MS','Bradley Hand','Marker Felt','PingFang SC','Microsoft YaHei',sans-serif" font-size="24" font-weight="700"><tspan x="600" dy="0">B-Tree 索引：像一本按字母排列的电话簿</tspan></text>
+      <rect x="155" y="230" width="170" height="82" rx="16" fill="#ffffff" fill-opacity="1" stroke="#2563eb" stroke-width="3" stroke-linejoin="round"/><text x="240" y="281" text-anchor="middle" fill="#1f2937" font-family="'Comic Sans MS','Bradley Hand','Marker Felt','PingFang SC','Microsoft YaHei',sans-serif" font-size="22" font-weight="700"><tspan x="240" dy="0">root</tspan></text>
+      <path d="M 240 312 L 170 345" fill="none" stroke="#1f2937" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path d="M 240 312 L 310 345" fill="none" stroke="#1f2937" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      <rect x="95" y="345" width="150" height="55" rx="14" fill="#ffffff" fill-opacity="1" stroke="#2563eb" stroke-width="3" stroke-linejoin="round"/><text x="170" y="380" text-anchor="middle" fill="#1f2937" font-family="'Comic Sans MS','Bradley Hand','Marker Felt','PingFang SC','Microsoft YaHei',sans-serif" font-size="20" font-weight="700"><tspan x="170" dy="0">A–M</tspan></text>
+      <rect x="260" y="345" width="150" height="55" rx="14" fill="#ffffff" fill-opacity="1" stroke="#2563eb" stroke-width="3" stroke-linejoin="round"/><text x="335" y="380" text-anchor="middle" fill="#1f2937" font-family="'Comic Sans MS','Bradley Hand','Marker Felt','PingFang SC','Microsoft YaHei',sans-serif" font-size="20" font-weight="700"><tspan x="335" dy="0">N–Z</tspan></text>
+      <rect x="500" y="225" width="540" height="125" rx="18" fill="#ffffff" fill-opacity="1" stroke="#2563eb" stroke-width="3" stroke-linejoin="round"/><text x="770" y="276" text-anchor="middle" fill="#1f2937" font-family="'Comic Sans MS','Bradley Hand','Marker Felt','PingFang SC','Microsoft YaHei',sans-serif" font-size="21" font-weight="700"><tspan x="770" dy="0">找到键以后，索引给出 TID：</tspan><tspan x="770" dy="26.25">“去第几页、这一页的第几行取货”</tspan></text>
+      <path d="M 410 372 L 492 300" fill="none" stroke="#1f2937" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path d="M 488.47047688517125,310.4183715897394 L 492,300 L 481.2126639798052,302.15252911418366" fill="none" stroke="#1f2937" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><text x="452" y="333" text-anchor="middle" fill="#64748b" font-family="'Comic Sans MS','Bradley Hand','Marker Felt','PingFang SC','Microsoft YaHei',sans-serif" font-size="16" font-weight="400"><tspan x="452" dy="0">定位</tspan></text>
+      <rect x="55" y="465" width="1090" height="170" rx="26" fill="#fef3c7" fill-opacity="1" stroke="#b45309" stroke-width="3" stroke-linejoin="round"/>
+      <text x="600" y="515" text-anchor="middle" fill="#1f2937" font-family="'Comic Sans MS','Bradley Hand','Marker Felt','PingFang SC','Microsoft YaHei',sans-serif" font-size="24" font-weight="700"><tspan x="600" dy="0">WAL：像改货物前先写好的收据</tspan></text>
+      <rect x="135" y="550" width="310" height="58" rx="14" fill="#ffffff" fill-opacity="1" stroke="#b45309" stroke-width="3" stroke-linejoin="round"/><text x="290" y="586" text-anchor="middle" fill="#1f2937" font-family="'Comic Sans MS','Bradley Hand','Marker Felt','PingFang SC','Microsoft YaHei',sans-serif" font-size="20" font-weight="700"><tspan x="290" dy="0">UPDATE：余额 100 → 80</tspan></text>
+      <rect x="520" y="550" width="310" height="58" rx="14" fill="#ffffff" fill-opacity="1" stroke="#b45309" stroke-width="3" stroke-linejoin="round"/><text x="675" y="586" text-anchor="middle" fill="#1f2937" font-family="'Comic Sans MS','Bradley Hand','Marker Felt','PingFang SC','Microsoft YaHei',sans-serif" font-size="20" font-weight="700"><tspan x="675" dy="0">先写 WAL，再改数据页</tspan></text>
+      <rect x="905" y="550" width="170" height="58" rx="14" fill="#ffffff" fill-opacity="1" stroke="#b45309" stroke-width="3" stroke-linejoin="round"/><text x="990" y="586" text-anchor="middle" fill="#1f2937" font-family="'Comic Sans MS','Bradley Hand','Marker Felt','PingFang SC','Microsoft YaHei',sans-serif" font-size="20" font-weight="700"><tspan x="990" dy="0">可重放</tspan></text>
+      <path d="M 445 579 L 512 579" fill="none" stroke="#1f2937" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path d="M 502.47372055837116,584.5 L 512,579 L 502.47372055837116,573.5" fill="none" stroke="#1f2937" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path d="M 830 579 L 897 579" fill="none" stroke="#1f2937" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path d="M 887.4737205583712,584.5 L 897,579 L 887.4737205583712,573.5" fill="none" stroke="#1f2937" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

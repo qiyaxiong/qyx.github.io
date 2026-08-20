@@ -1,26 +1,17 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 660" role="img" aria-labelledby="title desc">
-  <title id="title">PostgreSQL 8KB 数据页</title>
-  <desc id="desc">页面头、行指针、空闲空间和从页尾向前增长的元组</desc>
-  <rect width="1200" height="660" rx="28" fill="#f8fafc"/>
-  <text x="60" y="72" fill="#0f172a" font-family="system-ui,sans-serif" font-size="34" font-weight="700">一张 8KB 页面，像一张有目录的纸</text>
-  <text x="60" y="112" fill="#475569" font-family="system-ui,sans-serif" font-size="20">行指针在前面，真正的行从后面往前放，中间留下可利用的空间。</text>
-  <style>
-    .t { font:700 22px system-ui,sans-serif; fill:#0f172a; }
-    .s { font:500 18px system-ui,sans-serif; fill:#334155; }
-  </style>
-  <rect x="90" y="170" width="540" height="390" rx="20" fill="#e0f2fe" stroke="#0284c7" stroke-width="3"/>
-  <rect x="90" y="170" width="540" height="72" rx="20" fill="#0369a1"/>
-  <text x="360" y="215" text-anchor="middle" fill="white" class="t">Page Header · 页头</text>
-  <rect x="90" y="242" width="540" height="90" fill="#bae6fd"/>
-  <text x="360" y="280" text-anchor="middle" class="t">Line Pointer Array · 行目录</text><text x="360" y="310" text-anchor="middle" class="s">第 1 行 → 页尾某个位置</text>
-  <rect x="90" y="332" width="540" height="116" fill="#fef3c7"/>
-  <text x="360" y="390" text-anchor="middle" class="t">Free Space · 空闲区</text>
-  <rect x="90" y="448" width="540" height="112" rx="0 0 20 20" fill="#bbf7d0"/>
-  <text x="360" y="490" text-anchor="middle" class="t">Tuple Data · 行版本</text><text x="360" y="520" text-anchor="middle" class="s">从页尾向前增长 ←</text>
-  <path d="M700 275h160" stroke="#64748b" stroke-width="3"/><path d="m845 263 16 12-16 12" fill="none" stroke="#64748b" stroke-width="3"/>
-  <text x="890" y="260" class="t">为什么要有行目录？</text>
-  <text x="700" y="315" class="s">行搬家时，只改目录里的指针。</text><text x="700" y="350" class="s">其他行不用跟着改地址。</text>
-  <path d="M700 435h160" stroke="#64748b" stroke-width="3"/><path d="m845 423 16 12-16 12" fill="none" stroke="#64748b" stroke-width="3"/>
-  <text x="890" y="420" class="t">UPDATE 做了什么？</text>
-  <text x="700" y="475" class="s">旧版本先留着，新版本另放一份。</text><text x="700" y="510" class="s">这就是 MVCC 能让读写并行的原因。</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 650" role="img" aria-labelledby="title desc">
+  <title id="title">一张 8KB 数据页，里面到底装了什么？</title><desc id="desc">页面是 PostgreSQL 读写磁盘时真正搬运的“小箱子”</desc>
+  <rect width="1200" height="650" fill="#fffdf7"/>
+  <text x="48" y="58" text-anchor="start" fill="#1f2937" font-family="'Comic Sans MS','Bradley Hand','Marker Felt','PingFang SC','Microsoft YaHei',sans-serif" font-size="32" font-weight="700"><tspan x="48" dy="0">一张 8KB 数据页，里面到底装了什么？</tspan></text>
+  <text x="50" y="95" text-anchor="start" fill="#64748b" font-family="'Comic Sans MS','Bradley Hand','Marker Felt','PingFang SC','Microsoft YaHei',sans-serif" font-size="18" font-weight="400"><tspan x="50" dy="0">页面是 PostgreSQL 读写磁盘时真正搬运的“小箱子”</tspan></text>
+  <rect x="60" y="140" width="720" height="440" rx="26" fill="#ffffff" fill-opacity="1" stroke="#1f2937" stroke-width="3" stroke-linejoin="round"/>
+      <text x="420" y="190" text-anchor="middle" fill="#1f2937" font-family="'Comic Sans MS','Bradley Hand','Marker Felt','PingFang SC','Microsoft YaHei',sans-serif" font-size="26" font-weight="700"><tspan x="420" dy="0">Page（通常 8KB）</tspan></text>
+      <rect x="105" y="220" width="630" height="60" rx="12" fill="#dbeafe" fill-opacity="1" stroke="#2563eb" stroke-width="3" stroke-linejoin="round"/><text x="420" y="258" text-anchor="middle" fill="#1f2937" font-family="'Comic Sans MS','Bradley Hand','Marker Felt','PingFang SC','Microsoft YaHei',sans-serif" font-size="19" font-weight="700"><tspan x="420" dy="0">Page Header：页头，记录页面自己的信息</tspan></text>
+      <rect x="105" y="295" width="630" height="58" rx="12" fill="#ede9fe" fill-opacity="1" stroke="#7c3aed" stroke-width="3" stroke-linejoin="round"/><text x="420" y="332" text-anchor="middle" fill="#1f2937" font-family="'Comic Sans MS','Bradley Hand','Marker Felt','PingFang SC','Microsoft YaHei',sans-serif" font-size="19" font-weight="700"><tspan x="420" dy="0">Line Pointer Array：行目录，指向每条记录</tspan></text>
+      <rect x="105" y="368" width="630" height="48" rx="12" fill="#fffdf7" fill-opacity="1" stroke="#64748b" stroke-width="3" stroke-linejoin="round"/><text x="420" y="399" text-anchor="middle" fill="#64748b" font-family="'Comic Sans MS','Bradley Hand','Marker Felt','PingFang SC','Microsoft YaHei',sans-serif" font-size="18" font-weight="700"><tspan x="420" dy="0">Free Space：还可以继续放数据的空闲区</tspan></text>
+      <rect x="105" y="431" width="630" height="105" rx="12" fill="#ccfbf1" fill-opacity="1" stroke="#0f766e" stroke-width="3" stroke-linejoin="round"/><text x="420" y="470" text-anchor="middle" fill="#1f2937" font-family="'Comic Sans MS','Bradley Hand','Marker Felt','PingFang SC','Microsoft YaHei',sans-serif" font-size="19" font-weight="700"><tspan x="420" dy="0">Tuple Data：真正的行数据</tspan><tspan x="420" dy="23.75">旧版本和新版本可能同时存在</tspan></text>
+      <rect x="835" y="205" width="300" height="280" rx="22" fill="#fce7f3" fill-opacity="1" stroke="#be185d" stroke-width="3" stroke-linejoin="round"/>
+      <text x="985" y="260" text-anchor="middle" fill="#1f2937" font-family="'Comic Sans MS','Bradley Hand','Marker Felt','PingFang SC','Microsoft YaHei',sans-serif" font-size="28" font-weight="700"><tspan x="985" dy="0">MVCC</tspan></text>
+      <text x="985" y="310" text-anchor="middle" fill="#1f2937" font-family="'Comic Sans MS','Bradley Hand','Marker Felt','PingFang SC','Microsoft YaHei',sans-serif" font-size="19" font-weight="400"><tspan x="985" dy="0">一次 UPDATE 不会</tspan><tspan x="985" dy="23.75">直接抹掉旧行。</tspan><tspan x="985" dy="23.75"></tspan><tspan x="985" dy="23.75">读事务看旧版本，</tspan><tspan x="985" dy="23.75">新事务看新版本。</tspan></text>
+      <path d="M 735 468 L 828 340" fill="none" stroke="#1f2937" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path d="M 826.850043902968,350.93972581808606 L 828,340 L 817.950941482585,344.47397171577654" fill="none" stroke="#1f2937" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><text x="790" y="404" text-anchor="middle" fill="#64748b" font-family="'Comic Sans MS','Bradley Hand','Marker Felt','PingFang SC','Microsoft YaHei',sans-serif" font-size="16" font-weight="400"><tspan x="790" dy="0">版本可见性</tspan></text>
+      <text x="600" y="615" text-anchor="middle" fill="#64748b" font-family="'Comic Sans MS','Bradley Hand','Marker Felt','PingFang SC','Microsoft YaHei',sans-serif" font-size="19" font-weight="400"><tspan x="600" dy="0">所以 VACUUM 要清理“已经没人需要”的旧版本</tspan></text>
 </svg>

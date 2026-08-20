@@ -1,32 +1,27 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 620" role="img" aria-labelledby="title desc">
-  <title id="title">PostgreSQL 查询路径</title>
-  <desc id="desc">SQL 从客户端经过解析、规划、执行，最后访问缓冲区和磁盘</desc>
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#0f172a"/><stop offset="1" stop-color="#164e63"/></linearGradient>
-    <filter id="shadow"><feDropShadow dx="0" dy="8" stdDeviation="8" flood-opacity=".25"/></filter>
-  </defs>
-  <rect width="1200" height="620" rx="28" fill="url(#bg)"/>
-  <text x="60" y="70" fill="#a5f3fc" font-family="system-ui,sans-serif" font-size="20" font-weight="700" letter-spacing="2">一条 SELECT 是怎么跑完的</text>
-  <text x="60" y="116" fill="#f8fafc" font-family="system-ui,sans-serif" font-size="34" font-weight="700">先翻译，再规划，最后取数据</text>
-  <style>
-    .label { fill:#f8fafc; font:700 22px system-ui,sans-serif; }
-    .small { fill:#cbd5e1; font:500 17px system-ui,sans-serif; }
-    .arrow { stroke:#67e8f9; stroke-width:4; stroke-linecap:round; }
-  </style>
-  <g filter="url(#shadow)">
-    <rect x="55" y="210" width="190" height="150" rx="20" fill="#1e3a8a"/>
-    <text x="150" y="270" text-anchor="middle" class="label">SQL</text><text x="150" y="305" text-anchor="middle" class="small">SELECT ...</text>
-    <rect x="295" y="210" width="190" height="150" rx="20" fill="#155e75"/>
-    <text x="390" y="270" text-anchor="middle" class="label">Parser</text><text x="390" y="305" text-anchor="middle" class="small">看懂语法</text>
-    <rect x="535" y="210" width="190" height="150" rx="20" fill="#0f766e"/>
-    <text x="630" y="270" text-anchor="middle" class="label">Planner</text><text x="630" y="305" text-anchor="middle" class="small">选择走哪条路</text>
-    <rect x="775" y="210" width="190" height="150" rx="20" fill="#047857"/>
-    <text x="870" y="270" text-anchor="middle" class="label">Executor</text><text x="870" y="305" text-anchor="middle" class="small">按计划执行</text>
-    <rect x="1015" y="210" width="130" height="150" rx="20" fill="#b45309"/>
-    <text x="1080" y="270" text-anchor="middle" class="label">页</text><text x="1080" y="305" text-anchor="middle" class="small">缓存/磁盘</text>
-  </g>
-  <path d="M245 285h45M485 285h45M725 285h45M965 285h45" class="arrow"/><path d="m278 273 14 12-14 12M518 273l14 12-14 12M758 273l14 12-14 12M998 273l14 12-14 12" fill="none" class="arrow"/>
-  <rect x="110" y="445" width="980" height="80" rx="18" fill="#ecfeff"/>
-  <text x="600" y="480" text-anchor="middle" fill="#164e63" font-family="system-ui,sans-serif" font-size="22" font-weight="700">优化慢查询时，先问：慢在规划、等待，还是读了太多页？</text>
-  <text x="600" y="510" text-anchor="middle" fill="#155e75" font-family="system-ui,sans-serif" font-size="18">EXPLAIN (ANALYZE, BUFFERS) 会把这条路径照亮。</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 690" role="img" aria-labelledby="title desc">
+  <title id="title">一次 SELECT：先理解，再规划，最后取数据</title><desc id="desc">把 SQL 想成一张订单，数据库内部的每一站都有自己的职责</desc>
+  <rect width="1200" height="690" fill="#fffdf7"/>
+  <text x="48" y="58" text-anchor="start" fill="#1f2937" font-family="'Comic Sans MS','Bradley Hand','Marker Felt','PingFang SC','Microsoft YaHei',sans-serif" font-size="32" font-weight="700"><tspan x="48" dy="0">一次 SELECT：先理解，再规划，最后取数据</tspan></text>
+  <text x="50" y="95" text-anchor="start" fill="#64748b" font-family="'Comic Sans MS','Bradley Hand','Marker Felt','PingFang SC','Microsoft YaHei',sans-serif" font-size="18" font-weight="400"><tspan x="50" dy="0">把 SQL 想成一张订单，数据库内部的每一站都有自己的职责</tspan></text>
+  <rect x="48" y="135" width="1104" height="490" rx="26" fill="#ffffff" fill-opacity="1" stroke="#1f2937" stroke-width="3" stroke-linejoin="round"/>
+      <text x="98" y="190" text-anchor="start" fill="#1f2937" font-family="'Comic Sans MS','Bradley Hand','Marker Felt','PingFang SC','Microsoft YaHei',sans-serif" font-size="24" font-weight="700"><tspan x="98" dy="0">SQL 查询</tspan></text>
+      <rect x="78" y="220" width="280" height="120" rx="18" fill="#fef3c7" fill-opacity="1" stroke="#b45309" stroke-width="3" stroke-linejoin="round"/>
+      <text x="218" y="264" text-anchor="middle" fill="#1f2937" font-family="'Comic Sans MS','Bradley Hand','Marker Felt','PingFang SC','Microsoft YaHei',sans-serif" font-size="20" font-weight="400"><tspan x="218" dy="0">SELECT name, price</tspan><tspan x="218" dy="25">FROM products</tspan><tspan x="218" dy="25">WHERE price &lt; 100</tspan></text>
+      <text x="600" y="190" text-anchor="middle" fill="#1f2937" font-family="'Comic Sans MS','Bradley Hand','Marker Felt','PingFang SC','Microsoft YaHei',sans-serif" font-size="24" font-weight="700"><tspan x="600" dy="0">数据库内部</tspan></text>
+      <rect x="410" y="220" width="210" height="115" rx="18" fill="#dbeafe" fill-opacity="1" stroke="#2563eb" stroke-width="3" stroke-linejoin="round"/>
+      <text x="515" y="266" text-anchor="middle" fill="#1f2937" font-family="'Comic Sans MS','Bradley Hand','Marker Felt','PingFang SC','Microsoft YaHei',sans-serif" font-size="23" font-weight="700"><tspan x="515" dy="0">Parser +</tspan><tspan x="515" dy="28.75">Analyzer</tspan></text>
+      <rect x="690" y="220" width="210" height="115" rx="18" fill="#ede9fe" fill-opacity="1" stroke="#7c3aed" stroke-width="3" stroke-linejoin="round"/>
+      <text x="795" y="276" text-anchor="middle" fill="#1f2937" font-family="'Comic Sans MS','Bradley Hand','Marker Felt','PingFang SC','Microsoft YaHei',sans-serif" font-size="23" font-weight="700"><tspan x="795" dy="0">Planner</tspan></text>
+      <rect x="970" y="220" width="145" height="115" rx="18" fill="#ccfbf1" fill-opacity="1" stroke="#0f766e" stroke-width="3" stroke-linejoin="round"/>
+      <text x="1042" y="276" text-anchor="middle" fill="#1f2937" font-family="'Comic Sans MS','Bradley Hand','Marker Felt','PingFang SC','Microsoft YaHei',sans-serif" font-size="22" font-weight="700"><tspan x="1042" dy="0">Executor</tspan></text>
+      <path d="M 358 280 L 404 280" fill="none" stroke="#1f2937" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path d="M 394.47372055837116,285.5 L 404,280 L 394.47372055837116,274.5" fill="none" stroke="#1f2937" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><text x="382" y="255" text-anchor="middle" fill="#64748b" font-family="'Comic Sans MS','Bradley Hand','Marker Felt','PingFang SC','Microsoft YaHei',sans-serif" font-size="16" font-weight="400"><tspan x="382" dy="0">语法和对象</tspan></text>
+      <path d="M 620 280 L 684 280" fill="none" stroke="#1f2937" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path d="M 674.4737205583712,285.5 L 684,280 L 674.4737205583712,274.5" fill="none" stroke="#1f2937" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><text x="652" y="255" text-anchor="middle" fill="#64748b" font-family="'Comic Sans MS','Bradley Hand','Marker Felt','PingFang SC','Microsoft YaHei',sans-serif" font-size="16" font-weight="400"><tspan x="652" dy="0">选路径</tspan></text>
+      <path d="M 900 280 L 964 280" fill="none" stroke="#1f2937" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path d="M 954.4737205583712,285.5 L 964,280 L 954.4737205583712,274.5" fill="none" stroke="#1f2937" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><text x="932" y="255" text-anchor="middle" fill="#64748b" font-family="'Comic Sans MS','Bradley Hand','Marker Felt','PingFang SC','Microsoft YaHei',sans-serif" font-size="16" font-weight="400"><tspan x="932" dy="0">拿页面</tspan></text>
+      <rect x="140" y="420" width="900" height="132" rx="20" fill="#f8fafc" fill-opacity="1" stroke="#64748b" stroke-width="3" stroke-linejoin="round"/>
+      <text x="185" y="465" text-anchor="start" fill="#1f2937" font-family="'Comic Sans MS','Bradley Hand','Marker Felt','PingFang SC','Microsoft YaHei',sans-serif" font-size="20" font-weight="700"><tspan x="185" dy="0">Planner 会比较两条路：</tspan></text>
+      <rect x="430" y="435" width="230" height="72" rx="14" fill="#dbeafe" fill-opacity="1" stroke="#2563eb" stroke-width="3" stroke-linejoin="round"/>
+      <text x="545" y="480" text-anchor="middle" fill="#1f2937" font-family="'Comic Sans MS','Bradley Hand','Marker Felt','PingFang SC','Microsoft YaHei',sans-serif" font-size="20" font-weight="700"><tspan x="545" dy="0">全表扫描</tspan></text>
+      <rect x="710" y="435" width="230" height="72" rx="14" fill="#ede9fe" fill-opacity="1" stroke="#7c3aed" stroke-width="3" stroke-linejoin="round"/>
+      <text x="825" y="480" text-anchor="middle" fill="#1f2937" font-family="'Comic Sans MS','Bradley Hand','Marker Felt','PingFang SC','Microsoft YaHei',sans-serif" font-size="20" font-weight="700"><tspan x="825" dy="0">走 B-Tree 索引</tspan></text>
+      <text x="600" y="595" text-anchor="middle" fill="#64748b" font-family="'Comic Sans MS','Bradley Hand','Marker Felt','PingFang SC','Microsoft YaHei',sans-serif" font-size="21" font-weight="400"><tspan x="600" dy="0">结果：只把真正需要的行交给客户端</tspan></text>
 </svg>
