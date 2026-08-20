@@ -249,6 +249,102 @@
       "updated": 1,
       "link": null,
       "locked": false
+    },
+    {
+      "type": "arrow",
+      "id": "query-arrow-parse",
+      "x": 358,
+      "y": 280,
+      "width": 46,
+      "height": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          46,
+          0
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#1f2937",
+      "strokeWidth": 2,
+      "roughness": 2,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "seed": 1,
+      "groupIds": [],
+      "frameId": null,
+      "boundElements": null,
+      "updated": 1,
+      "link": null,
+      "locked": false
+    },
+    {
+      "type": "arrow",
+      "id": "query-arrow-plan",
+      "x": 620,
+      "y": 280,
+      "width": 64,
+      "height": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          64,
+          0
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#1f2937",
+      "strokeWidth": 2,
+      "roughness": 2,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "seed": 1,
+      "groupIds": [],
+      "frameId": null,
+      "boundElements": null,
+      "updated": 1,
+      "link": null,
+      "locked": false
+    },
+    {
+      "type": "arrow",
+      "id": "query-arrow-execute",
+      "x": 900,
+      "y": 280,
+      "width": 64,
+      "height": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          64,
+          0
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#1f2937",
+      "strokeWidth": 2,
+      "roughness": 2,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "seed": 1,
+      "groupIds": [],
+      "frameId": null,
+      "boundElements": null,
+      "updated": 1,
+      "link": null,
+      "locked": false
     }
   ],
   "appState": {

@@ -82,6 +82,20 @@ function labelInBox(id, x, y, w, h, textValue, fill, stroke, size = 20) {
   ]
 }
 
+function arrowElement(id, x1, y1, x2, y2, stroke = palette.ink) {
+  return element('arrow', id, {
+    x: x1,
+    y: y1,
+    width: x2 - x1,
+    height: y2 - y1,
+    points: [[0, 0], [x2 - x1, y2 - y1]],
+    endArrowhead: 'arrow',
+    strokeColor: stroke,
+    strokeWidth: 2,
+    roughness: 2,
+  })
+}
+
 const diagrams = {
   'pg-query-path': {
     width: 1200,
@@ -115,6 +129,9 @@ const diagrams = {
       ...labelInBox('query-parser', 410, 220, 210, 115, 'Parser + Analyzer', palette.blue, palette.blueStroke),
       ...labelInBox('query-planner', 690, 220, 210, 115, 'Planner', palette.violet, palette.violetStroke),
       ...labelInBox('query-executor', 970, 220, 145, 115, 'Executor', palette.teal, palette.tealStroke),
+      arrowElement('query-arrow-parse', 358, 280, 404, 280),
+      arrowElement('query-arrow-plan', 620, 280, 684, 280),
+      arrowElement('query-arrow-execute', 900, 280, 964, 280),
     ],
   },
   'pg-page': {
@@ -140,6 +157,7 @@ const diagrams = {
       ...labelInBox('page-free', 105, 368, 630, 48, 'Free Space', palette.paper, palette.muted, 18),
       ...labelInBox('page-tuples', 105, 431, 630, 105, 'Tuple Data\nMVCC versions', palette.teal, palette.tealStroke, 18),
       ...labelInBox('page-mvcc', 835, 205, 300, 280, 'MVCC\nold + new versions', palette.rose, palette.roseStroke, 22),
+      arrowElement('page-arrow-mvcc', 735, 468, 828, 340),
     ],
   },
   'pg-btree-wal': {
@@ -169,6 +187,11 @@ const diagrams = {
       ...labelInBox('wal-update', 135, 550, 310, 58, 'UPDATE', '#ffffff', palette.amberStroke, 18),
       ...labelInBox('wal-write', 520, 550, 310, 58, 'WAL → Page', '#ffffff', palette.amberStroke, 18),
       ...labelInBox('wal-replay', 905, 550, 170, 58, 'Replay', '#ffffff', palette.amberStroke, 18),
+      arrowElement('btree-arrow-left', 240, 312, 170, 345),
+      arrowElement('btree-arrow-right', 240, 312, 335, 345),
+      arrowElement('btree-arrow-tid', 410, 372, 492, 300),
+      arrowElement('wal-arrow-write', 445, 579, 512, 579),
+      arrowElement('wal-arrow-replay', 830, 579, 897, 579),
     ],
   },
   'pg-process-cache': {
@@ -198,6 +221,11 @@ const diagrams = {
       ...labelInBox('process-backend2', 875, 220, 210, 115, 'Backend 2', palette.blue, palette.blueStroke, 19),
       ...labelInBox('process-buffers', 335, 400, 530, 115, 'Shared Buffers', palette.violet, palette.violetStroke, 22),
       ...labelInBox('process-disk', 900, 400, 185, 115, 'Disk', palette.teal, palette.tealStroke, 20),
+      arrowElement('process-arrow-pool', 270, 276, 312, 276),
+      arrowElement('process-arrow-backend', 500, 276, 602, 276),
+      arrowElement('process-arrow-buffer-1', 715, 335, 600, 395),
+      arrowElement('process-arrow-buffer-2', 980, 335, 715, 395),
+      arrowElement('process-arrow-disk', 865, 458, 892, 458),
     ],
   },
 }

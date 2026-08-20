@@ -361,6 +361,166 @@
       "updated": 1,
       "link": null,
       "locked": false
+    },
+    {
+      "type": "arrow",
+      "id": "btree-arrow-left",
+      "x": 240,
+      "y": 312,
+      "width": -70,
+      "height": 33,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -70,
+          33
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#1f2937",
+      "strokeWidth": 2,
+      "roughness": 2,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "seed": 1,
+      "groupIds": [],
+      "frameId": null,
+      "boundElements": null,
+      "updated": 1,
+      "link": null,
+      "locked": false
+    },
+    {
+      "type": "arrow",
+      "id": "btree-arrow-right",
+      "x": 240,
+      "y": 312,
+      "width": 95,
+      "height": 33,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          95,
+          33
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#1f2937",
+      "strokeWidth": 2,
+      "roughness": 2,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "seed": 1,
+      "groupIds": [],
+      "frameId": null,
+      "boundElements": null,
+      "updated": 1,
+      "link": null,
+      "locked": false
+    },
+    {
+      "type": "arrow",
+      "id": "btree-arrow-tid",
+      "x": 410,
+      "y": 372,
+      "width": 82,
+      "height": -72,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          82,
+          -72
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#1f2937",
+      "strokeWidth": 2,
+      "roughness": 2,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "seed": 1,
+      "groupIds": [],
+      "frameId": null,
+      "boundElements": null,
+      "updated": 1,
+      "link": null,
+      "locked": false
+    },
+    {
+      "type": "arrow",
+      "id": "wal-arrow-write",
+      "x": 445,
+      "y": 579,
+      "width": 67,
+      "height": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          67,
+          0
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#1f2937",
+      "strokeWidth": 2,
+      "roughness": 2,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "seed": 1,
+      "groupIds": [],
+      "frameId": null,
+      "boundElements": null,
+      "updated": 1,
+      "link": null,
+      "locked": false
+    },
+    {
+      "type": "arrow",
+      "id": "wal-arrow-replay",
+      "x": 830,
+      "y": 579,
+      "width": 67,
+      "height": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          67,
+          0
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#1f2937",
+      "strokeWidth": 2,
+      "roughness": 2,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "seed": 1,
+      "groupIds": [],
+      "frameId": null,
+      "boundElements": null,
+      "updated": 1,
+      "link": null,
+      "locked": false
     }
   ],
   "appState": {

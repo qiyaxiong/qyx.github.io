@@ -305,6 +305,38 @@
       "updated": 1,
       "link": null,
       "locked": false
+    },
+    {
+      "type": "arrow",
+      "id": "page-arrow-mvcc",
+      "x": 735,
+      "y": 468,
+      "width": 93,
+      "height": -128,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          93,
+          -128
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#1f2937",
+      "strokeWidth": 2,
+      "roughness": 2,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "seed": 1,
+      "groupIds": [],
+      "frameId": null,
+      "boundElements": null,
+      "updated": 1,
+      "link": null,
+      "locked": false
     }
   ],
   "appState": {

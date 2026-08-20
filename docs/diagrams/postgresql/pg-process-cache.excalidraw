@@ -361,6 +361,166 @@
       "updated": 1,
       "link": null,
       "locked": false
+    },
+    {
+      "type": "arrow",
+      "id": "process-arrow-pool",
+      "x": 270,
+      "y": 276,
+      "width": 42,
+      "height": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          42,
+          0
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#1f2937",
+      "strokeWidth": 2,
+      "roughness": 2,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "seed": 1,
+      "groupIds": [],
+      "frameId": null,
+      "boundElements": null,
+      "updated": 1,
+      "link": null,
+      "locked": false
+    },
+    {
+      "type": "arrow",
+      "id": "process-arrow-backend",
+      "x": 500,
+      "y": 276,
+      "width": 102,
+      "height": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          102,
+          0
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#1f2937",
+      "strokeWidth": 2,
+      "roughness": 2,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "seed": 1,
+      "groupIds": [],
+      "frameId": null,
+      "boundElements": null,
+      "updated": 1,
+      "link": null,
+      "locked": false
+    },
+    {
+      "type": "arrow",
+      "id": "process-arrow-buffer-1",
+      "x": 715,
+      "y": 335,
+      "width": -115,
+      "height": 60,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -115,
+          60
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#1f2937",
+      "strokeWidth": 2,
+      "roughness": 2,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "seed": 1,
+      "groupIds": [],
+      "frameId": null,
+      "boundElements": null,
+      "updated": 1,
+      "link": null,
+      "locked": false
+    },
+    {
+      "type": "arrow",
+      "id": "process-arrow-buffer-2",
+      "x": 980,
+      "y": 335,
+      "width": -265,
+      "height": 60,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -265,
+          60
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#1f2937",
+      "strokeWidth": 2,
+      "roughness": 2,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "seed": 1,
+      "groupIds": [],
+      "frameId": null,
+      "boundElements": null,
+      "updated": 1,
+      "link": null,
+      "locked": false
+    },
+    {
+      "type": "arrow",
+      "id": "process-arrow-disk",
+      "x": 865,
+      "y": 458,
+      "width": 27,
+      "height": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          27,
+          0
+        ]
+      ],
+      "endArrowhead": "arrow",
+      "strokeColor": "#1f2937",
+      "strokeWidth": 2,
+      "roughness": 2,
+      "version": 1,
+      "versionNonce": 1,
+      "isDeleted": false,
+      "seed": 1,
+      "groupIds": [],
+      "frameId": null,
+      "boundElements": null,
+      "updated": 1,
+      "link": null,
+      "locked": false
     }
   ],
   "appState": {
