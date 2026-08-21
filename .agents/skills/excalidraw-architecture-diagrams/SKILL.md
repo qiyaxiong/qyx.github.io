@@ -27,6 +27,22 @@ If the user gives a reference like a hand-drawn architecture screenshot, preserv
 5. Keep one visual reading direction. If the primary relationship is containment, use alignment and nesting—not arrows—to communicate it.
 6. Add a small legend only when color or line style has semantic meaning.
 
+## Template-first layout for dense diagrams
+
+For diagrams that look like the reference screenshot—a whiteboard with many systems, stores, and operations—treat the canvas as an invisible table. Do not place every row by eye.
+
+1. Draw the column guides first. Keep them as light helper lines or delete them before export.
+2. Build one complete row: name, type, icon, retrieval/read behavior, and write/edit behavior.
+3. Group the complete row (`Cmd/Ctrl + G`) and duplicate it (`Cmd/Ctrl + D`) for every sibling item.
+4. Replace only the row's labels and icon. Do not change its height, column positions, or internal padding.
+5. Select all rows and use `Align left` plus `Distribute vertically`. Align each semantic column separately when needed.
+6. Copy logos or small reference screenshots into the grouped icon cell only after the grid is stable.
+7. Hide or remove helper guides, then add the few arrows that explain relationships between rows or groups.
+
+For generated `.excalidraw` files, model this explicitly as `columns` plus `rows` and derive each row's x/y coordinates from shared constants. This keeps duplicated rows aligned even when the diagram is regenerated. Prefer one repeated row component over many hand-tuned coordinates.
+
+The result should feel like a table in its geometry but like a whiteboard in its rendering: consistent baselines, equal row spacing, hand-drawn strokes, and no visible table borders unless a boundary is meaningful.
+
 ## Visual tokens
 
 - Canvas: white or warm off-white (`#fffdf7`); use dark backgrounds only when the page theme requires it.
