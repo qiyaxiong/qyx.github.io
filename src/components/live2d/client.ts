@@ -124,6 +124,17 @@ interface AgentSession {
   id: string
 }
 
+interface AgentSessionDetail {
+  id?: string
+  header?: { id?: string }
+}
+
+function normalizeSession(value: AgentSessionDetail): AgentSession {
+  const id = value.id || value.header?.id
+  if (!id) throw new Error('Agent returned an invalid Session')
+  return { id }
+}
+
 export class AgentApiError extends Error {
   constructor(
     message: string,
@@ -187,17 +198,20 @@ export class BlogAgentApi {
     const existing = storage.getItem(storageKey)
     if (existing) {
       try {
-        return await this.request(`/api/v1/sessions/${encodeURIComponent(existing)}`)
+        const session = await this.request<AgentSessionDetail>(
+          `/api/v1/sessions/${encodeURIComponent(existing)}`
+        )
+        return normalizeSession(session)
       } catch (error) {
         if (!(error instanceof AgentApiError) || ![401, 403, 404].includes(error.status))
           throw error
         storage.removeItem(storageKey)
       }
     }
-    const session = await this.request<AgentSession>('/api/v1/sessions', {
+    const session = normalizeSession(await this.request<AgentSessionDetail>('/api/v1/sessions', {
       method: 'POST',
       body: JSON.stringify({ metadata: { client: 'astro-blog-live2d' } })
-    })
+    }))
     storage.setItem(storageKey, session.id)
     return session
   }
@@ -208,13 +222,18 @@ export class BlogAgentApi {
     provider: string,
     model: string,
     pageContext?: PageContext
-  ): Promise<{ id: string }> {
-    return this.request('/api/v1/runs', {
+  ): Promise<{
+    session_id: string
+    turn_id: string
+    input_id: string
+    duplicate: boolean
+  }> {
+    return this.request('/api/v1/channels/web/messages', {
       method: 'POST',
       headers: { 'Idempotency-Key': crypto.randomUUID() },
       body: JSON.stringify({
         session_id: sessionId,
-        prompt,
+        text: prompt,
         model: { id: model, provider, display_name: model },
         request_context: pageContext ? { page_context: pageContext } : {}
       })

@@ -5,7 +5,7 @@ export const prerender = false
 type RouteMatch =
   | { kind: 'model' | 'asset' | 'session-create' }
   | { kind: 'session-read' | 'snapshot' | 'events'; sessionId: string }
-  | { kind: 'run' | 'speech' }
+  | { kind: 'channel-message' | 'speech' }
 
 interface RateCounter {
   count: number
@@ -23,7 +23,8 @@ function matchRoute(method: string, path: string): RouteMatch | undefined {
   if (method === 'GET' && path === 'api/v1/live2d/model') return { kind: 'model' }
   if (method === 'GET' && /^api\/v1\/live2d\/assets\/.+$/.test(path)) return { kind: 'asset' }
   if (method === 'POST' && path === 'api/v1/sessions') return { kind: 'session-create' }
-  if (method === 'POST' && path === 'api/v1/runs') return { kind: 'run' }
+  if (method === 'POST' && path === 'api/v1/channels/web/messages')
+    return { kind: 'channel-message' }
   if (method === 'POST' && path === 'api/v1/speech/synthesize') return { kind: 'speech' }
   const session = /^api\/v1\/sessions\/([^/]+)$/.exec(path)
   if (method === 'GET' && session) {
@@ -250,7 +251,7 @@ export const ALL: APIRoute = async ({ params, request }) => {
   }
 
   const owned = await ownedSession(request, secret)
-  if (route.kind === 'run') {
+  if (route.kind === 'channel-message') {
     if (!owned) return errorResponse(401, 'bff.session_required', 'Guest Session is required')
     if (
       !consumeRateLimit(`run-minute:${owned}`, 10, 60_000) ||
@@ -271,7 +272,7 @@ export const ALL: APIRoute = async ({ params, request }) => {
     if (!value || typeof value !== 'object') {
       return errorResponse(400, 'bff.invalid_request', 'Prompt request is invalid')
     }
-    const prompt = (value as Record<string, unknown>).prompt
+    const prompt = (value as Record<string, unknown>).text
     const requestedSession = (value as Record<string, unknown>).session_id
     if (requestedSession !== owned || typeof prompt !== 'string' || !prompt.trim()) {
       return errorResponse(403, 'bff.session_mismatch', 'Prompt Session is not owned')
@@ -290,7 +291,12 @@ export const ALL: APIRoute = async ({ params, request }) => {
       path,
       JSON.stringify({
         session_id: owned,
-        prompt,
+        text: prompt,
+        message_id: request.headers.get('idempotency-key') || crypto.randomUUID(),
+        account_id: 'astro-blog-guest',
+        sender_id: 'live2d-user',
+        surface: 'blog-live2d',
+        modality: 'text',
         model: { id: model, provider, display_name: model },
         request_context: requestContext ? { page_context: requestContext } : {}
       })
