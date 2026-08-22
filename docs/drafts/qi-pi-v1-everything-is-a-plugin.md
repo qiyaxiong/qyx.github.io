@@ -1,3 +1,16 @@
+---
+title: "qi-pi v1：当一切皆插件，Agent 就不再是一段 Loop"
+publishDate: "2026-08-22"
+description: "从 Context-first 微内核、动态 Service Truth、可逆 Activation 到增量热重载，拆解 qi-pi v1 如何用插件装配一套可恢复、可观测的 Python Agent。"
+category: ai
+language: zh
+tags:
+  - agent
+  - Python
+  - Plugin Architecture
+  - qi-pi
+---
+
 # qi-pi v1：当一切皆插件，Agent 就不再是一段 Loop
 
 > 这篇文章基于 qi-pi v1 当前 Python 实现，讨论它为什么把 Session、Provider、Tool、Agent Loop、持久化、HTTP、Live2D 和 Voice 全部做成插件，以及这种设计真正解决了什么问题。

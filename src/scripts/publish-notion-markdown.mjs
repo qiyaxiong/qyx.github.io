@@ -11,7 +11,7 @@ import minimist from './libs/minimist.cjs'
 const DATA_SOURCE_NAMES = ['post', 'astro-blog']
 const MAX_TEXT_LENGTH = 2000
 const APPEND_BATCH_SIZE = 50
-const PUBLIC_SITE_URL = 'https://qyxgithubio.vercel.app'
+const PUBLIC_SITE_URL = 'https://blog.qixiaoluo.dpdns.org'
 
 const HELP_INFO = `Usage: astro-axi publish-markdown [options]
 
