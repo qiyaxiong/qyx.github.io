@@ -25,7 +25,8 @@ src/content/notes/programming-thoughts/
 src/utils/programming-thoughts-sessions.ts       # 46 分 P 元数据 + 15 主题映射
 src/components/pages/ProgrammingThoughts*.astro # 视频卡片与课程目录
 src/scripts/generate-programming-thoughts-series.mjs
-public/images/notes/programming-thoughts/diagrams/ # 46 张分 P 图 + 30 张章节演进/对照图
+docs/diagrams/programming-thoughts/              # 15 张可编辑 Excalidraw UML 源文件
+public/images/notes/programming-thoughts/diagrams/ # 46 张分 P 图 + 45 张章节图
 ```
 
 专栏入口由 `src/content/collection/programming-thoughts-design-patterns.md` 提供。
@@ -38,7 +39,7 @@ public/images/notes/programming-thoughts/diagrams/ # 46 张分 P 图 + 30 张章
 node src/scripts/generate-programming-thoughts-series.mjs
 ```
 
-生成脚本会覆盖 15 篇主题正文、15 张需求演进图、15 张重构前后图和 46 张分 P 素材图，并移除旧的 46 篇分 P 页面。需要永久修改正文结构、案例或图解时，应修改生成脚本、章节样例和 `programming-thoughts-sessions.ts`，不要只改生成后的单篇文件。
+生成脚本会覆盖 15 篇主题正文、15 张需求演进图、15 张重构前后图、15 张 UML 图及其 Excalidraw 源文件，并保留 46 张分 P 素材图。需要永久修改正文结构、案例或图解时，应修改生成脚本、章节样例、UML 规格和 `programming-thoughts-sessions.ts`，不要只改生成后的单篇文件。
 
 ## Notion 内容源
 

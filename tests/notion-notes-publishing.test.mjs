@@ -17,7 +17,7 @@ test('Notion note publishing preserves frontmatter body and creates native image
   const blocks = markdownToBlocks(normalizeNotionEmbeds(body))
 
   assert.match(metadata.title, /^P1–P4：/)
-  assert.equal(blocks.filter((block) => block.type === 'image').length, 2)
+  assert.equal(blocks.filter((block) => block.type === 'image').length, 3)
   assert.equal(blocks.filter((block) => block.type === 'code').length, 3)
   assert.equal(blocks.find((block) => block.type === 'image').image.type, 'external')
 })

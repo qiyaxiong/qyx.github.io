@@ -97,6 +97,10 @@ class ProtectedPublisher:
         return self.inner.publish(source)
 ```
 
+![代理、访问控制与外观入口：相似包装，不同意图：案例 UML 结构与对象关系](/images/notes/programming-thoughts/diagrams/chapter-proxy-access-facade-uml.svg)
+
+这张 UML 只画最终需要长期沟通的关系。虚线强调依赖或接口实现，菱形表示对象拥有或包装另一个对象；创建和调用细节仍以 Python 代码为准。
+
 ## 用真实业务结果验证，而不是测试模式名
 
 测试不关心类图里有几个角色，只验证稳定业务结果、替换能力和关键失败边界。下面代码与上一个代码块拼接后可直接由 Python 3.12 执行。

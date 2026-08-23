@@ -121,6 +121,10 @@ class Checkout:
         return total, self.payment.charge(order.id, total)
 ```
 
+![变化、内聚、耦合与单一职责：从一团代码拆出清晰边界：案例 UML 结构与对象关系](/images/notes/programming-thoughts/diagrams/chapter-change-cohesion-coupling-srp-uml.svg)
+
+这张 UML 只画最终需要长期沟通的关系。虚线强调依赖或接口实现，菱形表示对象拥有或包装另一个对象；创建和调用细节仍以 Python 代码为准。
+
 ## 用真实业务结果验证，而不是测试模式名
 
 测试不关心类图里有几个角色，只验证稳定业务结果、替换能力和关键失败边界。下面代码与上一个代码块拼接后可直接由 Python 3.12 执行。

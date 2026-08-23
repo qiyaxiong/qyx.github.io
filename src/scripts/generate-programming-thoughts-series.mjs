@@ -9,10 +9,12 @@ import {
 } from '../utils/programming-thoughts-sessions.ts'
 import { buildPythonCodeSample } from './programming-thoughts-python-samples.mjs'
 import { getChapterSample } from './programming-thoughts-chapter-samples.mjs'
+import { getProgrammingThoughtsUmlSpec } from './programming-thoughts-uml-specs.mjs'
 
 const root = process.cwd()
 const notesDir = path.join(root, 'src/content/notes/programming-thoughts/course')
 const diagramsDir = path.join(root, 'public/images/notes/programming-thoughts/diagrams')
+const umlSourcesDir = path.join(root, 'docs/diagrams/programming-thoughts')
 
 const lessonDesigns = [
   ['业务规则、数据库和第三方 SDK 混在一个函数里', '先识别会独立变化的方向，再给它们命名并划边界', '修改被限制在一个局部，测试可以替换边界实现', '抽象本身也有维护成本，不要为想象中的变化建框架'],
@@ -527,6 +529,73 @@ function buildChapterComparisonDiagram(chapter, sessions, sample) {
   <text x="60" y="580" class="label">不是“右边永远更好”：只有左边已经反复为同类变化付费，重构才值得。</text></svg>`
 }
 
+function umlNodeLayout(node) {
+  const [, , , lines, column, row] = node
+  return { x: 55 + column * 435, y: 115 + row * 205, width: 340, height: 155 + Math.max(0, lines.length - 2) * 22 }
+}
+
+function umlEdgeGeometry(fromNode, toNode) {
+  const from = umlNodeLayout(fromNode)
+  const to = umlNodeLayout(toNode)
+  if (fromNode[5] === toNode[5]) {
+    const leftToRight = from.x < to.x
+    const start = [leftToRight ? from.x + from.width : from.x, from.y + from.height / 2]
+    const end = [leftToRight ? to.x : to.x + to.width, to.y + to.height / 2]
+    return { start, end, path: `M ${start[0]} ${start[1]} H ${end[0]}`, label: [(start[0] + end[0]) / 2, start[1] - 12] }
+  }
+  const downward = from.y < to.y
+  const start = [from.x + from.width / 2, downward ? from.y + from.height : from.y]
+  const end = [to.x + to.width / 2, downward ? to.y : to.y + to.height]
+  const middleY = (start[1] + end[1]) / 2
+  return { start, end, path: `M ${start[0]} ${start[1]} V ${middleY} H ${end[0]} V ${end[1]}`, label: [(start[0] + end[0]) / 2, middleY - 10] }
+}
+
+function buildUmlSvg(chapter, spec) {
+  const nodeMap = new Map(spec.nodes.map((node) => [node[0], node]))
+  const edges = spec.edges.map(([fromId, toId, label, relation]) => {
+    const geometry = umlEdgeGeometry(nodeMap.get(fromId), nodeMap.get(toId))
+    const marker = relation === 'composition' ? ' marker-start="url(#diamond)"' : ' marker-end="url(#triangle)"'
+    const dashed = ['dependency', 'implements'].includes(relation) ? ' dashed' : ''
+    return `<g><path d="${geometry.path}" class="edge${dashed}"${marker}/><rect x="${geometry.label[0] - 74}" y="${geometry.label[1] - 17}" width="148" height="24" rx="8" class="edge-label-bg"/><text x="${geometry.label[0]}" y="${geometry.label[1]}" class="edge-label">${escapeXml(label)}</text></g>`
+  }).join('')
+  const nodes = spec.nodes.map((node, index) => {
+    const [id, title, stereotype, lines] = node
+    const box = umlNodeLayout(node)
+    const line = lines.map((value, lineIndex) => `<text x="${box.x + 22}" y="${box.y + 105 + lineIndex * 24}" class="member">${escapeXml(value)}</text>`).join('')
+    return `<g id="${id}"><rect x="${box.x}" y="${box.y}" width="${box.width}" height="${box.height}" rx="18" class="uml-node node-${index % 4}"/><text x="${box.x + box.width / 2}" y="${box.y + 31}" class="stereotype">«${escapeXml(stereotype)}»</text><text x="${box.x + box.width / 2}" y="${box.y + 65}" class="class-name">${escapeXml(title)}</text><path d="M ${box.x} ${box.y + 78} H ${box.x + box.width}" class="divider"/>${line}</g>`
+  }).join('')
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="780" viewBox="0 0 1400 780" role="img" aria-labelledby="title desc"><title id="title">${escapeXml(chapter.title)} UML</title><desc id="desc">${escapeXml(spec.caption)}</desc><defs><marker id="triangle" markerWidth="12" markerHeight="12" refX="11" refY="6" orient="auto"><path d="M1,1 L11,6 L1,11 Z" fill="#fffdf7" stroke="#334155" stroke-width="1.5"/></marker><marker id="diamond" markerWidth="14" markerHeight="14" refX="2" refY="7" orient="auto"><path d="M1,7 L7,1 L13,7 L7,13 Z" fill="#334155"/></marker></defs><style>.canvas{fill:#fffdf7}.title{font:700 30px system-ui;fill:#1e293b}.subtitle{font:17px system-ui;fill:#64748b}.uml-node{stroke:#1e293b;stroke-width:2.5;fill:#eff6ff}.node-1{fill:#f5f3ff}.node-2{fill:#ecfdf5}.node-3{fill:#fff7ed}.divider,.edge{stroke:#334155;stroke-width:2.5;fill:none}.dashed{stroke-dasharray:9 7}.stereotype{font:italic 15px system-ui;fill:#64748b;text-anchor:middle}.class-name{font:700 21px system-ui;fill:#0f172a;text-anchor:middle}.member{font:16px ui-monospace,monospace;fill:#334155}.edge-label-bg{fill:#fffdf7}.edge-label{font:14px system-ui;fill:#475569;text-anchor:middle}</style><rect width="100%" height="100%" rx="28" class="canvas"/><text x="55" y="53" class="title">${escapeXml(spec.kind)} · ${escapeXml(chapter.shortTitle)}</text><text x="55" y="84" class="subtitle">${escapeXml(spec.caption)}</text>${edges}${nodes}<text x="55" y="752" class="subtitle">虚线：依赖 / 实现　◇：组合所有权　△：契约或继承方向</text></svg>`
+}
+
+function buildExcalidrawSource(spec) {
+  const nodeMap = new Map(spec.nodes.map((node) => [node[0], node]))
+  const edgeIdsByNode = new Map(spec.nodes.map((node) => [node[0], []]))
+  spec.edges.forEach((edge, index) => {
+    edgeIdsByNode.get(edge[0]).push(`edge-${index}`)
+    edgeIdsByNode.get(edge[1]).push(`edge-${index}`)
+  })
+  const nodeElements = spec.nodes.flatMap((node, index) => {
+    const [id, title, stereotype, lines] = node
+    const box = umlNodeLayout(node)
+    const textId = `${id}-text`
+    const text = `«${stereotype}»\n${title}\n────────────\n${lines.join('\n')}`
+    return [
+      { id, type: 'rectangle', x: box.x, y: box.y, width: box.width, height: box.height, angle: 0, strokeColor: '#1e293b', backgroundColor: ['#dbeafe', '#ede9fe', '#d1fae5', '#ffedd5'][index % 4], fillStyle: 'solid', strokeWidth: 2, strokeStyle: 'solid', roughness: 1, opacity: 100, groupIds: [], frameId: null, roundness: { type: 3 }, seed: 1000 + index, version: 1, versionNonce: 2000 + index, isDeleted: false, boundElements: [{ id: textId, type: 'text' }, ...edgeIdsByNode.get(id).map((edgeId) => ({ id: edgeId, type: 'arrow' }))], updated: 1, link: null, locked: false },
+      { id: textId, type: 'text', x: box.x + 18, y: box.y + 18, width: box.width - 36, height: box.height - 36, angle: 0, strokeColor: '#1e293b', backgroundColor: 'transparent', fillStyle: 'solid', strokeWidth: 1, strokeStyle: 'solid', roughness: 0, opacity: 100, groupIds: [], frameId: null, roundness: null, seed: 3000 + index, version: 1, versionNonce: 4000 + index, isDeleted: false, boundElements: null, updated: 1, link: null, locked: false, fontSize: 18, fontFamily: 1, text, textAlign: 'center', verticalAlign: 'middle', containerId: id, originalText: text, autoResize: false, lineHeight: 1.25 }
+    ]
+  })
+  const edgeElements = spec.edges.flatMap(([fromId, toId, label, relation], index) => {
+    const geometry = umlEdgeGeometry(nodeMap.get(fromId), nodeMap.get(toId))
+    const arrowId = `edge-${index}`
+    const labelId = `${arrowId}-label`
+    return [
+      { id: arrowId, type: 'arrow', x: geometry.start[0], y: geometry.start[1], width: geometry.end[0] - geometry.start[0], height: geometry.end[1] - geometry.start[1], angle: 0, strokeColor: '#334155', backgroundColor: 'transparent', fillStyle: 'solid', strokeWidth: 2, strokeStyle: ['dependency', 'implements'].includes(relation) ? 'dashed' : 'solid', roughness: 1, opacity: 100, groupIds: [], frameId: null, roundness: { type: 2 }, seed: 5000 + index, version: 1, versionNonce: 6000 + index, isDeleted: false, boundElements: null, updated: 1, link: null, locked: false, points: [[0, 0], [geometry.end[0] - geometry.start[0], geometry.end[1] - geometry.start[1]]], lastCommittedPoint: null, startBinding: { elementId: fromId, focus: 0, gap: 4 }, endBinding: { elementId: toId, focus: 0, gap: 4 }, startArrowhead: relation === 'composition' ? 'diamond' : null, endArrowhead: relation === 'composition' ? null : 'triangle', elbowed: false },
+      { id: labelId, type: 'text', x: geometry.label[0] - 80, y: geometry.label[1] - 16, width: 160, height: 24, angle: 0, strokeColor: '#475569', backgroundColor: '#fffdf7', fillStyle: 'solid', strokeWidth: 1, strokeStyle: 'solid', roughness: 0, opacity: 100, groupIds: [], frameId: null, roundness: null, seed: 7000 + index, version: 1, versionNonce: 8000 + index, isDeleted: false, boundElements: null, updated: 1, link: null, locked: false, fontSize: 14, fontFamily: 1, text: label, textAlign: 'center', verticalAlign: 'middle', containerId: null, originalText: label, autoResize: false, lineHeight: 1.25 }
+    ]
+  })
+  return JSON.stringify({ type: 'excalidraw', version: 2, source: 'https://excalidraw.com', elements: [...nodeElements, ...edgeElements], appState: { viewBackgroundColor: '#fffdf7', gridSize: null }, files: {} }, null, 2)
+}
+
 function buildChapterDiagram(chapter, sessions, sample) {
   const width = 1320
   const cardWidth = Math.floor((width - 120 - (sessions.length - 1) * 24) / sessions.length)
@@ -593,6 +662,10 @@ ${steps}
 ${sample.after}
 \`\`\`
 
+![${chapter.title}：案例 UML 结构与对象关系](/images/notes/programming-thoughts/diagrams/chapter-${chapter.slug}-uml.svg)
+
+这张 UML 只画最终需要长期沟通的关系。虚线强调依赖或接口实现，菱形表示对象拥有或包装另一个对象；创建和调用细节仍以 Python 代码为准。
+
 ## 用真实业务结果验证，而不是测试模式名
 
 测试不关心类图里有几个角色，只验证稳定业务结果、替换能力和关键失败边界。下面代码与上一个代码块拼接后可直接由 Python 3.12 执行。
@@ -652,6 +725,7 @@ ${sample.test}
 
 await mkdir(notesDir, { recursive: true })
 await mkdir(diagramsDir, { recursive: true })
+await mkdir(umlSourcesDir, { recursive: true })
 
 for (const [index, session] of programmingThoughtsSessions.entries()) {
   const design = lessonDesigns[index]
@@ -669,9 +743,12 @@ for (const session of programmingThoughtsSessions) {
 }
 
 for (const chapter of programmingThoughtsChapters) {
+  const umlSpec = getProgrammingThoughtsUmlSpec(chapter.slug)
   await writeFile(path.join(notesDir, `${chapter.slug}.md`), buildArticle(chapter))
   await writeFile(path.join(diagramsDir, `chapter-${chapter.slug}.svg`), buildChapterDiagram(chapter, getProgrammingThoughtsChapterSessions(chapter), getChapterSample(chapter.slug)))
   await writeFile(path.join(diagramsDir, `chapter-${chapter.slug}-comparison.svg`), buildChapterComparisonDiagram(chapter, getProgrammingThoughtsChapterSessions(chapter), getChapterSample(chapter.slug)))
+  await writeFile(path.join(diagramsDir, `chapter-${chapter.slug}-uml.svg`), buildUmlSvg(chapter, umlSpec))
+  await writeFile(path.join(umlSourcesDir, `${chapter.slug}.excalidraw`), buildExcalidrawSource(umlSpec))
 }
 
-process.stdout.write(`Generated ${programmingThoughtsChapters.length} progressive articles and ${programmingThoughtsSessions.length} diagrams.\n`)
+process.stdout.write(`Generated ${programmingThoughtsChapters.length} progressive articles, ${programmingThoughtsChapters.length * 3} chapter diagrams, and ${programmingThoughtsChapters.length} editable UML sources.\n`)

@@ -101,6 +101,10 @@ class ImportJob:
     def run(self, kind: str, text: str) -> dict[str, object]: return self.registry.create(kind).parse(text)
 ```
 
+![简单工厂、工厂方法与注册表：创建逻辑如何逐步演进：案例 UML 结构与对象关系](/images/notes/programming-thoughts/diagrams/chapter-simple-factory-method-registry-uml.svg)
+
+这张 UML 只画最终需要长期沟通的关系。虚线强调依赖或接口实现，菱形表示对象拥有或包装另一个对象；创建和调用细节仍以 Python 代码为准。
+
 ## 用真实业务结果验证，而不是测试模式名
 
 测试不关心类图里有几个角色，只验证稳定业务结果、替换能力和关键失败边界。下面代码与上一个代码块拼接后可直接由 Python 3.12 执行。

@@ -11,6 +11,7 @@ import {
 } from '../src/utils/programming-thoughts-sessions.ts'
 import { getChapterProgram } from '../src/scripts/programming-thoughts-chapter-samples.mjs'
 import { programmingThoughtsLegacySlugs, programmingThoughtsRedirects } from '../src/utils/programming-thoughts-redirects.mjs'
+import { getProgrammingThoughtsUmlSpec, programmingThoughtsUmlSpecs } from '../src/scripts/programming-thoughts-uml-specs.mjs'
 
 const root = process.cwd()
 const courseDir = path.join(root, 'src/content/notes/programming-thoughts/course')
@@ -49,8 +50,33 @@ test('every chapter follows a progressive explanation and keeps source mappings'
     assert.match(article, /## 练习：把视频推导重新走一遍/)
     assert.ok(article.length >= 4500, `${chapter.slug} is too short: ${article.length}`)
     assert.equal((article.match(/```python/g) || []).length, 3)
-    assert.equal((article.match(/\/diagrams\//g) || []).length, 2)
+    assert.equal((article.match(/\/diagrams\//g) || []).length, 3)
+    assert.match(article, new RegExp(`chapter-${chapter.slug}-uml\\.svg`))
     for (const session of sessions) assert.match(article, new RegExp(`P${session.page}(?:\\D|$)`))
+  }
+})
+
+test('every chapter keeps an editable Excalidraw UML source and SVG export', async () => {
+  assert.equal(Object.keys(programmingThoughtsUmlSpecs).length, 15)
+  for (const chapter of programmingThoughtsChapters) {
+    const [sourceText, svg] = await Promise.all([
+      readFile(path.join(root, 'docs/diagrams/programming-thoughts', `${chapter.slug}.excalidraw`), 'utf8'),
+      readFile(path.join(root, 'public/images/notes/programming-thoughts/diagrams', `chapter-${chapter.slug}-uml.svg`), 'utf8')
+    ])
+    const source = JSON.parse(sourceText)
+    const spec = getProgrammingThoughtsUmlSpec(chapter.slug)
+    assert.equal(source.type, 'excalidraw')
+    assert.equal(source.version, 2)
+    assert.ok(source.elements.length >= spec.nodes.length * 2 + spec.edges.length)
+    for (const node of spec.nodes) {
+      const shape = source.elements.find((element) => element.id === node[0])
+      const text = source.elements.find((element) => element.id === `${node[0]}-text`)
+      assert.equal(shape.type, 'rectangle')
+      assert.equal(text.containerId, node[0])
+      assert.ok(shape.boundElements.some((binding) => binding.id === text.id))
+      assert.match(svg, new RegExp(node[1].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+    }
+    assert.match(svg, new RegExp(spec.kind))
   }
 })
 
