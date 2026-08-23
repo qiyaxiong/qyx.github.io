@@ -4,7 +4,7 @@
 
 本系列对应 B 站 UP 主“老赵Net”的合集 [`BV1Xv4y1T7by`](https://www.bilibili.com/video/BV1Xv4y1T7by/)，以 B 站实际的 P1–P46 为唯一编号。原视频标题在中段出现重复课号，因此站内标题经过规范化，但每篇顶部仍保留原始标题、CID、时长和分 P 链接。
 
-系列不是逐字稿。文章将视频中的原则和模式重构为可独立阅读的工程课程，并统一补充：
+系列不是逐字稿。46 个分 P 按连续问题合并为 15 篇渐进式主题长文，并统一补充：
 
 - 真实变化场景；
 - 设计前后的依赖方向；
@@ -20,12 +20,12 @@ src/content/notes/programming-thoughts/
 ├── index.md
 └── course/
     ├── index.md
-    └── 46 个独立课程页面
+    └── 15 个渐进式主题页面
 
-src/utils/programming-thoughts-sessions.ts       # 唯一分 P 元数据
+src/utils/programming-thoughts-sessions.ts       # 46 分 P 元数据 + 15 主题映射
 src/components/pages/ProgrammingThoughts*.astro # 视频卡片与课程目录
 src/scripts/generate-programming-thoughts-series.mjs
-public/images/notes/programming-thoughts/diagrams/ # 46 张原创 SVG
+public/images/notes/programming-thoughts/diagrams/ # 46 张分 P 图 + 30 张章节演进/对照图
 ```
 
 专栏入口由 `src/content/collection/programming-thoughts-design-patterns.md` 提供。
@@ -38,7 +38,7 @@ public/images/notes/programming-thoughts/diagrams/ # 46 张原创 SVG
 node src/scripts/generate-programming-thoughts-series.mjs
 ```
 
-生成脚本会覆盖 46 篇课程正文和 46 张图。需要永久修改正文结构、案例或图解时，应修改生成脚本及 `programming-thoughts-sessions.ts`，不要只改生成后的单篇文件。
+生成脚本会覆盖 15 篇主题正文、15 张需求演进图、15 张重构前后图和 46 张分 P 素材图，并移除旧的 46 篇分 P 页面。需要永久修改正文结构、案例或图解时，应修改生成脚本、章节样例和 `programming-thoughts-sessions.ts`，不要只改生成后的单篇文件。
 
 ## Notion 内容源
 
@@ -47,7 +47,7 @@ node src/scripts/generate-programming-thoughts-series.mjs
 ```text
 本地 Markdown（可复现的编辑种子）
   -> publish-notes
-  -> Notion note 数据源（48 个 Published 页面）
+  -> Notion note 数据源（17 个 Published 页面）
   -> getNotionNotes / getNotionPageContent
   -> Astro /notes/programming-thoughts
 ```
@@ -57,10 +57,13 @@ node src/scripts/generate-programming-thoughts-series.mjs
 ```bash
 node src/scripts/index.js publish-notes \
   --dir src/content/notes/programming-thoughts \
-  --update-published
+  --update-published \
+  --unpublish-missing
 ```
 
-`programming-thoughts` 和 `programming-thoughts/course` 是两个目录 Note，另外 46 个路径对应 P1–P46。站点合并本地与 Notion 笔记时，Notion 同路径优先；本地文件作为可复现的编辑种子，也可承载尚未注册到 Notion 的本地开发笔记。图解会被发布为 Notion 原生图片块，图片地址指向生产站点的 `/images/notes/programming-thoughts/diagrams/`。
+`programming-thoughts` 和 `programming-thoughts/course` 是两个目录 Note，另外 15 个路径对应主题文章。每篇内部保留 P 范围、原视频链接和逐步推导。站点合并本地与 Notion 笔记时，Notion 同路径优先；本地文件是可复现的编辑种子。图解会被发布为 Notion 原生图片块。
+
+`--unpublish-missing` 只在目录内所有新页面都发布成功后执行，而且退役集合被限制为代码中明确列出的 46 个旧 slug。它不会碰同目录下仅存在于 Notion 的其他人工页面；旧页只会改为 Draft，不会删除，仍可恢复。旧 URL 由 Astro 永久重定向到对应主题长文。
 
 ## 素材与转写
 
@@ -85,8 +88,8 @@ npm run build
 
 另外检查：
 
-- `/notes/programming-thoughts/course` 能展示 46 讲；
-- P1、P17、P22、P29、P34、P46 的前后导航正确；
+- `/notes/programming-thoughts/course` 能展示 15 篇主题并覆盖 P1–P46；
+- 第一篇、中间篇与最后一篇的前后导航正确；
 - B 站 iframe 的 `page` 和 `cid` 与元数据一致；
 - 所有 SVG URL 均返回 200；
 - `/collection/programming-thoughts-design-patterns` 能进入五个阶段。

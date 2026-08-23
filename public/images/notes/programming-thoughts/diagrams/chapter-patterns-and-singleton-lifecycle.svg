@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1320" height="520" viewBox="0 0 1320 520" role="img" aria-labelledby="title desc">
+  <title id="title">从模式语言到单例生命周期：唯一实例不等于全局变量渐进推导图</title><desc id="desc">同一个案例随 P16 到 P21 的需求逐步演进</desc>
+  <defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#60a5fa"/></marker></defs>
+  <style>.bg{fill:#0b1220}.card{fill:#111c30;stroke:#334155;stroke-width:2}.title{font:700 27px system-ui;fill:#f8fafc}.subtitle{font:16px system-ui;fill:#94a3b8}.stage{font:700 17px system-ui;fill:#e2e8f0}.label{font:700 13px system-ui;fill:#60a5fa}.body{font:14px system-ui;fill:#cbd5e1}.action{fill:#a7f3d0}.arrow{stroke:#60a5fa;stroke-width:3;fill:none}</style>
+  <rect width="100%" height="100%" rx="30" class="bg"/><text x="60" y="60" class="title">模式语言与单例生命周期</text><text x="60" y="96" class="subtitle">同一个案例 · 需求出现后才重构 · 结构完成后才命名</text><g><rect x="60" y="140" width="180" height="300" rx="24" class="card"/><text x="78" y="172" class="stage">需求 1 · P16</text><text x="78" y="210" class="label">暴露问题</text><text x="78" y="230" class="body">先用上下文、冲突、结</text>
+<text x="78" y="258" class="body">构和后果描述配置目录</text>
+<text x="78" y="286" class="body">问题，不急着选择模式</text><text x="78" y="322" class="label">只做一步</text><text x="78" y="342" class="body action">设计模式导入：从名字</text>
+<text x="78" y="370" class="body action">回到问题、约束与代价</text><path d="M 244 310 H 260" class="arrow" marker-end="url(#arrow)"/></g><g><rect x="264" y="140" width="180" height="300" rx="24" class="card"/><text x="282" y="172" class="stage">需求 2 · P17</text><text x="282" y="210" class="label">暴露问题</text><text x="282" y="230" class="body">配置加载昂贵且只需一</text>
+<text x="282" y="258" class="body">次，开始比较立即创建</text>
+<text x="282" y="286" class="body">与延迟创建</text><text x="282" y="322" class="label">只做一步</text><text x="282" y="342" class="body action">单例（一）：饿汉式、</text>
+<text x="282" y="370" class="body action">懒汉式与线程安全</text><path d="M 448 310 H 464" class="arrow" marker-end="url(#arrow)"/></g><g><rect x="468" y="140" width="180" height="300" rx="24" class="card"/><text x="486" y="172" class="stage">需求 3 · P18</text><text x="486" y="210" class="label">暴露问题</text><text x="486" y="230" class="body">模块被多处导入，唯一</text>
+<text x="486" y="258" class="body">实例边界应由 </text>
+<text x="486" y="286" class="body">Python 模块而</text><text x="486" y="322" class="label">只做一步</text><text x="486" y="342" class="body action">单例（二）：Pyth</text>
+<text x="486" y="370" class="body action">on 模块如何守住唯</text>
+<text x="486" y="398" class="body action">一实例</text><path d="M 652 310 H 668" class="arrow" marker-end="url(#arrow)"/></g><g><rect x="672" y="140" width="180" height="300" rx="24" class="card"/><text x="690" y="172" class="stage">需求 4 · P19</text><text x="690" y="210" class="label">暴露问题</text><text x="690" y="230" class="body">注册表也要求唯一身份</text>
+<text x="690" y="258" class="body">，但可变状态必须留在</text>
+<text x="690" y="286" class="body">明确边界内</text><text x="690" y="322" class="label">只做一步</text><text x="690" y="342" class="body action">单例（三）：反射防护</text>
+<text x="690" y="370" class="body action">与枚举方案</text><path d="M 856 310 H 872" class="arrow" marker-end="url(#arrow)"/></g><g><rect x="876" y="140" width="180" height="300" rx="24" class="card"/><text x="894" y="172" class="stage">需求 5 · P20</text><text x="894" y="210" class="label">暴露问题</text><text x="894" y="230" class="body">延迟加载需要复用成熟</text>
+<text x="894" y="258" class="body">缓存语义，避免手写锁</text><text x="894" y="322" class="label">只做一步</text><text x="894" y="342" class="body action">单例（四）：缓存函数</text>
+<text x="894" y="370" class="body action">的延迟初始化</text><path d="M 1060 310 H 1076" class="arrow" marker-end="url(#arrow)"/></g><g><rect x="1080" y="140" width="180" height="300" rx="24" class="card"/><text x="1098" y="172" class="stage">需求 6 · P21</text><text x="1098" y="210" class="label">暴露问题</text><text x="1098" y="230" class="body">业务对象仍显式接收 </text>
+<text x="1098" y="258" class="body">Catalog，单例</text>
+<text x="1098" y="286" class="body">只属于组合根的生命周</text><text x="1098" y="322" class="label">只做一步</text><text x="1098" y="342" class="body action">单例总结：唯一实例不</text>
+<text x="1098" y="370" class="body action">等于全局可访问</text></g>
+  <text x="60" y="485" class="subtitle">直接实现 → 记录修改扩散 → 放置最小边界 → 用业务测试验证 → 继续接受下一轮需求</text></svg>

@@ -10,14 +10,14 @@ import {
 
 test('Notion note publishing preserves frontmatter body and creates native image blocks', async () => {
   const source = await readFile(
-    'src/content/notes/programming-thoughts/course/programming-thoughts-introduction.md',
+    'src/content/notes/programming-thoughts/course/change-cohesion-coupling-srp.md',
     'utf8'
   )
   const { metadata, body } = parseFrontmatter(source)
   const blocks = markdownToBlocks(normalizeNotionEmbeds(body))
 
-  assert.equal(metadata.title, 'P1：编程思想：先控制变化，再选择模式')
-  assert.equal(blocks.filter((block) => block.type === 'image').length, 1)
-  assert.equal(blocks.filter((block) => block.type === 'code').length, 1)
+  assert.match(metadata.title, /^P1–P4：/)
+  assert.equal(blocks.filter((block) => block.type === 'image').length, 2)
+  assert.equal(blocks.filter((block) => block.type === 'code').length, 3)
   assert.equal(blocks.find((block) => block.type === 'image').image.type, 'external')
 })

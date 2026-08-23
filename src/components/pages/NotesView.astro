@@ -12,7 +12,7 @@ import NotesTree from '@/components/pages/NotesTree.astro'
 import { Icon } from '@/components/user'
 import { getCs229ReaderConfig } from '@/utils/cs229-reader'
 import { getCs229Session } from '@/utils/cs229-sessions'
-import { getProgrammingThoughtsSession } from '@/utils/programming-thoughts-sessions'
+import { getProgrammingThoughtsChapter } from '@/utils/programming-thoughts-sessions'
 import type { NoteTreeNode } from '@/utils/server'
 
 interface BreadcrumbItem {
@@ -50,7 +50,7 @@ const {
 const cs229ReaderConfig = getCs229ReaderConfig(currentPath)
 const cs229Session = getCs229Session(currentPath)
 const isCs229CourseIndex = currentPath === 'cs229/course'
-const programmingThoughtsSession = getProgrammingThoughtsSession(currentPath)
+const programmingThoughtsChapter = getProgrammingThoughtsChapter(currentPath)
 const isProgrammingThoughtsCourseIndex = currentPath === 'programming-thoughts/course'
 
 const copy =
@@ -145,8 +145,8 @@ function countDescendants(node: NoteTreeNode): number {
   {cs229Session && <Cs229SessionGuide session={cs229Session} />}
 
   {
-    programmingThoughtsSession && (
-      <ProgrammingThoughtsSessionGuide session={programmingThoughtsSession} />
+    programmingThoughtsChapter && (
+      <ProgrammingThoughtsSessionGuide chapter={programmingThoughtsChapter} />
     )
   }
 

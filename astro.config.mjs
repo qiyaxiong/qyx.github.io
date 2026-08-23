@@ -29,6 +29,7 @@ import {
   updateStyle
 } from './src/plugins/shiki-transformers.ts'
 import config from './src/site.config.ts'
+import { programmingThoughtsRedirects } from './src/utils/programming-thoughts-redirects.mjs'
 
 const platform = process.env.DEPLOYMENT_PLATFORM || 'vercel'
 const isCloudflare = platform === 'cloudflare'
@@ -59,6 +60,7 @@ export default defineConfig({
   site: normalizeSiteUrl(envSiteUrl) || fallbackSiteUrl,
   // base: '/docs',
   trailingSlash: 'never',
+  redirects: programmingThoughtsRedirects,
 
   // Internationalization
   i18n: {

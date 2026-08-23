@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1320" height="520" viewBox="0 0 1320 520" role="img" aria-labelledby="title desc">
+  <title id="title">对象边界、迪米特法则与组合复用：停止穿透对象图渐进推导图</title><desc id="desc">同一个案例随 P12 到 P15 的需求逐步演进</desc>
+  <defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#60a5fa"/></marker></defs>
+  <style>.bg{fill:#0b1220}.card{fill:#111c30;stroke:#334155;stroke-width:2}.title{font:700 27px system-ui;fill:#f8fafc}.subtitle{font:16px system-ui;fill:#94a3b8}.stage{font:700 17px system-ui;fill:#e2e8f0}.label{font:700 13px system-ui;fill:#60a5fa}.body{font:14px system-ui;fill:#cbd5e1}.action{fill:#a7f3d0}.arrow{stroke:#60a5fa;stroke-width:3;fill:none}</style>
+  <rect width="100%" height="100%" rx="30" class="bg"/><text x="60" y="60" class="title">对象边界与组合复用</text><text x="60" y="96" class="subtitle">同一个案例 · 需求出现后才重构 · 结构完成后才命名</text><g><rect x="60" y="140" width="282" height="300" rx="24" class="card"/><text x="78" y="172" class="stage">需求 1 · P12</text><text x="78" y="210" class="label">暴露问题</text><text x="78" y="230" class="body">报价函数穿透 customer</text>
+<text x="78" y="258" class="body">.profile.addres</text>
+<text x="78" y="286" class="body">s 读取城市，依赖整棵对象图</text><text x="78" y="322" class="label">只做一步</text><text x="78" y="342" class="body action">迪米特法则（一）：不要穿透对象</text>
+<text x="78" y="370" class="body action">边界取数据</text><path d="M 346 310 H 362" class="arrow" marker-end="url(#arrow)"/></g><g><rect x="366" y="140" width="282" height="300" rx="24" class="card"/><text x="384" y="172" class="stage">需求 2 · P13</text><text x="384" y="210" class="label">暴露问题</text><text x="384" y="230" class="body">配送资格判断散落在调用方，应交</text>
+<text x="384" y="258" class="body">回拥有订单数据的对象</text><text x="384" y="322" class="label">只做一步</text><text x="384" y="342" class="body action">迪米特法则（二）：把问题交回拥</text>
+<text x="384" y="370" class="body action">有数据的对象</text><path d="M 652 310 H 668" class="arrow" marker-end="url(#arrow)"/></g><g><rect x="672" y="140" width="282" height="300" rx="24" class="card"/><text x="690" y="172" class="stage">需求 3 · P14</text><text x="690" y="210" class="label">暴露问题</text><text x="690" y="230" class="body">会员折扣与配送策略同时增长，继</text>
+<text x="690" y="258" class="body">承会产生组合子类</text><text x="690" y="322" class="label">只做一步</text><text x="690" y="342" class="body action">合成复用（一）：优先组合，而不</text>
+<text x="690" y="370" class="body action">是继承排列组合</text><path d="M 958 310 H 974" class="arrow" marker-end="url(#arrow)"/></g><g><rect x="978" y="140" width="282" height="300" rx="24" class="card"/><text x="996" y="172" class="stage">需求 4 · P15</text><text x="996" y="210" class="label">暴露问题</text><text x="996" y="230" class="body">订单、策略和支付端口的所有权与</text>
+<text x="996" y="258" class="body">生命周期需要明确</text><text x="996" y="322" class="label">只做一步</text><text x="996" y="342" class="body action">合成复用（二）：看懂六种类关系</text>
+<text x="996" y="370" class="body action">与复用强度</text></g>
+  <text x="60" y="485" class="subtitle">直接实现 → 记录修改扩散 → 放置最小边界 → 用业务测试验证 → 继续接受下一轮需求</text></svg>

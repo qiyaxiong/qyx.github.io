@@ -26,20 +26,32 @@ export interface ProgrammingThoughtsPhaseInfo {
   range: string
 }
 
+export interface ProgrammingThoughtsChapter {
+  slug: string
+  title: string
+  shortTitle: string
+  phase: ProgrammingThoughtsPhase
+  startPage: number
+  endPage: number
+  caseStudy: string
+  question: string
+  outcome: string
+}
+
 export const programmingThoughtsPhases: ProgrammingThoughtsPhaseInfo[] = [
   {
     id: 'design-foundations',
     label: '第一阶段',
     title: '从坏味道到设计原则',
     description: '先学会识别变化、职责、依赖与边界，再讨论模式。原则不是口号，而是降低修改成本的判断工具。',
-    range: 'P1–P16'
+    range: 'P1–P15'
   },
   {
     id: 'singleton',
     label: '第二阶段',
     title: '单例：看似简单的全局状态',
     description: '比较饿汉、懒汉、静态内部类和反射问题，同时辨认单例带来的测试与生命周期代价。',
-    range: 'P17–P21'
+    range: 'P16–P21'
   },
   {
     id: 'factory',
@@ -618,6 +630,157 @@ export const programmingThoughtsSessions: ProgrammingThoughtsSession[] = [
     question: '怎样证明对象共享真的节省内存，而不是凭感觉增加复杂度？'
   }
 ]
+
+export const programmingThoughtsChapters: ProgrammingThoughtsChapter[] = [
+  {
+    slug: 'change-cohesion-coupling-srp',
+    title: '变化、内聚、耦合与单一职责：从一团代码拆出清晰边界',
+    shortTitle: '变化、内聚、耦合与职责',
+    phase: 'design-foundations', startPage: 1, endPage: 4,
+    caseStudy: '不断增加促销、支付与通知需求的电商结算服务',
+    question: '怎样从一次次难改的需求中，找出真正应该拆开的变化方向？',
+    outcome: '能用变化原因而不是代码行数判断模块边界'
+  },
+  {
+    slug: 'open-closed-principle-evolution',
+    title: '开放封闭原则：让折扣引擎从条件分支长成可扩展规则',
+    shortTitle: '开放封闭原则完整推导',
+    phase: 'design-foundations', startPage: 5, endPage: 7,
+    caseStudy: '从两种优惠逐步增长到活动插件的订单折扣引擎',
+    question: '什么时候应该保留 if，什么时候应该建立稳定扩展点？',
+    outcome: '能根据真实变化频率放置抽象，而不是为了模式消灭所有分支'
+  },
+  {
+    slug: 'dependency-inversion-di-contracts',
+    title: '依赖倒置、依赖注入与行为契约：把业务从基础设施里救出来',
+    shortTitle: '依赖、注入与行为契约',
+    phase: 'design-foundations', startPage: 8, endPage: 11,
+    caseStudy: '需要切换支付、审计与存储实现的订单应用',
+    question: '接口、注入、里氏替换和接口隔离为什么必须一起理解？',
+    outcome: '能设计由调用方语言定义、可替换且可验证的端口'
+  },
+  {
+    slug: 'object-boundaries-demeter-composition',
+    title: '对象边界、迪米特法则与组合复用：停止穿透对象图',
+    shortTitle: '对象边界与组合复用',
+    phase: 'design-foundations', startPage: 12, endPage: 15,
+    caseStudy: '包含地址、配送、会员优惠和订单关系的结算领域',
+    question: '怎样让对象自己回答问题，并避免继承组合爆炸？',
+    outcome: '能根据知识边界、所有权和独立变化轴选择委托或组合'
+  },
+  {
+    slug: 'patterns-and-singleton-lifecycle',
+    title: '从模式语言到单例生命周期：唯一实例不等于全局变量',
+    shortTitle: '模式语言与单例生命周期',
+    phase: 'singleton', startPage: 16, endPage: 21,
+    caseStudy: '需要延迟加载、测试替换和进程级复用的配置目录',
+    question: 'Python 里怎样表达“一个实例”，又不把依赖藏成全局状态？',
+    outcome: '能区分实例数量、创建时机、访问方式和作用域'
+  },
+  {
+    slug: 'simple-factory-method-registry',
+    title: '简单工厂、工厂方法与注册表：创建逻辑如何逐步演进',
+    shortTitle: '简单工厂、工厂方法与注册表',
+    phase: 'factory', startPage: 22, endPage: 24,
+    caseStudy: '支持 JSON、YAML 和第三方插件的文档导入平台',
+    question: '中央分支、流程子类和注册表分别解决哪一种创建变化？',
+    outcome: '能按扩展主体与流程差异选择最小的创建结构'
+  },
+  {
+    slug: 'abstract-factory-product-family',
+    title: '抽象工厂、产品族与契约测试：整套替换数据库实现',
+    shortTitle: '抽象工厂与产品族',
+    phase: 'factory', startPage: 25, endPage: 28,
+    caseStudy: '同时支持 PostgreSQL 与 SQLite 的离线优先应用',
+    question: '为什么替换数据库不是换一条连接字符串，怎样证明整族实现兼容？',
+    outcome: '能识别产品族一致性，并用共享契约测试验证替换'
+  },
+  {
+    slug: 'prototype-copy-registry',
+    title: '原型、深浅拷贝与模板注册表：复制不是简单 copy',
+    shortTitle: '原型、拷贝与模板注册表',
+    phase: 'creation', startPage: 29, endPage: 31,
+    caseStudy: '包含步骤、样式和运行时配置的自动化工作流模板库',
+    question: '哪些状态应该共享，哪些状态必须随副本独立？',
+    outcome: '能按所有权定义复制语义并保护注册表中的原型'
+  },
+  {
+    slug: 'builder-object-invariants',
+    title: '建造者与对象不变量：让复杂对象只在完整时出现',
+    shortTitle: '建造者与对象不变量',
+    phase: 'creation', startPage: 32, endPage: 33,
+    caseStudy: '具有认证、超时、重试和请求体约束的 HTTP 请求对象',
+    question: '怎样提高构造可读性，同时阻止半初始化对象逃逸？',
+    outcome: '能把分步收集配置与最终不变量校验分开'
+  },
+  {
+    slug: 'adapter-anticorruption-layer',
+    title: '适配器与反腐层：把第三方协议挡在业务边界外',
+    shortTitle: '适配器与反腐层',
+    phase: 'structural', startPage: 34, endPage: 35,
+    caseStudy: '接入字段、单位和错误语义都不同的旧支付网关',
+    question: '适配器除了改方法名，还必须翻译哪些业务语义？',
+    outcome: '能在系统边界完成协议、数据、单位与错误映射'
+  },
+  {
+    slug: 'decorator-middleware-pipeline',
+    title: '装饰器与中间件组合：顺序本身就是业务语义',
+    shortTitle: '装饰器与中间件组合',
+    phase: 'structural', startPage: 36, endPage: 37,
+    caseStudy: '组合超时、重试、缓存和指标的 HTTP 客户端',
+    question: '为什么同样四层装饰器，换个顺序就会得到不同结果？',
+    outcome: '能明确每层观察范围，并用测试锁定中间件顺序'
+  },
+  {
+    slug: 'proxy-access-facade',
+    title: '代理、访问控制与外观入口：相似包装，不同意图',
+    shortTitle: '代理、访问控制与外观',
+    phase: 'structural', startPage: 38, endPage: 40,
+    caseStudy: '需要鉴权、缓存并协调转码上传的内容发布系统',
+    question: '代理和外观都包住对象，为什么边界与承诺完全不同？',
+    outcome: '能区分访问控制、附加职责与子系统简化'
+  },
+  {
+    slug: 'bridge-independent-dimensions',
+    title: '桥接与两个独立变化维度：停止制造组合子类',
+    shortTitle: '桥接与独立变化维度',
+    phase: 'structural', startPage: 41, endPage: 42,
+    caseStudy: '报表格式与存储后端都持续增加的分发平台',
+    question: '怎样判断两个维度应该用组合桥接，而不是继承层次？',
+    outcome: '能拆开独立变化轴，并在运行时自由组合'
+  },
+  {
+    slug: 'composite-recursive-tree',
+    title: '组合模式与递归对象树：让叶子和容器接受同一种操作',
+    shortTitle: '组合模式与递归对象树',
+    phase: 'structural', startPage: 43, endPage: 44,
+    caseStudy: '同时包含用户、角色组和组织节点的权限树',
+    question: '怎样统一处理单个节点和节点集合，又不牺牲类型安全？',
+    outcome: '能用递归协议聚合树形结果并选择透明式或安全式接口'
+  },
+  {
+    slug: 'flyweight-state-memory',
+    title: '享元、状态分离与内存优化：先测量，再共享',
+    shortTitle: '享元、状态分离与内存优化',
+    phase: 'structural', startPage: 45, endPage: 46,
+    caseStudy: '需要渲染百万格地图瓦片的游戏场景',
+    question: '怎样分开可共享状态与上下文状态，并证明优化真的有效？',
+    outcome: '能通过不可变共享、缓存键和内存测量验证享元收益'
+  }
+]
+
+export function getProgrammingThoughtsChapterSessions(chapter: ProgrammingThoughtsChapter): ProgrammingThoughtsSession[] {
+  return programmingThoughtsSessions.filter(
+    (session) => session.page >= chapter.startPage && session.page <= chapter.endPage
+  )
+}
+
+export function getProgrammingThoughtsChapter(path: string): ProgrammingThoughtsChapter | undefined {
+  const prefix = 'programming-thoughts/course/'
+  if (!path.startsWith(prefix)) return undefined
+  const slug = path.slice(prefix.length)
+  return programmingThoughtsChapters.find((chapter) => chapter.slug === slug)
+}
 
 export function getProgrammingThoughtsDuration(session: ProgrammingThoughtsSession): string {
   const minutes = Math.floor(session.durationSeconds / 60)

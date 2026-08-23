@@ -1,9 +1,14 @@
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, unlink, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import process from 'node:process'
 
-import { programmingThoughtsSessions } from '../utils/programming-thoughts-sessions.ts'
+import {
+  getProgrammingThoughtsChapterSessions,
+  programmingThoughtsChapters,
+  programmingThoughtsSessions
+} from '../utils/programming-thoughts-sessions.ts'
 import { buildPythonCodeSample } from './programming-thoughts-python-samples.mjs'
+import { getChapterSample } from './programming-thoughts-chapter-samples.mjs'
 
 const root = process.cwd()
 const notesDir = path.join(root, 'src/content/notes/programming-thoughts/course')
@@ -491,83 +496,157 @@ class UseCase {
   */
 }
 
-function buildArticle(session, design) {
-  const [smell, move, gain, cost] = design
-  const diagramPath = `/images/notes/programming-thoughts/diagrams/p${String(session.page).padStart(2, '0')}-${session.slug}.svg`
-  const sample = buildCodeSample(session)
-  const firstTopic = session.topics[0]
-  const remainingTopics = session.topics.slice(1).join('、')
+function buildProgressiveStep(chapter, session, sample, step) {
+  const topic = session.topics[0]
+  return `## 第 ${step + 1} 轮需求：先解决问题，最后再叫它 ${topic}（P${session.page}）
 
+我们继续修改同一个“${chapter.caseStudy}”，不另起一个玩具项目。上一轮代码能工作，但新的需求让这个薄弱处出现：**${sample.stages[step]}**。先不要套类图，先写下如果沿用原结构，需要改哪些判断、对象和测试。
+
+这一轮真正的问题是：${session.question} 最直接的选择仍然是继续修改原函数；第一次这样做通常最便宜。等相同方向的修改再次出现，我们才获得足够证据，知道应该把哪部分从主流程中分离。
+
+### 这一轮只做一个设计动作
+
+本轮只落实 **${session.title}**：围绕“${session.topics.join('、')}”移动一个边界，不同时引入后续模式。验证标准也很具体——完成本轮需求后，再增加同方向实现时，上一轮已经稳定的业务结果不需要改写。
+
+完成动作后再给它命名：这一轮对应 **${session.topics.join('、')}**。名称只是压缩沟通，不是推导起点。如果无法从“需求如何变化”推回这个结构，就说明我们只记住了答案。
+
+这一轮也增加了一层命名和间接调用。下一轮需求会继续检验它；如果修改清单没有缩短，就退回更直接的版本，而不是继续叠抽象。
+`
+}
+
+function buildChapterComparisonDiagram(chapter, sessions, sample) {
+  const topics = sessions.map((session) => session.topics[0]).join(' · ')
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="1320" height="620" viewBox="0 0 1320 620" role="img" aria-labelledby="title desc">
+  <title id="title">${escapeXml(chapter.title)}重构前后对照</title><desc id="desc">从直接实现到可验证边界的结构变化</desc>
+  <defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#a78bfa"/></marker></defs>
+  <style>.bg{fill:#0b1220}.panel{fill:#111c30;stroke:#334155;stroke-width:2}.before{stroke:#f97316}.after{stroke:#34d399}.title{font:700 28px system-ui;fill:#f8fafc}.head{font:700 20px system-ui;fill:#e2e8f0}.label{font:700 14px system-ui;fill:#94a3b8}.body{font:16px system-ui;fill:#cbd5e1}.good{fill:#a7f3d0}.arrow{stroke:#a78bfa;stroke-width:5;fill:none}</style>
+  <rect width="100%" height="100%" rx="30" class="bg"/><text x="60" y="62" class="title">${escapeXml(chapter.shortTitle)} · 同一份代码的前后对照</text>
+  <rect x="60" y="120" width="500" height="410" rx="28" class="panel before"/><text x="95" y="170" class="head">起点：直接实现</text><text x="95" y="215" class="label">当前压力</text>${textLines(sample.stages[0], 95, 250, 'body', 24)}<text x="95" y="365" class="label">修改方式</text>${textLines('继续在原函数中增加判断；业务决定与实现细节一起变化', 95, 400, 'body', 24)}
+  <path d="M 585 325 H 720" class="arrow" marker-end="url(#arrow)"/><text x="610" y="298" class="label">逐轮需求</text>
+  <rect x="750" y="120" width="510" height="410" rx="28" class="panel after"/><text x="785" y="170" class="head">演进后：最小稳定边界</text><text x="785" y="215" class="label">形成的工具</text>${textLines(topics, 785, 250, 'body good', 24)}<text x="785" y="365" class="label">验证结果</text>${textLines(chapter.outcome, 785, 400, 'body', 24)}
+  <text x="60" y="580" class="label">不是“右边永远更好”：只有左边已经反复为同类变化付费，重构才值得。</text></svg>`
+}
+
+function buildChapterDiagram(chapter, sessions, sample) {
+  const width = 1320
+  const cardWidth = Math.floor((width - 120 - (sessions.length - 1) * 24) / sessions.length)
+  const cards = sessions.map((session, index) => {
+    const x = 60 + index * (cardWidth + 24)
+    const title = textLines(`需求 ${index + 1} · P${session.page}`, x + 18, 172, 'stage', 18)
+    const problem = textLines(sample.stages[index], x + 18, 230, 'body', Math.max(10, Math.floor(cardWidth / 18)))
+    const action = textLines(session.title, x + 18, 342, 'body action', Math.max(10, Math.floor(cardWidth / 18)))
+    const arrow = index < sessions.length - 1 ? `<path d="M ${x + cardWidth + 4} 310 H ${x + cardWidth + 20}" class="arrow" marker-end="url(#arrow)"/>` : ''
+    return `<g><rect x="${x}" y="140" width="${cardWidth}" height="300" rx="24" class="card"/>${title}<text x="${x + 18}" y="210" class="label">暴露问题</text>${problem}<text x="${x + 18}" y="322" class="label">只做一步</text>${action}${arrow}</g>`
+  }).join('')
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="520" viewBox="0 0 ${width} 520" role="img" aria-labelledby="title desc">
+  <title id="title">${escapeXml(chapter.title)}渐进推导图</title><desc id="desc">同一个案例随 P${chapter.startPage} 到 P${chapter.endPage} 的需求逐步演进</desc>
+  <defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#60a5fa"/></marker></defs>
+  <style>.bg{fill:#0b1220}.card{fill:#111c30;stroke:#334155;stroke-width:2}.title{font:700 27px system-ui;fill:#f8fafc}.subtitle{font:16px system-ui;fill:#94a3b8}.stage{font:700 17px system-ui;fill:#e2e8f0}.label{font:700 13px system-ui;fill:#60a5fa}.body{font:14px system-ui;fill:#cbd5e1}.action{fill:#a7f3d0}.arrow{stroke:#60a5fa;stroke-width:3;fill:none}</style>
+  <rect width="100%" height="100%" rx="30" class="bg"/><text x="60" y="60" class="title">${escapeXml(chapter.shortTitle)}</text><text x="60" y="96" class="subtitle">同一个案例 · 需求出现后才重构 · 结构完成后才命名</text>${cards}
+  <text x="60" y="485" class="subtitle">直接实现 → 记录修改扩散 → 放置最小边界 → 用业务测试验证 → 继续接受下一轮需求</text></svg>`
+}
+
+function buildArticle(chapter) {
+  const sessions = getProgrammingThoughtsChapterSessions(chapter)
+  const sample = getChapterSample(chapter.slug)
+  const steps = sessions.map((session, step) => {
+    return buildProgressiveStep(chapter, session, sample, step)
+  }).join('\n')
+  const topicRows = sessions.map((session, index) => `| ${index + 1} | P${session.page} | ${session.question} | ${session.topics[0]} |`).join('\n')
   return `---
-title: P${session.page}：${session.title}
-description: 用“${session.example}”案例理解${firstTopic}，从坏味道、变化轴、重构结构到适用边界完成一次设计判断。
-publishDate: 2026-08-09
-updatedDate: 2026-08-09
+title: P${chapter.startPage}–P${chapter.endPage}：${chapter.title}
+description: 以“${chapter.caseStudy}”为贯穿案例，按视频顺序从朴素实现、需求失败到重构命名，渐进理解 ${sessions.map((session) => session.topics[0]).join('、')}。
+publishDate: 2026-08-23
+updatedDate: 2026-08-23
 language: zh
 ---
 
-## 先从问题出发
+这不是把 P${chapter.startPage}–P${chapter.endPage} 的定义拼成一篇词典，而是让一个系统连续经历几轮需求。我们从 **${chapter.caseStudy}** 的最直接实现出发；每当代码真的承受不住下一次变化，才引入一个新边界。
 
-本节不从类图开始，而从 **${session.example}** 的变化压力开始：${smell}。真正要回答的问题是：${session.question}
+最终要回答的是：**${chapter.question}** 学完的验收标准也不是记住名词，而是${chapter.outcome}。
 
-设计的目标不是消灭修改，而是让一次需求变化只触碰与它同方向的代码。下面这张图把本节决策压缩为“症状—动作—结果”三步。
+## 先看完整推导路线
 
-![P${session.page} ${session.title}：从问题症状到设计动作与可验证结果](${diagramPath})
+| 阶段 | 原视频 | 新出现的问题 | 到最后才命名 |
+| --- | --- | --- | --- |
+${topicRows}
 
-## 核心判断
+这张表只是地图，不是答案。阅读正文时建议停在每个“第二个需求”之前，先自己修改一次朴素代码，再比较后面的重构。模式真正进入肌肉记忆，靠的不是看懂类图，而是亲手感受修改范围如何扩大。
 
-**${firstTopic}** 在这里不是一条必须服从的口号。它是在提醒我们：${move}。其余关键词——${remainingTopics}——都服务于同一个目的：找到一个调用方能理解、实现方能独立变化的边界。
+![${chapter.title}：同一案例随需求逐步演进](/images/notes/programming-thoughts/diagrams/chapter-${chapter.slug}.svg)
 
-重构之后期待的不是“类更多了”，而是一个可以验证的结果：${gain}。如果做完重构仍然需要在五个文件里同步修改同一种规则，说明边界很可能放错了。
+## 起点：先写最直接、能工作的版本
 
-## 最小代码例子
-
-下面的代码刻意只保留决定性的协作关系。真实项目还要补上输入校验、错误模型、日志和测试，但这些不应掩盖本节的依赖方向。
+这一版故意把决策和实现放在一起。它不是“错误代码”，而是需求尚少时合理的最低成本方案。请先运行它，并标出每个业务决定；接下来的 P${chapter.startPage}–P${chapter.endPage} 会连续修改同一案例。
 
 \`\`\`python
-${sample}
+${sample.before}
 \`\`\`
 
-阅读时不要只数接口和类，依次检查：
+${steps}
 
-1. 谁拥有业务决策；
-2. 哪个方向会经常变化；
-3. 调用方依赖的是业务语言还是供应商语言；
-4. 新增一种实现时，稳定流程是否仍要修改。
+## 演进完成后的 Python 实现
 
-## 设计前后对照
+下面不是另一个示例，而是起点代码承受完上述需求后的版本。每个新增角色都能追溯到前面某一轮真实修改压力；删掉任何一层，都应该能说出哪项需求会重新变难。
 
-| 观察点 | 重构前 | 重构后 |
-| --- | --- | --- |
-| 变化位置 | ${smell} | ${move} |
-| 依赖方向 | 稳定逻辑了解易变细节 | 稳定逻辑只依赖明确边界 |
-| 验证方式 | 依赖整套环境做回归 | 可以替换协作者并做局部测试 |
-| 新增成本 | 修改旧分支并承担连锁风险 | 在边界后新增实现并运行契约测试 |
+\`\`\`python
+${sample.after}
+\`\`\`
 
-表格并不保证右侧永远更好。如果变化频率低、实现只有一个且结构非常稳定，多一层抽象可能只是让跳转路径变长。
+## 用真实业务结果验证，而不是测试模式名
 
-## 什么时候值得使用
+测试不关心类图里有几个角色，只验证稳定业务结果、替换能力和关键失败边界。下面代码与上一个代码块拼接后可直接由 Python 3.12 执行。
 
-- 已经观察到同一类修改反复发生，而不是只猜测未来；
-- 稳定规则与易变实现有清楚的语言边界；
-- 可以通过单元测试或契约测试证明替换后的行为；
-- 新结构让调用方更接近业务意图，而不是更接近框架术语。
+\`\`\`python
+${sample.test}
+\`\`\`
 
-## 什么时候先不要用
+![${chapter.title}：同一份代码重构前后结构对照](/images/notes/programming-thoughts/diagrams/chapter-${chapter.slug}-comparison.svg)
 
-本节方案的主要代价是：${cost}。如果团队还说不清变化轴，先保留简单实现、收集第二个真实用例，通常比立即建立通用框架更安全。
+## 把连续重构放回一张决策表
 
-另一个检查方法是看删除成本：如果抽象失败，能否在一次小重构中回到直接实现？越难撤销的设计，越需要真实证据。
+| 检查项 | 仍然简单时 | 变化已经重复时 | 抽象后的验证 |
+| --- | --- | --- | --- |
+| 修改范围 | 一个分支或一个函数 | 同类判断散落到多个模块 | 新需求主要新增实现 |
+| 依赖语言 | 具体类名与外部字段 | 业务规则被实现细节牵着走 | 调用方只看自己的业务能力 |
+| 测试方式 | 端到端手工验证 | 每次都要启动整套环境 | 稳定规则可用替身局部测试 |
+| 撤销成本 | 几乎没有 | 继续堆分支的成本持续上升 | 抽象仍能被一次小重构移除 |
 
-## 动手练习
+这四行里最容易被忽略的是“撤销成本”。好的演进式设计不是层数最多，而是每一步都能解释、能验证、也能退回去。没有第二个真实用例时，保留直接实现通常更诚实；出现重复变化后仍拒绝命名边界，则会把复杂度转移给未来维护者。
 
-为“${session.example}”再增加一个与现有实现差异明显的需求。先写出会被修改的文件清单，再用本节结构重构。要求至少写两个测试：一个验证稳定业务规则，一个验证新旧实现遵守相同契约。
+## 为什么这些分 P 必须连在一起读
 
-最后用三句话复盘：变化轴是什么；边界为什么放在这里；为了这次解耦付出了什么复杂度。
+单独看每个名词，很容易把设计理解成一组互不相关的技巧。放回同一条演进链后会发现，前一步通常在制造后一步所需的条件：先把变化聚到局部，才看得见稳定边界；先让依赖显式，才谈得上替换；先定义替换契约，才有资格把实现交给工厂、注册表或组合根。
 
-## 本节小结
+同样，后一种结构并不会淘汰前一种。一个系统完全可能在入口保留简单分支，在核心流程使用协议，在基础设施侧使用注册表。选择标准不是“哪个模式更高级”，而是当前变化由谁发起、发生频率多高、失败后需要谁负责。
 
-${move}。当你能用“变化原因”和“行为契约”解释这个决定时，${firstTopic} 才从名词变成了可迁移的编程思想。
+可以用三次追问检查理解是否连贯。第一，去掉新抽象后，哪一个真实需求会重新变难？第二，新增一种实现时，哪些稳定代码仍然会被修改？第三，实现抛错、超时或返回边界值时，调用方依赖的行为是否仍然成立？如果答不出来，先回到上一个更简单的版本。
+
+本文把代码拆成多个小切片，是为了让每次决策清楚，并不建议在项目中为每个概念各建一层。真正落地时，应该把相邻且同向变化的角色合并，把仅服务一个调用点的抽象留在模块内部，只把跨模块需要共同遵守的契约公开出去。这样既保留演进路径，也不会把教学结构原样搬成生产结构。
+
+## 容易走偏的地方
+
+1. **第一版就设计最终形态。** 这会跳过最重要的证据收集，也让团队无法解释每层抽象来自哪个需求。
+2. **用类的数量衡量设计。** 类少不等于简单，类多也不等于解耦；真正要看的是一次变化传播多远。
+3. **只画重构后的图。** 没有“之前为什么痛”，读者只能背结构，无法迁移到新的问题。
+4. **把 Protocol 当作自动解耦。** 如果接口仍然复制供应商语言，业务只是隔着一层继续依赖供应商。
+5. **忽略运行时与失败语义。** 能正常返回只是契约的一部分，超时、重复、并发和部分失败同样决定实现能否替换。
+
+## 什么时候停在更简单的版本
+
+如果实现只有一个、变化方向长期稳定、团队无法给出第二个真实需求，先停在函数或小类即可。本文的每次重构都有前提：旧结构已经让某种变化重复付费。没有这个前提，所谓扩展性很容易变成需要长期维护的猜测。
+
+反过来，如果同一个条件分支已经复制三次、测试必须连接真实基础设施、或一个调用方需要穿过三层对象才能回答业务问题，就不要再用“以后再说”掩盖结构债务。此时先写修改清单，再选择本文最小的一步，而不是一次引入所有模式。
+
+## 练习：把视频推导重新走一遍
+
+为“${chapter.caseStudy}”增加一个与现有实现明显不同的需求。第一轮禁止增加接口，只修改朴素版本并记录触碰点；第二轮使用本文对应步骤重构；第三轮再加入一个变化，验证旧流程是否保持不动。
+
+提交物包括：重构前后的修改清单、一张依赖方向图、至少两个业务测试、一个共享契约测试，以及一段不超过 150 字的代价说明。最后回看 P${chapter.startPage}–P${chapter.endPage}，确认每个结构都能追溯到一个真实失败，而不是追溯到一个想背下来的名词。
+
+## 小结
+
+本章真正形成的是一条推理链：直接实现 → 新需求暴露耦合 → 找到变化轴 → 放置最小边界 → 用测试证明 → 写下代价。做到这一步，${sessions.map((session) => session.topics[0]).join('、')} 才不再是彼此分散的知识点，而是同一段代码演进过程中自然出现的工具。
 `
 }
 
@@ -577,11 +656,22 @@ await mkdir(diagramsDir, { recursive: true })
 for (const [index, session] of programmingThoughtsSessions.entries()) {
   const design = lessonDesigns[index]
   const pagePrefix = `p${String(session.page).padStart(2, '0')}`
-  await writeFile(path.join(notesDir, `${session.slug}.md`), buildArticle(session, design))
   await writeFile(
     path.join(diagramsDir, `${pagePrefix}-${session.slug}.svg`),
     buildDiagram(session, design)
   )
 }
 
-process.stdout.write(`Generated ${programmingThoughtsSessions.length} articles and diagrams.\n`)
+for (const session of programmingThoughtsSessions) {
+  await unlink(path.join(notesDir, `${session.slug}.md`)).catch((error) => {
+    if (error.code !== 'ENOENT') throw error
+  })
+}
+
+for (const chapter of programmingThoughtsChapters) {
+  await writeFile(path.join(notesDir, `${chapter.slug}.md`), buildArticle(chapter))
+  await writeFile(path.join(diagramsDir, `chapter-${chapter.slug}.svg`), buildChapterDiagram(chapter, getProgrammingThoughtsChapterSessions(chapter), getChapterSample(chapter.slug)))
+  await writeFile(path.join(diagramsDir, `chapter-${chapter.slug}-comparison.svg`), buildChapterComparisonDiagram(chapter, getProgrammingThoughtsChapterSessions(chapter), getChapterSample(chapter.slug)))
+}
+
+process.stdout.write(`Generated ${programmingThoughtsChapters.length} progressive articles and ${programmingThoughtsSessions.length} diagrams.\n`)

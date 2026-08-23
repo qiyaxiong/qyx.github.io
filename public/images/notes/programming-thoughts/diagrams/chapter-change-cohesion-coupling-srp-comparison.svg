@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1320" height="620" viewBox="0 0 1320 620" role="img" aria-labelledby="title desc">
+  <title id="title">变化、内聚、耦合与单一职责：从一团代码拆出清晰边界重构前后对照</title><desc id="desc">从直接实现到可验证边界的结构变化</desc>
+  <defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#a78bfa"/></marker></defs>
+  <style>.bg{fill:#0b1220}.panel{fill:#111c30;stroke:#334155;stroke-width:2}.before{stroke:#f97316}.after{stroke:#34d399}.title{font:700 28px system-ui;fill:#f8fafc}.head{font:700 20px system-ui;fill:#e2e8f0}.label{font:700 14px system-ui;fill:#94a3b8}.body{font:16px system-ui;fill:#cbd5e1}.good{fill:#a7f3d0}.arrow{stroke:#a78bfa;stroke-width:5;fill:none}</style>
+  <rect width="100%" height="100%" rx="30" class="bg"/><text x="60" y="62" class="title">变化、内聚、耦合与职责 · 同一份代码的前后对照</text>
+  <rect x="60" y="120" width="500" height="410" rx="28" class="panel before"/><text x="95" y="170" class="head">起点：直接实现</text><text x="95" y="215" class="label">当前压力</text><text x="95" y="250" class="body">结算、折扣、支付和通知全挤在 checkout(</text>
+<text x="95" y="278" class="body">) 中，一次活动改动会碰完整流程</text><text x="95" y="365" class="label">修改方式</text><text x="95" y="400" class="body">继续在原函数中增加判断；业务决定与实现细节一起变</text>
+<text x="95" y="428" class="body">化</text>
+  <path d="M 585 325 H 720" class="arrow" marker-end="url(#arrow)"/><text x="610" y="298" class="label">逐轮需求</text>
+  <rect x="750" y="120" width="510" height="410" rx="28" class="panel after"/><text x="785" y="170" class="head">演进后：最小稳定边界</text><text x="785" y="215" class="label">形成的工具</text><text x="785" y="250" class="body good">变化成本 · 内聚度 · 耦合类型 · SRP</text><text x="785" y="365" class="label">验证结果</text><text x="785" y="400" class="body">能用变化原因而不是代码行数判断模块边界</text>
+  <text x="60" y="580" class="label">不是“右边永远更好”：只有左边已经反复为同类变化付费，重构才值得。</text></svg>

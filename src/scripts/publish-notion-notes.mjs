@@ -10,6 +10,7 @@ import {
   normalizeNotionEmbeds,
   parseFrontmatter
 } from './publish-notion-markdown.mjs'
+import { programmingThoughtsLegacySlugs } from '../utils/programming-thoughts-redirects.mjs'
 
 const NOTE_DATA_SOURCE_NAMES = ['note', 'notes']
 const APPEND_BATCH_SIZE = 50
@@ -24,6 +25,7 @@ Required:
 
 Optional:
   --update-published       Update existing Published Notion notes
+  --unpublish-missing      After a directory publish succeeds, change missing notes below it to Draft
   --dry-run                Parse files and print the publish plan
   -h, --help               Show this help message
 `
@@ -121,6 +123,58 @@ async function findExistingNote(notion, dataSourceId, slug) {
     })
   )
   return response.results.find((result) => result.object === 'page')
+}
+
+async function findPublishedNotesBelow(notion, dataSourceId, slugPrefix) {
+  const pages = []
+  let cursor
+  do {
+    const response = await withRetry(`query published notes below ${slugPrefix}`, () =>
+      notion.dataSources.query({
+        data_source_id: dataSourceId,
+        start_cursor: cursor,
+        page_size: 100,
+        filter: {
+          and: [
+            { property: 'Status', select: { equals: 'Published' } },
+            { property: 'Slug', rich_text: { starts_with: slugPrefix } }
+          ]
+        }
+      })
+    )
+    pages.push(...response.results.filter((result) => result.object === 'page'))
+    cursor = response.has_more ? response.next_cursor : undefined
+  } while (cursor)
+  return pages
+}
+
+function getRichTextProperty(page, name) {
+  return page.properties?.[name]?.rich_text?.map((item) => item.plain_text).join('') || ''
+}
+
+async function unpublishMissingNotes({ notion, dataSourceId, directory, publishedSlugs }) {
+  const relativeDirectory = relative(NOTES_ROOT, directory).split(sep).join('/').replace(/\/$/, '')
+  if (!relativeDirectory || relativeDirectory.startsWith('..')) {
+    throw new Error(`Refusing to unpublish outside Notes root: ${directory}`)
+  }
+  if (relativeDirectory !== 'programming-thoughts') {
+    throw new Error('--unpublish-missing currently supports only the programming-thoughts migration allowlist')
+  }
+  const allowlist = new Set(programmingThoughtsLegacySlugs)
+  const candidates = await findPublishedNotesBelow(notion, dataSourceId, `${relativeDirectory}/`)
+  const missing = candidates.filter((page) => {
+    const slug = getRichTextProperty(page, 'Slug')
+    return allowlist.has(slug) && !publishedSlugs.has(slug)
+  })
+  for (const page of missing) {
+    const slug = getRichTextProperty(page, 'Slug')
+    await withRetry(`unpublish ${slug}`, () => notion.pages.update({
+      page_id: page.id,
+      properties: { Status: { select: { name: 'Draft' } } }
+    }))
+    console.error(`[notion] Drafted obsolete note ${slug}`)
+  }
+  return missing.map((page) => getRichTextProperty(page, 'Slug'))
 }
 
 async function clearPageChildren(notion, pageId) {
@@ -228,7 +282,7 @@ async function publishOne({ notion, dataSourceId, filePath, updatePublished, dry
 export default async function main(argv) {
   const args = minimist(argv, {
     string: ['file', 'dir'],
-    boolean: ['dry-run', 'help', 'update-published'],
+    boolean: ['dry-run', 'help', 'update-published', 'unpublish-missing'],
     alias: { h: 'help' }
   })
 
@@ -239,6 +293,7 @@ export default async function main(argv) {
 
   if (!args.file && !args.dir) throw new Error('Provide --file or --dir')
   if (args.file && args.dir) throw new Error('Use only one of --file or --dir')
+  if (args['unpublish-missing'] && !args.dir) throw new Error('--unpublish-missing requires --dir')
 
   const root = resolve(process.cwd(), args.dir || args.file)
   const files = statSync(root).isDirectory() ? getNoteFiles(root) : [root]
@@ -277,5 +332,14 @@ export default async function main(argv) {
     console.error(`[notion] Published ${result.slug}`)
   }
 
-  console.log(JSON.stringify({ dataSource: 'note', count: results.length, notes: results }, null, 2))
+  const unpublished = args['unpublish-missing']
+    ? await unpublishMissingNotes({
+        notion,
+        dataSourceId,
+        directory: root,
+        publishedSlugs: new Set(files.map(inferNoteSlug))
+      })
+    : []
+
+  console.log(JSON.stringify({ dataSource: 'note', count: results.length, notes: results, unpublished }, null, 2))
 }
