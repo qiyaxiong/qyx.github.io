@@ -1,6 +1,7 @@
 ---
 import type { MarkdownHeading } from 'astro'
 
+import { MediumZoom } from '@/components/advanced'
 import ContentLayout from '@/layouts/ContentLayout.astro'
 import { TOC } from '@/components/pages'
 import Cs229BilingualReader from '@/components/pages/Cs229BilingualReader.astro'
@@ -14,6 +15,7 @@ import { getCs229ReaderConfig } from '@/utils/cs229-reader'
 import { getCs229Session } from '@/utils/cs229-sessions'
 import { getProgrammingThoughtsChapter } from '@/utils/programming-thoughts-sessions'
 import type { NoteTreeNode } from '@/utils/server'
+import { integ } from '@/site-config'
 
 interface BreadcrumbItem {
   title: string
@@ -209,3 +211,9 @@ function countDescendants(node: NoteTreeNode): number {
     )
   }
 </ContentLayout>
+
+{
+  integ.mediumZoom.enable && (
+    <MediumZoom selector='#content img:not(.no-lightbox)' />
+  )
+}
