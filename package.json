@@ -11,6 +11,7 @@
     "build:cloudflare": "astro check && astro build",
     "build:github": "astro check && astro build",
     "preview": "astro preview",
+    "publish:notion": "bash scripts/publish-from-notion.sh",
     "smoke:live2d": "node scripts/verify-live2d-blog.mjs",
     "test:live2d": "node --test tests/live2d-*.test.ts",
     "viz:cs229": "node src/scripts/generate-cs229-tikz-diagrams.mjs",

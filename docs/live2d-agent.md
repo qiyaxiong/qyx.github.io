@@ -1,5 +1,23 @@
 # Blog Live2D Agent
 
+## 连续表演与 OBS 舞台
+
+Blog 浮动助手和 `/live2d-stage` 共用 `Live2DPerformanceHost`。后端只发送带 VAD、强度、
+过渡时间和随机种子的语义 Target；浏览器负责眨眼、注视、呼吸、口型、连续插值和参数仲裁。
+模型不能直接写任意 Cubism 参数。
+
+模型目录必须包含与模型 fingerprint 匹配的 `*.performance.json`。开发环境可在
+`/live2d-calibrate` 调整并导出 Profile。
+
+OBS Browser Source 使用透明页面：
+
+```text
+https://blog.example/live2d-stage?session=<session-id>&token=<stage-token>&captions=1
+```
+
+Stage Token 由认证后的 `POST /api/v1/live2d/stage-token` 签发，只允许读取指定 Session 的
+模型、事件和语音，不允许发送消息、调用工具或访问管理 API。
+
 Live2D 的正式 UI 是全站 `BaseLayout` 中的浮动组件，不是独立页面。模型、Session、LLM 和统计仍
 由独立的 `/Users/qiluo/program/pi-agent-py` 服务负责；Blog 只包含 Pixi Renderer、输入框和 SSE
 客户端。

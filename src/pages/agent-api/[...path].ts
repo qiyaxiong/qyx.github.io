@@ -3,7 +3,7 @@ import type { APIRoute } from 'astro'
 export const prerender = false
 
 type RouteMatch =
-  | { kind: 'model' | 'asset' | 'session-create' }
+  | { kind: 'model' | 'profile' | 'asset' | 'stage' | 'session-create' }
   | { kind: 'session-read' | 'snapshot' | 'events'; sessionId: string }
   | { kind: 'channel-message' | 'speech' }
 
@@ -21,7 +21,16 @@ function errorResponse(status: number, code: string, message: string): Response 
 
 function matchRoute(method: string, path: string): RouteMatch | undefined {
   if (method === 'GET' && path === 'api/v1/live2d/model') return { kind: 'model' }
+  if (method === 'GET' && path === 'api/v1/live2d/performance-profile')
+    return { kind: 'profile' }
   if (method === 'GET' && /^api\/v1\/live2d\/assets\/.+$/.test(path)) return { kind: 'asset' }
+  if (
+    ['GET', 'POST'].includes(method) &&
+    /^api\/v1\/live2d\/stage\/[^/]+\/(?:snapshot|events|speech|[^/]+\/(?:model|performance-profile|assets\/.+))$/.test(
+      path
+    )
+  )
+    return { kind: 'stage' }
   if (method === 'POST' && path === 'api/v1/sessions') return { kind: 'session-create' }
   if (method === 'POST' && path === 'api/v1/channels/web/messages')
     return { kind: 'channel-message' }
@@ -191,7 +200,27 @@ async function upstreamFetch(request: Request, path: string, body?: string): Pro
     for (const name of ['connection', 'content-encoding', 'content-length', 'transfer-encoding']) {
       responseHeaders.delete(name)
     }
-    return new Response(upstream.body, {
+    let responseBody = upstream.body
+    if (responseBody && responseHeaders.get('content-type')?.includes('text/event-stream')) {
+      const reader = responseBody.getReader()
+      responseBody = new ReadableStream<Uint8Array<ArrayBuffer>>({
+        async pull(controller) {
+          try {
+            const { done, value } = await reader.read()
+            if (done) controller.close()
+            else controller.enqueue(new Uint8Array(value))
+          } catch {
+            // A long-lived SSE upstream may be terminated by the server runtime's
+            // body timeout. Close cleanly so EventSource can reconnect with its cursor.
+            controller.close()
+          }
+        },
+        cancel(reason) {
+          return reader.cancel(reason)
+        }
+      })
+    }
+    return new Response(responseBody, {
       status: upstream.status,
       statusText: upstream.statusText,
       headers: responseHeaders
@@ -218,7 +247,12 @@ export const ALL: APIRoute = async ({ params, request }) => {
     return errorResponse(403, 'bff.origin_invalid', 'Cross-origin writes are not allowed')
   }
 
-  if (route.kind === 'model' || route.kind === 'asset') {
+  if (
+    route.kind === 'model' ||
+    route.kind === 'profile' ||
+    route.kind === 'asset' ||
+    route.kind === 'stage'
+  ) {
     return upstreamFetch(request, path)
   }
 

@@ -110,7 +110,11 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
     type PageContext
   } from './client'
   import { SpeechSegmenter } from './speech-segments'
-  import { SpeechMotionController } from './voice-motion'
+  import {
+    PerformanceRuntime,
+    type PerformanceProfile
+  } from './performance-runtime'
+  import { Live2DPerformanceHost } from './performance-host'
 
   interface CoreModel {
     setParameterValueById(id: string, value: number): void
@@ -187,7 +191,18 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
     let speechGeneration = 0
     let speechTurn: SpeechTurn | undefined
     const speechSegmenter = new SpeechSegmenter()
-    const speechMotion = new SpeechMotionController()
+    const performanceRuntime = new PerformanceRuntime()
+    const performanceHost = new Live2DPerformanceHost(performanceRuntime, () => {
+      const model = avatar
+      return model
+        ? {
+            expression: (name) => model.expression(name),
+            motion: (group, index) => model.motion(group, index),
+            coreModel: model.internalModel?.coreModel
+          }
+        : undefined
+    })
+    let currentTurnId: string | undefined
     let mouthLevel = 0
     let avatarSpeaking = false
     let talkMotionGroup: string | undefined
@@ -460,7 +475,12 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
       if (context.state !== 'running') {
         throw new Error('浏览器音频上下文未启动')
       }
-      const response = await api.synthesizeSpeech(sessionId, text, abortController.signal)
+      const response = await api.synthesizeSpeech(
+        sessionId,
+        text,
+        abortController.signal,
+        currentTurnId
+      )
       if (generation !== speechGeneration || speechTurn !== turn) return
       if (!response.body) throw new Error('TTS returned no PCM stream')
       const mediaType = response.headers.get('content-type')?.split(';')[0]
@@ -575,7 +595,7 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
       agentRoot.dataset.audioActive = 'false'
       const deadline = performance.now() + 1_200
       while (
-        (mouthLevel > 0.01 || (!talkMotionGroup && !speechMotion.settled)) &&
+        mouthLevel > 0.01 &&
         performance.now() < deadline
       ) {
         await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
@@ -657,15 +677,12 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
     const applyVoiceParameters = () => {
       const coreModel = avatar?.internalModel?.coreModel
       if (!coreModel) return
-      coreModel.setParameterValueById('ParamMouthOpenY', mouthLevel)
-      if (!talkMotionGroup) {
-        speechMotion.update(coreModel, {
-          timeSeconds: performance.now() / 1_000,
-          energy: mouthLevel,
-          speaking: avatarSpeaking,
-          ambient: true
-        })
-      }
+      performanceHost.update({
+        timeSeconds: performance.now() / 1_000,
+        energy: mouthLevel,
+        speaking: avatarSpeaking,
+        reducedMotion: prefersReducedMotion.matches
+      })
     }
 
     function loadScript(source: string): Promise<void> {
@@ -774,9 +791,7 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
         delete agentRoot.dataset.motionGroup
         delete agentRoot.dataset.motionIndex
       }
-      for (const [id, value] of Object.entries(snapshot.parameters)) {
-        avatar?.internalModel?.coreModel?.setParameterValueById(id, value)
-      }
+      await performanceHost.applySnapshot(snapshot)
     }
 
     async function applyEvent(event: Live2DEvent) {
@@ -805,6 +820,7 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
         showActionCard(data)
         return
       }
+      if (await performanceHost.applyEvent(event)) return
       if (event.type !== 'live2d.command') return
       if (typeof data.expression === 'string') {
         agentRoot.dataset.expression = data.expression
@@ -820,13 +836,6 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
           typeof data.motion_index === 'number' ? data.motion_index : 0
         )
       }
-      if (data.parameters && typeof data.parameters === 'object') {
-        for (const [id, value] of Object.entries(data.parameters)) {
-          if (typeof value === 'number') {
-            avatar?.internalModel?.coreModel?.setParameterValueById(id, value)
-          }
-        }
-      }
     }
 
     function connectEvents(cursor: number) {
@@ -838,7 +847,10 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
         'live2d.speech.delta',
         'live2d.speech.completed',
         'live2d.error',
-        'live2d.web.action.intent'
+        'live2d.web.action.intent',
+        'live2d.performance.target',
+        'live2d.performance.cue',
+        'live2d.performance.reset'
       ]) {
         eventSource.addEventListener(type, (raw) => {
           eventQueue = eventQueue
@@ -875,6 +887,8 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
         autoInteract: true,
         idleMotionGroup: 'Idle'
       })) as AvatarModel
+      const profile = await api.performanceProfile<PerformanceProfile>(modelInfo.profile_url)
+      performanceRuntime.setProfile(profile, modelInfo.profile_fingerprint)
       talkMotionGroup = Object.keys(modelInfo.motion_groups).find(
         (group) => group.toLowerCase() === 'talk'
       )
@@ -943,7 +957,8 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
       setComposerOpen(false)
       try {
         await audioReady
-        await api.run(sessionId, text, provider, modelId, currentPageContext())
+        const run = await api.run(sessionId, text, provider, modelId, currentPageContext())
+        currentTurnId = run.turn_id
       } catch (error) {
         fail(error)
       }
@@ -960,6 +975,7 @@ const ttsEnabled = import.meta.env.PUBLIC_LIVE2D_TTS_ENABLED !== 'false'
     })
     actionDismiss.addEventListener('click', hideActionCard)
     document.addEventListener('visibilitychange', () => {
+      performanceHost.suspend(document.hidden)
       if (document.hidden) app?.stop()
       else if (agentRoot.dataset.minimized !== 'true') app?.start()
     })

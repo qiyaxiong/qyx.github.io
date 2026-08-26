@@ -1,0 +1,267 @@
+---
+const apiBase = import.meta.env.PUBLIC_PI_AGENT_API_BASE || '/agent-api'
+const coreUrl = import.meta.env.PUBLIC_LIVE2D_CUBISM_CORE_URL || '/live2dcubismcore.min.js'
+const coreFallbackUrl =
+  import.meta.env.PUBLIC_LIVE2D_CUBISM_CORE_FALLBACK_URL ||
+  'https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js'
+---
+
+<html lang='zh-CN'>
+  <head>
+    <meta charset='utf-8' />
+    <meta name='viewport' content='width=device-width' />
+    <title>Live2D OBS Stage</title>
+  </head>
+  <body data-api-base={apiBase} data-core-url={coreUrl} data-core-fallback={coreFallbackUrl}>
+    <canvas id='stage' aria-label='Live2D OBS stage' />
+    <p id='captions' hidden />
+    <p id='status'>连接中</p>
+    <script>
+      import { BlogAgentApi, parseLive2DEvent, type Live2DEvent } from '../components/live2d/client'
+      import { Live2DPerformanceHost } from '../components/live2d/performance-host'
+      import { PerformanceRuntime, type PerformanceProfile } from '../components/live2d/performance-runtime'
+
+      type StageAvatar = import('pixi.js').DisplayObject & {
+        width: number
+        height: number
+        scale: { set(value: number): void }
+        anchor: { set(x: number, y: number): void }
+        position: { set(x: number, y: number): void }
+        expression(name: string): Promise<unknown>
+        motion(group: string, index: number): Promise<unknown>
+        internalModel?: {
+          coreModel?: { setParameterValueById(id: string, value: number): void }
+          on?(event: string, listener: () => void): void
+        }
+      }
+
+      type CubismWindow = typeof window & {
+        Live2DCubismCore?: unknown
+        PIXI?: typeof import('pixi.js')
+      }
+
+      const params = new URLSearchParams(location.search)
+      const token = params.get('token') || ''
+      const sessionId = params.get('session') || ''
+      if (!token || !sessionId) throw new Error('OBS stage requires token and session parameters')
+      const body = document.body
+      const canvas = document.querySelector<HTMLCanvasElement>('#stage')!
+      const captions = document.querySelector<HTMLElement>('#captions')!
+      const status = document.querySelector<HTMLElement>('#status')!
+      const api = new BlogAgentApi(params.get('api') || body.dataset.apiBase || '/agent-api')
+      const runtime = new PerformanceRuntime()
+      let avatar: StageAvatar | undefined
+      let app: import('pixi.js').Application
+      let source: EventSource | undefined
+      let speech = ''
+      let cursor = 0
+      let disconnectedAt = 0
+      let audioContext: AudioContext | undefined
+      let audioAnalyser: AnalyserNode | undefined
+      let audioEnergy = 0
+      let speaking = false
+      let speechGeneration = 0
+      const host = new Live2DPerformanceHost(runtime, () => {
+        const current = avatar
+        return current
+          ? {
+              expression: (name) => current.expression(name),
+              motion: (group, index) => current.motion(group, index),
+              coreModel: current.internalModel?.coreModel
+            }
+          : undefined
+      })
+
+      const loadCore = async () => {
+        const existing = (window as CubismWindow).Live2DCubismCore
+        if (existing) return
+        for (const url of [body.dataset.coreUrl, body.dataset.coreFallback]) {
+          if (!url) continue
+          try {
+            await new Promise<void>((resolve, reject) => {
+              const script = document.createElement('script')
+              script.src = url
+              script.onload = () => resolve()
+              script.onerror = () => reject(new Error(`Cubism Core 加载失败: ${url}`))
+              document.head.append(script)
+            })
+            return
+          } catch {
+            // Try the configured fallback before reporting an unavailable stage.
+          }
+        }
+        throw new Error('Cubism Core 加载失败')
+      }
+
+      const fit = () => {
+        if (!avatar) return
+        const scale = Number(params.get('scale') || '0.82')
+        const x = Number(params.get('x') || '0.5')
+        const y = Number(params.get('y') || '1')
+        const base = Math.min(innerWidth / avatar.width, innerHeight / avatar.height) * scale
+        avatar.scale.set(base)
+        avatar.anchor.set(0.5, 1)
+        avatar.position.set(innerWidth * x, innerHeight * y)
+      }
+
+      const applyEvent = async (event: Live2DEvent) => {
+        if (event.sequence <= cursor) return
+        cursor = Math.max(cursor, event.sequence)
+        if (await host.applyEvent(event)) return
+        if (event.type === 'live2d.speech.delta' && typeof event.data.delta === 'string') {
+          speech += event.data.delta
+          if (params.get('captions') === '1') {
+            captions.hidden = false
+            captions.textContent = speech
+          }
+        }
+        if (event.type === 'live2d.speech.completed') {
+          speech = typeof event.data.text === 'string' ? event.data.text : speech
+          captions.textContent = speech
+          if (speech) {
+            void playSpeech(speech, event.turn_id).catch((error) => {
+              status.textContent = error instanceof Error ? error.message : '语音播放失败'
+            })
+          }
+        }
+        if (event.type === 'live2d.error') status.textContent = '表演服务异常'
+      }
+
+      const playSpeech = async (text: string, turnId: string | null) => {
+        const generation = ++speechGeneration
+        const response = await api.stageSpeech(sessionId, token, text, turnId)
+        const sampleRate = Number(response.headers.get('x-audio-sample-rate'))
+        if (
+          response.headers.get('content-type')?.split(';')[0] !== 'audio/pcm' ||
+          response.headers.get('x-audio-sample-format') !== 's16le' ||
+          response.headers.get('x-audio-channels') !== '1' ||
+          !Number.isInteger(sampleRate)
+        ) throw new Error('TTS returned an unsupported PCM format')
+        const bytes = new Uint8Array(await response.arrayBuffer())
+        if (generation !== speechGeneration || bytes.byteLength % 2) return
+        const samples = new Float32Array(bytes.byteLength / 2)
+        const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+        for (let index = 0; index < samples.length; index += 1) {
+          samples[index] = view.getInt16(index * 2, true) / 32_768
+        }
+        audioContext ||= new AudioContext()
+        if (audioContext.state === 'suspended') await audioContext.resume()
+        const buffer = audioContext.createBuffer(1, samples.length, sampleRate)
+        buffer.getChannelData(0).set(samples)
+        const analyser = audioContext.createAnalyser()
+        analyser.fftSize = 512
+        analyser.smoothingTimeConstant = 0.35
+        analyser.connect(audioContext.destination)
+        const source = audioContext.createBufferSource()
+        source.buffer = buffer
+        source.connect(analyser)
+        audioAnalyser?.disconnect()
+        audioAnalyser = analyser
+        speaking = true
+        source.addEventListener('ended', () => {
+          if (generation !== speechGeneration) return
+          speaking = false
+          audioEnergy = 0
+          analyser.disconnect()
+          audioAnalyser = undefined
+        }, { once: true })
+        source.start()
+      }
+
+      const sampleSpeechEnergy = () => {
+        if (!audioAnalyser) return 0
+        const samples = new Float32Array(audioAnalyser.fftSize)
+        audioAnalyser.getFloatTimeDomainData(samples)
+        let sum = 0
+        for (const sample of samples) sum += sample * sample
+        const target = Math.min(1, Math.max(0, (Math.sqrt(sum / samples.length) - 0.015) * 7.5))
+        audioEnergy += (target - audioEnergy) * (target > audioEnergy ? 0.55 : 0.22)
+        return audioEnergy
+      }
+
+      const connect = () => {
+        source?.close()
+        source = api.stageEvents(sessionId, cursor, token)
+        for (const type of [
+          'live2d.performance.target',
+          'live2d.performance.cue',
+          'live2d.performance.reset',
+          'live2d.speech.delta',
+          'live2d.speech.completed',
+          'live2d.error'
+        ]) source.addEventListener(type, (raw) => void applyEvent(parseLive2DEvent(JSON.parse((raw as MessageEvent).data))))
+        source.onopen = () => {
+          disconnectedAt = 0
+          status.textContent = ''
+        }
+        source.onerror = async () => {
+          source?.close()
+          if (!disconnectedAt) disconnectedAt = Date.now()
+          if (Date.now() - disconnectedAt > 30_000) status.textContent = '连接已降级'
+          try {
+            const snapshot = await api.stageSnapshot(sessionId, token)
+            cursor = Math.max(cursor, snapshot.sequence)
+            await host.applySnapshot(snapshot)
+          } catch {
+            // Keep deterministic local idle motion while the backend is unavailable.
+          }
+          setTimeout(connect, 750)
+        }
+      }
+
+      const bootstrap = async () => {
+        await loadCore()
+        const PIXI = await import('pixi.js')
+        ;(window as CubismWindow).PIXI = PIXI
+        const { Live2DModel } = await import('pixi-live2d-display/cubism4')
+        Live2DModel.registerTicker(PIXI.Ticker)
+        const model = await api.stageModel(sessionId, token)
+        const profile = await api.performanceProfile<PerformanceProfile>(model.profile_url)
+        runtime.setProfile(profile, model.profile_fingerprint)
+        app = new PIXI.Application({ view: canvas, resizeTo: window, backgroundAlpha: 0, antialias: true, autoDensity: true })
+        avatar = (await Live2DModel.from(api.url(model.manifest_url), {
+          autoInteract: false,
+          idleMotionGroup: 'Idle'
+        })) as StageAvatar
+        avatar.internalModel?.on?.('afterMotionUpdate', () => host.update({
+          timeSeconds: performance.now() / 1000,
+          energy: sampleSpeechEnergy(),
+          speaking,
+          reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches
+        }))
+        app.stage.addChild(avatar)
+        fit()
+        addEventListener('resize', fit)
+        document.addEventListener('visibilitychange', () => {
+          host.suspend(document.hidden)
+          if (!document.hidden) {
+            void api.stageSnapshot(sessionId, token).then((value) => {
+              cursor = Math.max(cursor, value.sequence)
+              return host.applySnapshot(value)
+            })
+          }
+        })
+        const snapshot = await api.stageSnapshot(sessionId, token)
+        cursor = snapshot.sequence
+        speech = snapshot.speech_text
+        await host.applySnapshot(snapshot)
+        connect()
+      }
+
+      bootstrap().catch((error) => {
+        status.textContent = error instanceof Error ? error.message : String(error)
+      })
+      addEventListener('beforeunload', () => {
+        source?.close()
+        void audioContext?.close()
+      })
+    </script>
+  </body>
+</html>
+
+<style is:global>
+  html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; }
+  #stage { display: block; width: 100%; height: 100%; }
+  #captions { position: fixed; left: 10%; right: 10%; bottom: 5%; margin: 0; padding: .55em .8em; color: white; background: rgb(0 0 0 / 58%); border-radius: .7em; font: 600 clamp(22px, 3vw, 46px)/1.35 system-ui; text-align: center; text-shadow: 0 2px 4px #000; }
+  #status { position: fixed; top: 1rem; right: 1rem; margin: 0; color: rgb(255 255 255 / 80%); font: 14px system-ui; }
+</style>

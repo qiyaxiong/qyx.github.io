@@ -1,0 +1,43 @@
+---
+const enabled = import.meta.env.DEV
+const apiBase = import.meta.env.PUBLIC_PI_AGENT_API_BASE || '/agent-api'
+---
+
+<html lang='zh-CN'>
+  <head><meta charset='utf-8' /><title>Live2D Profile Calibrator</title></head>
+  <body data-api-base={apiBase}>
+    {enabled ? (
+      <main>
+        <h1>Live2D Performance Profile</h1>
+        <p>开发工具：加载后端生成的 Profile，调整语义通道范围并导出 JSON。</p>
+        <div id='controls' />
+        <button id='export'>导出 Profile</button>
+        <pre id='output' />
+      </main>
+    ) : <main><h1>404</h1><p>Calibration is disabled in production.</p></main>}
+    {enabled && <script>
+      import { BlogAgentApi } from '../components/live2d/client'
+      import type { PerformanceProfile } from '../components/live2d/performance-runtime'
+      const api = new BlogAgentApi(document.body.dataset.apiBase || '/agent-api')
+      const profile = await api.performanceProfile<PerformanceProfile>()
+      const controls = document.querySelector('#controls')!
+      for (const [channel, binding] of Object.entries(profile.parameterMap)) {
+        const row = document.createElement('label')
+        row.textContent = `${channel} → ${binding.id} `
+        const scale = document.createElement('input')
+        scale.type = 'range'; scale.min = '0'; scale.max = '3'; scale.step = '0.05'; scale.value = String(binding.scale)
+        scale.addEventListener('input', () => { binding.scale = Number(scale.value) })
+        row.append(scale); controls.append(row)
+      }
+      document.querySelector('#export')!.addEventListener('click', () => {
+        const text = JSON.stringify(profile, null, 2)
+        document.querySelector('#output')!.textContent = text
+        const link = document.createElement('a')
+        link.href = URL.createObjectURL(new Blob([text], { type: 'application/json' }))
+        link.download = 'model.performance.json'; link.click(); URL.revokeObjectURL(link.href)
+      })
+    </script>}
+  </body>
+</html>
+
+<style>body{font:16px system-ui;max-width:900px;margin:2rem auto;padding:0 1rem}label{display:flex;gap:1rem;padding:.45rem 0}input{flex:1}pre{white-space:pre-wrap}</style>

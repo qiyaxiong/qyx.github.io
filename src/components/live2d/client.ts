@@ -4,6 +4,29 @@ export interface Live2DModelInfo {
   manifest_url: string
   expressions: string[]
   motion_groups: Record<string, number>
+  profile_url: string
+  profile_fingerprint: string
+}
+
+export interface PerformanceTarget {
+  label: string
+  vad: { valence: number; arousal: number; dominance: number }
+  intensity: number
+  confidence: number
+  transition_ms: number
+  hold_ms: number
+  seed: number
+  source_sequence: number
+}
+
+export interface PerformanceCue {
+  expression?: string
+  motion_group?: string
+  motion_index?: number
+  priority: number
+  blend_in_ms: number
+  hold_ms: number
+  blend_out_ms: number
 }
 
 export interface Live2DSnapshot {
@@ -12,13 +35,17 @@ export interface Live2DSnapshot {
   expression: string | null
   motion_group: string | null
   motion_index: number | null
-  parameters: Record<string, number>
   speech_text: string
+  performance_target: PerformanceTarget | null
+  active_cue: PerformanceCue | null
+  performance_seed: number
+  profile_fingerprint: string | null
 }
 
 export interface Live2DEvent {
   sequence: number
   type: string
+  turn_id: string | null
   data: Record<string, unknown>
 }
 
@@ -28,7 +55,10 @@ const live2dEventTypes = new Set([
   'live2d.speech.delta',
   'live2d.speech.completed',
   'live2d.error',
-  'live2d.web.action.intent'
+  'live2d.web.action.intent',
+  'live2d.performance.target',
+  'live2d.performance.cue',
+  'live2d.performance.reset'
 ])
 const live2dStates = new Set([
   'idle',
@@ -58,20 +88,17 @@ export function parseLive2DEvent(value: unknown): Live2DEvent {
   }
   const data = value.data
   if (value.type === 'live2d.command') {
-    const allowed = new Set(['state', 'expression', 'motion_group', 'motion_index', 'parameters'])
+    const allowed = new Set(['state', 'expression', 'motion_group', 'motion_index'])
     if (
       Object.keys(data).some((key) => !allowed.has(key)) ||
-      !['state', 'expression', 'motion_group', 'parameters'].some((key) => key in data) ||
+      !['state', 'expression', 'motion_group'].some((key) => key in data) ||
       (data.state !== undefined &&
         (typeof data.state !== 'string' || !live2dStates.has(data.state))) ||
       (data.expression !== undefined && typeof data.expression !== 'string') ||
       (data.motion_group !== undefined && typeof data.motion_group !== 'string') ||
       (data.motion_index !== undefined &&
         (!Number.isInteger(data.motion_index) || (data.motion_index as number) < 0)) ||
-      (data.motion_index !== undefined && data.motion_group === undefined) ||
-      (data.parameters !== undefined &&
-        (!isRecord(data.parameters) ||
-          Object.values(data.parameters).some((entry) => typeof entry !== 'number')))
+      (data.motion_index !== undefined && data.motion_group === undefined)
     ) {
       throw new Error('Invalid payload for live2d.command')
     }
@@ -181,6 +208,10 @@ export class BlogAgentApi {
     return this.request('/api/v1/live2d/model')
   }
 
+  async performanceProfile<T>(path = '/api/v1/live2d/performance-profile'): Promise<T> {
+    return this.request<T>(path)
+  }
+
   async snapshot(sessionId: string): Promise<Live2DSnapshot> {
     return this.request(`/api/v1/live2d/sessions/${encodeURIComponent(sessionId)}/snapshot`)
   }
@@ -203,7 +234,7 @@ export class BlogAgentApi {
         )
         return normalizeSession(session)
       } catch (error) {
-        if (!(error instanceof AgentApiError) || ![401, 403, 404].includes(error.status))
+        if (!(error instanceof AgentApiError) || ![401, 403, 404, 409].includes(error.status))
           throw error
         storage.removeItem(storageKey)
       }
@@ -240,12 +271,17 @@ export class BlogAgentApi {
     })
   }
 
-  async synthesizeSpeech(sessionId: string, text: string, signal?: AbortSignal): Promise<Response> {
+  async synthesizeSpeech(
+    sessionId: string,
+    text: string,
+    signal?: AbortSignal,
+    turnId?: string
+  ): Promise<Response> {
     const response = await fetch(this.url('/api/v1/speech/synthesize'), {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ session_id: sessionId, text }),
+      body: JSON.stringify({ session_id: sessionId, text, turn_id: turnId }),
       signal
     })
     if (!response.ok) {
@@ -264,6 +300,43 @@ export class BlogAgentApi {
   events(sessionId: string, cursor: number): EventSource {
     const path = `/api/v1/live2d/sessions/${encodeURIComponent(sessionId)}/events?cursor=${cursor}`
     return new EventSource(this.url(path), { withCredentials: true })
+  }
+
+  stageEvents(sessionId: string, cursor: number, token: string): EventSource {
+    const path = `/api/v1/live2d/stage/${encodeURIComponent(sessionId)}/events?cursor=${cursor}&token=${encodeURIComponent(token)}`
+    return new EventSource(this.url(path))
+  }
+
+  async stageSnapshot(sessionId: string, token: string): Promise<Live2DSnapshot> {
+    return this.request(
+      `/api/v1/live2d/stage/${encodeURIComponent(sessionId)}/snapshot?token=${encodeURIComponent(token)}`
+    )
+  }
+
+  async stageModel(sessionId: string, token: string): Promise<Live2DModelInfo> {
+    return this.request(
+      `/api/v1/live2d/stage/${encodeURIComponent(sessionId)}/${encodeURIComponent(token)}/model`
+    )
+  }
+
+  async stageSpeech(
+    sessionId: string,
+    token: string,
+    text: string,
+    turnId?: string | null
+  ): Promise<Response> {
+    const response = await fetch(
+      this.url(
+        `/api/v1/live2d/stage/${encodeURIComponent(sessionId)}/speech?token=${encodeURIComponent(token)}`
+      ),
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, turn_id: turnId || null })
+      }
+    )
+    if (!response.ok) throw new AgentApiError(`Stage speech failed: ${response.status}`, response.status)
+    return response
   }
 }
 
