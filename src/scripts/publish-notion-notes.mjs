@@ -179,6 +179,7 @@ async function unpublishMissingNotes({ notion, dataSourceId, directory, publishe
 
 async function clearPageChildren(notion, pageId) {
   const blockIds = []
+  let archivedCount = 0
   let cursor
   do {
     const response = await withRetry(`list blocks ${pageId}`, () =>
@@ -188,12 +189,37 @@ async function clearPageChildren(notion, pageId) {
         page_size: 100
       })
     )
-    blockIds.push(...response.results.map((block) => block.id))
+    for (const block of response.results) {
+      // Notion refuses to delete an archived block. Archived children are
+      // already invisible, so leave them in place and replace the active
+      // content below. This also makes repeated Note updates idempotent when
+      // an earlier publish was interrupted after archiving a block.
+      if (block.archived) {
+        archivedCount += 1
+      } else {
+        blockIds.push(block.id)
+      }
+    }
     cursor = response.has_more ? response.next_cursor : undefined
   } while (cursor)
 
   for (const blockId of blockIds) {
-    await withRetry(`delete block ${blockId}`, () => notion.blocks.delete({ block_id: blockId }))
+    try {
+      await withRetry(`delete block ${blockId}`, () => notion.blocks.delete({ block_id: blockId }))
+    } catch (error) {
+      // Some older Notion responses omit the archived flag from the list
+      // payload. Treat the server's archived-block validation as equivalent
+      // to an already-hidden child and continue replacing active content.
+      if (error?.code === 'validation_error' && /archived/i.test(error?.message || '')) {
+        archivedCount += 1
+        continue
+      }
+      throw error
+    }
+  }
+
+  if (archivedCount > 0) {
+    console.error(`[notion] skipped ${archivedCount} archived block(s) on ${pageId}`)
   }
 }
 

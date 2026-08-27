@@ -165,16 +165,16 @@ def create_application() -> CheckoutService:
 
 app = create_application()
 assert app.total("book", 2) == 200`,
-  10: `from typing import Protocol
+  10: `from typing import Optional, Protocol
 
 class Reader(Protocol):
-    def read(self, key: str) -> str | None: ...
+    def read(self, key: str) -> Optional[str]: ...
 
 class MemoryReader:
     def __init__(self, values: dict[str, str]) -> None:
         self.values = values
 
-    def read(self, key: str) -> str | None:
+    def read(self, key: str) -> Optional[str]:
         return self.values.get(key)
 
 def show_profile(reader: Reader) -> str:
@@ -340,7 +340,9 @@ class CheckoutService:
 # 组合根决定共享范围；业务对象仍然显式接收依赖。
 service = CheckoutService(Catalog())
 assert service.total("book", 2) == 200`,
-  22: `class JsonParser:
+  22: `from typing import Union
+
+class JsonParser:
     def parse(self, text: str) -> dict[str, object]:
         import json
         return json.loads(text)
@@ -350,7 +352,7 @@ class YamlLikeParser:
         return {line.split(":", 1)[0]: line.split(":", 1)[1].strip()
                 for line in text.splitlines() if ":" in line}
 
-def create_parser(kind: str) -> JsonParser | YamlLikeParser:
+def create_parser(kind: str) -> Union[JsonParser, YamlLikeParser]:
     factories = {"json": JsonParser, "yaml": YamlLikeParser}
     try:
         return factories[kind]()

@@ -49,7 +49,7 @@ test('every chapter follows a progressive explanation and keeps source mappings'
     assert.match(article, /## 容易走偏的地方/)
     assert.match(article, /## 练习：把视频推导重新走一遍/)
     assert.ok(article.length >= 4500, `${chapter.slug} is too short: ${article.length}`)
-    assert.equal((article.match(/```python/g) || []).length, 3)
+    assert.equal((article.match(/```python/g) || []).length, 3 + sessions.length)
     assert.equal((article.match(/\/diagrams\//g) || []).length, 3)
     assert.match(article, new RegExp(`chapter-${chapter.slug}-uml\\.svg`))
     for (const session of sessions) assert.match(article, new RegExp(`P${session.page}(?:\\D|$)`))

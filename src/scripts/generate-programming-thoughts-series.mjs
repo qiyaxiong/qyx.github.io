@@ -498,21 +498,58 @@ class UseCase {
   */
 }
 
-function buildProgressiveStep(chapter, session, sample, step) {
+function buildProgressiveStep(chapter, session, sample, step, sessions) {
   const topic = session.topics[0]
+  const [smell, move, gain, cost] = lessonDesigns[session.page - 1]
+  const previous = sessions[step - 1]
+  const next = sessions[step + 1]
+  const previousLine = previous
+    ? `上一轮 P${previous.page} 已经处理“${previous.topics[0]}”；这一轮不要把它推倒重来，而是只处理新的变化轴。`
+    : '这是本章的第一轮，先保留最直接的实现，记录它面对下一次需求时会触碰哪些地方。'
+  const nextLine = next
+    ? `下一轮 P${next.page} 会继续检验这条边界：如果新增需求仍要修改本轮稳定代码，说明边界还没有放在真正的变化轴上。`
+    : '这是本章最后一轮，接下来要把这条边界放回完整实现和 UML 中，检查它是否真的减少了修改半径。'
+
   return `## 第 ${step + 1} 轮需求：先解决问题，最后再叫它 ${topic}（P${session.page}）
 
-我们继续修改同一个“${chapter.caseStudy}”，不另起一个玩具项目。上一轮代码能工作，但新的需求让这个薄弱处出现：**${sample.stages[step]}**。先不要套类图，先写下如果沿用原结构，需要改哪些判断、对象和测试。
+我们继续修改同一个“${chapter.caseStudy}”，不另起一个玩具项目。本轮的新压力是：**${sample.stages[step]}**。先不要背模式名，先列出要改的判断、对象、外部依赖和测试；这份清单就是“修改半径”。
 
-这一轮真正的问题是：${session.question} 最直接的选择仍然是继续修改原函数；第一次这样做通常最便宜。等相同方向的修改再次出现，我们才获得足够证据，知道应该把哪部分从主流程中分离。
+这一轮真正要回答的是：${session.question} ${previousLine}
+
+### 先记录修改半径
+
+- 当前泄漏：${smell}。
+- 设计动作：${move}。
+- 稳定结果：${gain}。
+- 仍需承担的代价：${cost}。
+
+如果四项里只有“新增一个类”而没有说明哪种变化被隔离，先不要合并这次重构。设计的证据不是角色数量，而是下一次同类需求能否只新增实现、只替换适配器或只调整组合根。
 
 ### 这一轮只做一个设计动作
 
-本轮只落实 **${session.title}**：围绕“${session.topics.join('、')}”移动一个边界，不同时引入后续模式。验证标准也很具体——完成本轮需求后，再增加同方向实现时，上一轮已经稳定的业务结果不需要改写。
+本轮只落实 **${session.title}**，围绕“${session.topics.join('、')}”移动一个边界，不同时引入后续模式。把稳定流程写成调用方真正需要的业务语言；把供应商字段、创建细节或横切动作留在边界另一侧。
 
 完成动作后再给它命名：这一轮对应 **${session.topics.join('、')}**。名称只是压缩沟通，不是推导起点。如果无法从“需求如何变化”推回这个结构，就说明我们只记住了答案。
 
-这一轮也增加了一层命名和间接调用。下一轮需求会继续检验它；如果修改清单没有缩短，就退回更直接的版本，而不是继续叠抽象。
+### Python 版本：只看本轮新增的协作关系
+
+\`\`\`python
+${buildPythonCodeSample(session.page)}
+\`\`\`
+
+读这段代码时只检查三件事：谁拥有规则、谁负责组合、谁可以被替换。不要因为示例用了 Protocol、注册表或装饰器，就默认生产代码也必须采用同样的层数；真正需要保留的是边界和行为契约。
+
+### 用一个失败场景验证边界
+
+先写一个会失败的测试，再写实现：新增一种“${session.example}”变化时，哪些稳定代码应该保持不动？如果实现抛出异常、返回空值或收到重复调用，调用方依赖的行为是否仍然成立？这一步能防止只验证 happy path。
+
+本轮的验收标准是：${session.question} 完成后，${gain}。如果测试仍然必须启动所有外部服务，或仍要修改同一个大分支，说明这一步只换了名字，没有形成可验证的边界。
+
+### 与前后两轮的连接
+
+${nextLine}
+
+不要把本轮结构当成永久答案。只要真实需求证明它没有减少修改范围，就应该回退一层，删除不必要的间接调用，再重新找变化轴。
 `
 }
 
@@ -619,14 +656,21 @@ function buildArticle(chapter) {
   const sessions = getProgrammingThoughtsChapterSessions(chapter)
   const sample = getChapterSample(chapter.slug)
   const steps = sessions.map((session, step) => {
-    return buildProgressiveStep(chapter, session, sample, step)
+    return buildProgressiveStep(chapter, session, sample, step, sessions)
   }).join('\n')
-  const topicRows = sessions.map((session, index) => `| ${index + 1} | P${session.page} | ${session.question} | ${session.topics[0]} |`).join('\n')
+  const topicRows = sessions.map((session, index) => {
+    const [smell, move, gain] = lessonDesigns[session.page - 1]
+    return `| ${index + 1} | P${session.page} | ${session.question} | ${smell} | ${move} | ${gain} |`
+  }).join('\n')
+  const chapterSummary = sessions.map((session) => {
+    const [smell, move, gain, cost] = lessonDesigns[session.page - 1]
+    return `### P${session.page} · ${session.title}\n\n**问题**：${smell}。\n\n**动作**：${move}。\n\n**验证**：${gain}。\n\n**代价**：${cost}。`
+  }).join('\n\n')
   return `---
 title: P${chapter.startPage}–P${chapter.endPage}：${chapter.title}
 description: 以“${chapter.caseStudy}”为贯穿案例，按视频顺序从朴素实现、需求失败到重构命名，渐进理解 ${sessions.map((session) => session.topics[0]).join('、')}。
 publishDate: 2026-08-23
-updatedDate: 2026-08-23
+updatedDate: 2026-08-27
 language: zh
 ---
 
@@ -636,11 +680,17 @@ language: zh
 
 ## 先看完整推导路线
 
-| 阶段 | 原视频 | 新出现的问题 | 到最后才命名 |
-| --- | --- | --- | --- |
+| 阶段 | 原视频 | 要解决的问题 | 具体设计动作 | 保护的结果 |
+| --- | --- | --- | --- | --- |
 ${topicRows}
 
-这张表只是地图，不是答案。阅读正文时建议停在每个“第二个需求”之前，先自己修改一次朴素代码，再比较后面的重构。模式真正进入肌肉记忆，靠的不是看懂类图，而是亲手感受修改范围如何扩大。
+这张表不是术语目录，而是一份修改记录。每一行都要能回答：变化从哪里来、边界放在哪里、什么结果不应该被碰。阅读正文时建议停在每个“新需求”之前，先自己写修改清单，再比较后面的重构。
+
+## 本章总结：把每个 P 压缩成一张决策卡
+
+${chapterSummary}
+
+这些卡片故意把“代价”放在“验证”后面。先证明边界解决了真实问题，再讨论多了一层接口、注册表、包装器或组合根是否值得。没有代价说明的设计总结，通常只是模式宣传。
 
 ![${chapter.title}：同一案例随需求逐步演进](/images/notes/programming-thoughts/diagrams/chapter-${chapter.slug}.svg)
 
@@ -656,7 +706,7 @@ ${steps}
 
 ## 演进完成后的 Python 实现
 
-下面不是另一个示例，而是起点代码承受完上述需求后的版本。每个新增角色都能追溯到前面某一轮真实修改压力；删掉任何一层，都应该能说出哪项需求会重新变难。
+下面不是另一个示例，而是起点代码承受完上述需求后的版本。每个新增角色都能追溯到上面的某一轮真实修改压力；删掉任何一层，都应该能说出哪项需求会重新变难。阅读顺序建议是：先看依赖方向，再看对象拥有谁，最后看异常和替换测试。
 
 \`\`\`python
 ${sample.after}
@@ -686,6 +736,18 @@ ${sample.test}
 | 撤销成本 | 几乎没有 | 继续堆分支的成本持续上升 | 抽象仍能被一次小重构移除 |
 
 这四行里最容易被忽略的是“撤销成本”。好的演进式设计不是层数最多，而是每一步都能解释、能验证、也能退回去。没有第二个真实用例时，保留直接实现通常更诚实；出现重复变化后仍拒绝命名边界，则会把复杂度转移给未来维护者。
+
+## 一次完整复盘：从需求到代码审查
+
+提交一次重构时，可以按下面顺序写审查说明：
+
+1. 变化由谁发起？是业务规则、供应商协议、对象构造、运行时策略，还是横切关注点？
+2. 这次修改触碰了哪些文件、分支和测试？重构后修改半径缩短了吗？
+3. 新边界暴露的是业务语言，还是把旧实现的字段名换了一个包装？
+4. 替换实现时，前置条件、返回值、异常和副作用是否仍然符合契约？
+5. 如果未来发现抽象没有收益，能否只撤销本轮，而不牵动整个系统？
+
+把这五问写进 Code Review，比在类名上争论“这是不是标准模式”更有用。它们也能帮助你把视频里的抽象迁移到完全不同的业务场景。
 
 ## 为什么这些分 P 必须连在一起读
 
