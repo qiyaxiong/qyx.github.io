@@ -1,743 +1,461 @@
 ---
-title: Pi Agent 深度解析：从极简 Pi 到 oh-my-pi、DSH 与 Python 实现
+title: Pi Agent 源码导读：一次请求如何穿过 Provider、Agent Loop、工具与 Session
 publishDate: 2026-07-18
-updatedDate: 2026-08-15
-description: 从四层架构、Agent Loop、工具调用、会话树、上下文压缩与扩展系统出发，对比原始 Pi、oh-my-pi、DeepSeek Harness 与 Python pi-agent-py 的不同路线。
+updatedDate: 2026-08-29
+description: 不再从抽象名词出发，而是固定源码快照，沿一条真实请求调用链拆解 Pi，并对照 oh-my-pi、DeepSeek Harness 与 Python qi-pi 的实现边界。
 category: agent-engineering
 tags:
   - pi-agent
   - coding-agent
   - agent-harness
   - agent-loop
-  - typescript
-  - open-source
+  - source-code
   - oh-my-pi
   - deepseek-harness
-  - pi-agent-py
+  - qi-pi
 language: zh
 ---
 
 import AgentTurnTimeline from '@/components/blog/AgentTurnTimeline.astro'
 
-如果只看终端界面，Pi 很容易被理解成“又一个能写代码的聊天机器人”。输入一句需求，模型读取文件、修改代码、运行命令，看起来与 Claude Code、Codex CLI、Aider 或其他 Coding Agent 没有本质区别。
+很多 Agent 文章先画一张“模型、工具、记忆、规划”的四格图，再把仓库名称填进去。图通常没错，但读完仍然回答不了一个问题：用户输入一句话后，源码究竟调用了谁？
 
-但 Pi 真正吸引开发者的地方，不是它又包装了一个大模型，而是它公开了一套很薄、很清楚、很容易替换的 Agent Harness。模型、循环、工具、会话、终端界面与扩展机制被拆成独立层，开发者可以只拿其中一层，也可以把整套系统改造成自己的产品。
+这篇文章换一种方法。我们固定版本、找到入口、沿调用链向下走；每个判断都尽量落到文件、类型或函数。源码没有证明的部分，会明确标成“解释”或“推断”。
 
-这篇文章先分析当前官方项目 [earendil-works/pi](https://github.com/earendil-works/pi)，再观察它演化出的 [oh-my-pi](https://github.com/can1357/oh-my-pi)，并与 DeepSeek Harness（下文简称 DSH）和 Python 项目 [pi-agent-py](https://github.com/qiyaxiong/pi-agent-py) 对比。
+![Pi Agent 源码导读](/images/blog/pi-agent/pi-agent-hero.webp)
 
-Pi 原来广为人知的地址是 `badlogic/pi-mono`，旧地址如今会重定向到新仓库。基础部分以 2026 年 7 月的官方代码和文档为准；四方对比更新于 2026 年 8 月，重点是架构取舍，不把短期功能数量当作稳定协议。
+## 一、先固定分析快照
 
-2026 年 7 月更新时，本文又对照了 B 站中配视频[《PI 架构详解：Agent 循环、工具、TUI》](https://www.bilibili.com/video/BV1fZ7p6CEQH/)及原作者 Alejandro AO 的[配套文章](https://alejandro-ao.com/pi-architecture/)。视频擅长用一次运行过程串起各模块，本文则补充当前源码、插件加载、会话树与安全边界。
+开源仓库变化很快。“Pi 只有四个包”在早期成立，在当前源码中已经不完整。没有快照，文章今天正确，下周就可能把旧结构讲成现状。
 
-![Pi Agent：围绕极简核心组织模型、工具与终端交互](/images/blog/pi-agent/pi-agent-hero.webp)
+本文核对时间为 2026-08-29，使用以下提交：
 
-## 一、先给 Pi 一个准确定位
+| 项目                                                                                                              | 提交      | 本文用途                                |
+| ----------------------------------------------------------------------------------------------------------------- | --------- | --------------------------------------- |
+| [Pi](https://github.com/earendil-works/pi/tree/853a80d26c90a14c1886f0ebb8ffaae133ca2185)                          | `853a80d` | 原始执行链、Provider、Session、资源加载 |
+| [oh-my-pi](https://github.com/can1357/oh-my-pi/tree/33cc6b9a043a74e00a157e72ca909272796d8461)                     | `33cc6b9` | 产品化扩展和工程增强                    |
+| [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness/tree/cd5ef8148158c3a752a658978873241fdf8e2bbc) | `cd5ef81` | Context-first 插件运行时与事件语义      |
+| [qi-pi](https://github.com/qiyaxiong/pi-agent-py/tree/4d8f9b4c80db1b70b6fa01a1ae0d73d3debf7bcd)                   | `4d8f9b4` | Python、多 Channel、可恢复工具执行      |
 
-官方把 Pi 称为 minimal terminal coding harness。这里最重要的词不是 Coding，也不是 Agent，而是 Harness。
+复核文章时，不要先搜索 `Agent` 这个名字。更有效的顺序是：入口函数、对象创建、状态写入、外部副作用、恢复路径、测试。
 
-Harness 原本指把若干部件连接起来、为它们提供运行条件的线束或支架。放在 Agent 系统里，它表示一层运行外壳：负责向模型提供上下文和工具，接收流式输出，执行工具调用，保存会话，再把结果送回模型。
-
-所以 Pi 不是一个固定工作流产品。它没有要求所有用户遵循同一种计划、审批、子代理和任务列表。默认版本刻意保持少量能力，其余行为交给扩展、技能、提示模板和外部隔离环境。
-
-从产品视角看，Pi 可以直接作为终端 Coding Agent 使用；从工程视角看，它又是一组 TypeScript 库；从研究视角看，它还是一个便于观察 Agent Loop、上下文管理和工具协议的实验平台。
-
-这三个身份同时存在，才解释了它为什么会被不同人群讨论。普通用户关心模型能不能改代码，Agent 开发者关心怎样换工具和事件处理，平台团队则关心能否把核心嵌进自己的界面与执行环境。
-
-## 二、它为什么在这个时间点流行
-
-Pi 的流行不能简单归因于“模型效果好”。它本身并不训练模型，也没有独占某个推理能力。相同的 Claude、GPT、Gemini 或其他模型，可以同时被不同 Coding Agent 调用。
-
-第一个原因是模型能力已经跨过工具使用门槛。早期模型经常生成格式错误的调用、忘记检查结果或在一次失败后失去方向。现在主流模型能稳定完成多轮读取、编辑、测试和修复，Harness 的设计差异开始直接影响体验。
-
-第二个原因是开发者开始厌倦不可见的“魔法”。功能很多的 Agent 产品往往同时包含计划器、审批层、记忆层、后台任务和私有提示词。当结果不对时，用户难以判断问题来自模型、上下文、工具、权限还是编排。
-
-Pi 选择把默认系统压薄。核心越薄，因果链越容易观察。你可以看到模型收到了什么、调用了哪个工具、工具返回了什么、会话如何保存，也更容易用一个扩展改变具体行为。
-
-第三个原因是模型供应快速变化。把工作流绑定在单一供应商上，会让 Agent 产品跟着模型 API 反复重写。Pi 把多供应商兼容放进独立的 AI 层，上面的 Agent Core 尽量面对统一消息和工具结构。
-
-第四个原因是“自己做一个 Agent”成为真实需求。很多团队并不想重新实现流式解析、工具结果、重试、上下文压缩、会话恢复和终端渲染，只想增加自己的审批、沙箱、领域工具或界面。Pi 正好提供了一个可裁剪起点。
-
-## 三、极简不是功能少，而是把选择推到边界
-
-Pi 的设计常被概括为 minimal。这里的极简不能理解为代码行数越少越好，也不是拒绝复杂需求。更准确的说法是：核心只负责跨场景都需要的机制，把带有强烈工作流偏好的策略留在核心之外。
-
-例如，读取、写入、编辑和执行命令几乎是所有 Coding Agent 的共同机制，因此成为默认工具。计划模式是否存在、危险命令如何审批、是否启动子代理，却依赖团队流程和安全模型，因此更适合由扩展提供。
-
-这种分界产生了一个很深的模块。用户表面上只面对简单的 Agent Session，内部却已经处理模型流、工具调用、消息状态、事件通知和会话持久化。上层不需要重复理解每家模型 API 的细节。
-
-代价也很明确。一个“开箱即用的企业安全产品”会替用户做很多决定，而 Pi 把决定权还给开发者。自由度提高的同时，配置、扩展审计、权限隔离和运行规范也必须由使用者承担。
-
-因此评价 Pi 不能只问“它有没有某功能”。还要问：这个功能应该属于通用核心，还是应该作为可选扩展？如果社区能用几十行 TypeScript 实现一个符合自己流程的版本，核心不内置反而可能更健康。
-
-## 四、四层架构：从模型 API 到终端 Agent
-
-Pi 的 Monorepo 目前可以用四个主要包理解。它们不是四个互不相关的产品，而是一条从底层模型协议到最终交互界面的依赖链。
-
-![Pi 的四层架构：多模型 API、Agent Core、Coding Agent 与 TUI](/images/blog/pi-agent/pi-agent-four-layers.webp)
-
-最底层是 `@earendil-works/pi-ai`。它把 OpenAI、Anthropic、Google 等供应商的消息、流式输出、工具调用、Token 使用量和错误处理转换成相对统一的接口。
-
-第二层是 `@earendil-works/pi-agent-core`。它维护 Agent 状态，驱动模型与工具之间的循环，并通过事件把流式文本、工具开始、工具结束和状态变化通知给上层。
-
-第三层是 `@earendil-works/pi-coding-agent`。它把通用 Agent 变成理解代码仓库的 Agent，加入文件工具、Shell 工具、系统提示、上下文文件、会话管理、压缩、技能和扩展加载。
-
-第四层是 `@earendil-works/pi-tui`。它提供终端组件与差分渲染，让流式消息、Markdown、工具输出、选择器和自定义组件能够在一个稳定的交互界面中显示。
-
-这个拆分的价值在于选择性复用。只想统一调用多家模型，可以只用 `pi-ai`；想做自己的非编码 Agent，可以组合 `pi-ai` 与 `pi-agent-core`；想保留完整 Coding Agent 能力但换成 Web 页面，可以通过 SDK 或 RPC 替换 TUI。
-
-### 包依赖视角与运行时视角不要混在一起
-
-四层架构回答的是“源码和依赖怎样分包”。视频还提供了另一个很实用的二层心智模型，用来回答“程序运行时谁负责什么”。
-
-第一层是 Agent Core。它接收消息和工具，调用模型，解析回复，执行工具，再把结果送回模型。它不要求上层一定是终端，也不关心用户通过网页、IDE 还是自动化任务发来请求。
-
-第二层是 Pi Interactive。它把 Core 包装成日常可用的编码产品，负责编辑器、流式显示、命令、Session 选择、上下文压缩、Skill、Extension 与用户中途输入。
-
-这两个视角可以同时成立。`pi-ai`、`pi-agent-core`、`pi-coding-agent`、`pi-tui` 是代码组织；Core 与 Interactive 是运行职责。前者帮助读源码，后者帮助设计自己的产品边界。
-
-如果准备替换终端为 Web UI，应从运行时视角切开 Interactive，而不是修改 Agent Loop。如果只想新增模型供应商，则应沿包依赖下沉到 `pi-ai`，不要把 Provider 判断塞进界面层。
-
-## 五、pi-ai：多模型支持不是一张模型名称表
-
-很多项目声称支持多模型，实际只是根据模型名切换请求 URL。真正困难的是不同供应商对消息角色、思考内容、工具参数、流式事件、缓存、图片和错误恢复有不同语义。
-
-Pi 的 AI 层承担适配责任，让上层尽量使用统一的 `Model`、消息和内容块。Assistant 的一条回复可以同时包含文本、思考片段和工具调用，Tool Result 也能包含文本或图片，而不是被压成一个普通字符串。
-
-统一接口不代表抹平所有差异。不同模型仍有上下文窗口、推理等级、缓存策略和工具支持差异。好的抽象应该隐藏偶然的 API 格式，同时保留影响结果的能力差异。
-
-Pi 内置维护可调用工具的模型列表，也允许用户在 `models.json` 中增加兼容 OpenAI、Anthropic 或 Google 协议的自定义模型。更特殊的认证与协议可以通过扩展注册 Provider。
-
-这一层对二次开发非常关键。Agent Loop 不应到处判断“如果是 Anthropic 就怎样，如果是 OpenAI 就怎样”。供应商分支集中后，上层的测试、会话和工具代码才不会被模型数量拖垮。
-
-## 六、Agent Core：真正的心脏是一段循环
-
-Agent 常被画成许多方框，但核心运行逻辑可以压缩成一个循环：把当前消息与工具定义交给模型，接收模型输出；如果模型请求工具，就执行工具并追加结果，再次调用模型；如果模型给出最终回复，循环结束。
-
-![Pi Agent Loop：请求、推理、工具执行、结果回传与继续迭代](/images/blog/pi-agent/pi-agent-loop.webp)
-
-用伪代码表示，大致是：
-
-```ts
-while (true) {
-  const assistant = await streamModel(messages, tools)
-  messages.push(assistant)
-
-  const calls = assistant.toolCalls
-  if (calls.length === 0) break
-
-  for (const call of calls) {
-    const result = await executeTool(call)
-    messages.push(result)
-  }
-}
+```bash
+git clone --depth 1 https://github.com/earendil-works/pi.git
+cd pi
+git rev-parse HEAD
+rg "createAgentSession|runAgentLoop|executeToolCalls|appendMessage" packages
 ```
 
-真实实现当然还要处理取消、重试、并发工具、流式增量、格式错误、模型切换和消息队列。但所有这些机制都围绕同一个不变量：模型不能直接改变世界，只能提出结构化工具调用；环境执行后，结果必须重新进入上下文。
+## 二、当前 Pi 不是“四层蛋糕”，而是核心链加边界包
 
-Agent Core 维护的状态包括消息列表、当前模型、思考等级、系统提示、可用工具、正在流式生成的回复和最近错误。状态集中后，上层界面不需要自己拼装一套不一致的副本。
+当前仓库包含 `ai`、`agent`、`coding-agent`、`tui`、`telemetry`、`protocol`、`client`、`server` 和 `evals`。因此，把所有内容继续压成四层，会隐藏真实依赖。
 
-事件订阅同样重要。TUI、日志、测试器或 Web UI 都可以监听 `message_update` 等事件。核心只宣布发生了什么，不规定必须怎样显示，从而避免 Agent Loop 与界面框架绑死。
+从各包的 `package.json` 看，最重要的执行主链是：
 
-### 一次 Turn 的事件时序
+```text
+pi-ai
+  ↑
+pi-agent-core
+  ↑
+pi-coding-agent ──→ pi-tui
+       │
+       ├──────────→ pi-client ──→ pi-protocol
+       └──────────→ pi-telemetry
+
+pi-server ────────→ pi-ai + pi-protocol
+pi-evals           独立评测入口
+```
+
+这里的箭头表示“调用方依赖被调用方”，不是概念上的上下级。
+
+`pi-ai` 统一模型、消息、流事件和认证。`pi-agent-core` 只关心对话状态、循环、工具与事件。`pi-coding-agent` 再把文件工具、Session、资源加载、扩展和交互入口组合起来。
+
+`tui` 是一种界面，不是 Agent 内核。`protocol/client/server` 则说明 Pi 已开始形成远程会话边界，也不能再被塞进传统四层图里一笔带过。
+
+这个结论来自真实依赖，不来自仓库宣传语。相应源码入口可从 [packages 目录](https://github.com/earendil-works/pi/tree/853a80d26c90a14c1886f0ebb8ffaae133ca2185/packages) 逐个复核。
+
+## 三、沿一次请求走完整调用链
+
+现在只跟一个场景：用户输入“读取配置文件并解释”。先不讨论插件哲学，也不讨论记忆系统，只看这句话如何变成模型请求和工具调用。
+
+### 3.1 会话不是在 `Agent` 构造函数里凭空出现
+
+SDK 入口是 [`createAgentSession()`](https://github.com/earendil-works/pi/blob/853a80d26c90a14c1886f0ebb8ffaae133ca2185/packages/coding-agent/src/core/sdk.ts#L173)。它依次准备：
+
+1. 工作目录和 Agent 数据目录；
+2. `ModelRuntime`、`SettingsManager`、`SessionManager`；
+3. `DefaultResourceLoader`，并立即执行 `reload()`；
+4. 恢复历史模型、Thinking 等级与消息；
+5. 创建 `Agent`；
+6. 最后创建 `AgentSession`。
+
+源码还给出了默认工具：`read`、`bash`、`edit`、`write`。这比“Pi 是一个会写代码的 Agent”更具体：它的默认最小操作面就是这四个工具。
+
+```ts
+const defaultActiveToolNames = ["read", "bash", "edit", "write"]
+
+agent = new Agent({
+  model,
+  tools: [],
+  streamFn: (...) => modelRuntime.streamSimple(...),
+})
+
+const session = new AgentSession({
+  agent,
+  sessionManager,
+  resourceLoader,
+  modelRuntime,
+})
+```
+
+注意 `Agent` 创建时工具数组仍为空。工具、Prompt 和扩展由 `AgentSession` 周围的装配逻辑接入。这说明 `Agent` 是执行内核，而 `AgentSession` 是面向编码产品的编排边界。
+
+### 3.2 `prompt()` 只负责建立一次运行
+
+用户输入最终进入 [`Agent.prompt()`](https://github.com/earendil-works/pi/blob/853a80d26c90a14c1886f0ebb8ffaae133ca2185/packages/agent/src/agent.ts#L347)。这里先检查是否已有活动运行，再把字符串转成用户消息。
+
+真正进入循环的是 `runPromptMessages()`：
+
+```ts
+await runAgentLoop(
+  messages,
+  this.createContextSnapshot(),
+  this.createLoopConfig(options),
+  (event) => this.processEvents(event),
+  signal,
+  this.streamFunction
+)
+```
+
+这段调用暴露了 Agent Loop 的六个输入：新消息、上下文快照、运行配置、事件接收器、取消信号和模型流函数。
+
+因此，Loop 并不直接读取 UI，也不直接认识 OpenAI。UI 通过事件观察它，模型差异由 `streamFunction` 隔离，取消则通过 `AbortSignal` 协作完成。
+
+### 3.3 一个 Turn 内部可能经历多个模型 Step
+
+[`runAgentLoop()`](https://github.com/earendil-works/pi/blob/853a80d26c90a14c1886f0ebb8ffaae133ca2185/packages/agent/src/agent-loop.ts#L96) 先追加 Prompt，再发出 `agent_start`、`turn_start` 与消息事件。
+
+内部 `runLoop()` 有两层循环：
+
+```text
+外层：自然停止后，检查 follow-up
+  └─ 内层：只要还有 tool call 或 steering，就继续请求模型
+```
+
+所以，“一次用户提问”不等于“一次模型请求”。只要模型持续请求工具，同一个用户任务就会经历：模型 → 工具 → 模型 → 工具 → 模型。
 
 <AgentTurnTimeline />
 
-把 Loop 只画成圆环仍然太抽象。实现观察面板或自定义 UI 时，更有用的是沿时间查看事件。
+在这里可用三个层级理解时间线：
 
-一轮任务开始时，运行时先发出 Agent Start。每次调用模型形成一个 Turn，产生 Turn Start；Assistant 流式响应开始后产生 Message Start，之后不断发出包含文本、思考或工具调用增量的 Message Update，最后以 Message End 收束。
+| 层级    | 回答的问题                     |
+| ------- | ------------------------------ |
+| Session | 这段长期对话属于谁？           |
+| Turn    | 哪次外部输入触发了这一轮工作？ |
+| Step    | 这个 Turn 内是第几次模型推进？ |
 
-如果回复包含工具调用，运行时依次发出 Tool Execution Start、Update 与 End。工具结果被追加成新消息后，下一个 Turn 才开始。直到模型不再请求工具，运行时发出 Turn End 和 Agent End。
+Pi 的事件名称未必全部直接使用 `Step`，但调用结构已经体现了这个边界。DSH 与 qi-pi 则把 `turn`、`step` 明确写进持久事件。
 
-这个顺序解释了为什么 UI 不应直接轮询消息数组。流式内容、工具进度和最终持久消息处于不同阶段。订阅事件可以实时显示，SessionManager 则保存已经完成并可恢复的条目。
+### 3.4 Tool Call 不是从模型字符串直接调用函数
 
-它也为可观测性定义了自然指标：一次 Agent Run 有多少 Turn，每个 Turn 的模型延迟是多少，工具执行占用多少时间，哪次 Tool Result 之后发生重试，以及任务在哪个阶段被用户取消。
+模型响应完成后，Loop 从 Assistant 内容里筛出工具调用，再进入 [`executeToolCalls`](https://github.com/earendil-works/pi/blob/853a80d26c90a14c1886f0ebb8ffaae133ca2185/packages/agent/src/agent-loop.ts#L409)。
 
-## 七、一次真实任务怎样穿过 Agent Loop
+这条路径至少经过四步：准备调用、执行工具、收尾结果、生成 `toolResult` 消息。失败也会被转成模型能够继续读取的结果，而不是简单抛出后终止整段对话。
 
-假设用户说：“给登录接口增加速率限制，并补测试。”Pi 不会凭空知道项目结构。第一轮模型通常先调用读取或搜索相关工具，找到路由、认证中间件和测试约定。
+当前实现同时支持串行与并行。只要配置要求串行，或某个工具声明串行模式，就按顺序执行；否则可并发执行，再按原调用顺序写回结果。
 
-工具返回文件内容后，第二轮模型更新内部判断。它可能发现项目已有通用限流器，于是继续读取配置与相邻测试，而不是立刻新建一个重复模块。
+这个细节很重要。并行提升速度，但结果顺序仍要稳定，否则同一次模型输出的多个 Tool Call 会在不同运行中形成不同上下文。
 
-证据足够后，模型调用编辑工具修改路由，再调用写入或编辑工具补测试。每次文件变更都不是“模型在电脑里直接写字”，而是一条带路径与内容的结构化调用。
+### 3.5 自然停止并不一定代表整个 Agent 结束
 
-随后模型使用 Bash 执行目标测试。若测试失败，终端输出作为 Tool Result 回到消息列表。下一轮模型看到真实堆栈，定位是时间 Mock 不正确，再修改测试并重跑。
+一次工具链结束后，Loop 会先读取 Steering。没有工具和 Steering 时，它才到达“自然停止点”，然后再检查 Follow-up。
 
-当测试通过后，模型可能检查 Git Diff，总结改动与验证结果，然后输出最终回复。整个过程中，判断来自模型，事实来自工具，状态由 Agent Core 串联。
+Steering 更像“改变当前正在进行的任务”；Follow-up 更像“当前任务结束后，再开始下一段输入”。两者共用队列会让时序变得含糊，因此源码将它们拆开。
 
-这个例子揭示了 Agent 质量的三个来源。模型决定推理和行动顺序；工具决定它能观察和改变什么；Harness 决定证据怎样进入上下文、失败怎样恢复、会话怎样延续。
+最终调用链可以收敛为：
 
-## 八、为什么默认只有四个核心工具
+```text
+createAgentSession
+  → AgentSession.prompt
+  → Agent.prompt
+  → runAgentLoop
+  → streamAssistantResponse
+  → ModelRuntime.streamSimple
+  → Assistant tool call
+  → executeToolCalls
+  → Tool result message
+  → 下一次模型请求或 agent_end
+```
 
-Pi 默认向模型提供 `read`、`write`、`edit` 和 `bash`。有些版本或配置会再提供搜索、查找、提问等能力，但四个基础动作代表最小的代码工作闭环。
+## 四、`pi-ai` 如何把 Provider 差异挡在 Loop 外面
 
-`read` 负责建立证据。没有读取，模型只能根据文件名和用户描述猜测。一个可靠流程往往先读取入口、相邻模块、测试和项目规范，再决定修改位置。
+Agent Loop 接收的是 `StreamFn`，而不是某个供应商 SDK。SDK 装配时，这个函数被连接到 `ModelRuntime.streamSimple()`。
 
-`write` 用于创建或整体替换文件，`edit` 用于局部变更。把两者分开能让模型表达意图：新文件适合完整写入，已有大文件更适合精确替换，减少无关格式变化。
-
-`bash` 是能力放大器。测试、类型检查、Git、包管理器、代码生成器和项目自带脚本都已经存在于 Shell 世界。Agent 不需要把每个 CLI 重新包装成专用协议。
-
-工具越多不一定越强。大量语义重叠的工具会增加模型选择成本，也让权限策略更复杂。Pi 的策略是保留小的默认集合，通过扩展为确有价值的领域动作注册工具。
-
-但 Bash 同时也是最大风险面。它能运行测试，也能删除文件、读取凭证或访问网络。Pi 的极简工具设计必须与后文的权限边界一起理解，不能只看到灵活性。
-
-### 工具为什么能被模型正确调用
-
-工具不是只有一个 JavaScript 函数。一个可靠工具至少包含名称与说明、参数 Schema、执行函数和结果结构四部分。
-
-名称与说明进入模型可见的工具定义，决定模型何时选择它。参数 Schema 约束路径、命令、选项等字段，让供应商 API 能验证结构，而不是让模型在自然语言里描述“请帮我读这个文件”。
-
-执行函数接收已经解析的参数、取消信号和进度回调，在真实环境中完成动作。结果通常包含供模型继续推理的 Content，也可以包含只给扩展和 UI 使用的 Details。
-
-因此一个插件新增工具时，不只是把函数挂到对象上。它同时扩展了模型的行动空间、系统提示中的能力描述、运行时执行表和 TUI 的呈现方式。所谓“插件即插即用”，真正依赖的是这份统一工具契约。
-
-错误也应返回为可识别的 Tool Result，而不是让整个进程直接崩溃。模型看到文件不存在、测试失败或参数不合法后，才能在下一 Turn 修正行动。
-
-## 九、系统提示与项目上下文如何进入模型
-
-Coding Agent 不是只靠一条用户消息工作。启动时，Pi 会构造系统提示，说明自身角色、工作目录、工具用法和基本行为约束。
-
-用户可以用项目级 `.pi/SYSTEM.md` 或全局文件替换默认系统提示，也可以通过 `APPEND_SYSTEM.md` 追加内容。替换适合构建完全不同的 Agent，追加适合保留默认编码行为并增加团队规则。
-
-Pi 还会从全局目录、当前目录及父目录加载 `AGENTS.md` 或 `CLAUDE.md`。这样 Monorepo 根目录可以规定通用命令，子目录再增加某个服务的测试与风格约定。
-
-上下文文件不是越长越好。它们会持续占用输入 Token，而且模型可能在大量低价值规定中错过真正关键的约束。更好的做法是写稳定规则、重要路径和验证命令，把一次性细节留给任务消息。
-
-项目上下文也存在信任问题。恶意仓库可以在说明文件中夹带诱导指令。Pi 的 Project Trust 会控制是否加载部分项目资源，但官方明确指出，Context 文件和内容中的 Prompt Injection 仍然属于本地 Agent 风险。
-
-### 上下文是按层装配出来的
-
-视频用一个非常清楚的顺序解释了上下文来源。可以把模型最终收到的输入理解成五层堆栈。
-
-最底层是 Pi 的基础系统行为；其上是用户级或环境级规则；再上是当前仓库的项目说明；随后是按任务加载的 Skill、Extension 提示和可用工具；最上面才是当前用户请求与活动 Session 历史。
-
-越靠下的内容越稳定、复用次数越多，越靠上的内容越接近当前任务。团队规范不应每次复制到用户消息，临时需求也不应写进全局 System Prompt。
-
-这个顺序还影响 Prompt Cache。稳定前缀放在前面，更容易被供应商缓存；频繁变化的工具和任务内容放在后面，可以减少一次小改动导致整个前缀缓存失效的概率。
-
-## 十、消息队列与“中途纠正”为什么重要
-
-长任务执行时，用户经常在 Agent 运行中补充：“不要改数据库迁移”“先只跑单测”“这个方向停掉”。一个只能等待最终回复的 Agent 会浪费时间，也可能继续扩大错误改动。
-
-Pi 支持在运行过程中排队消息。Steering 消息用于尽快影响当前任务，Follow-up 消息则可以等当前轮完成后继续处理。扩展还可以检查是否存在待处理消息，并决定是否终止当前动作。
-
-这不只是界面功能，而是控制系统的一部分。Agent 执行不是一次原子调用，而是一串可能持续数分钟的观察与行动。用户输入需要在合理边界重新进入循环。
-
-设计自定义 Agent 时，应明确三件事：新消息何时注入上下文，正在运行的工具是否可取消，取消后产生的部分结果怎样记录。如果这三点含糊，中途纠正就可能造成状态与文件不一致。
-
-## 十一、TUI 为什么值得成为独立包
-
-终端界面表面上只是打印文本，真实难点却在流式更新。模型每几十毫秒产生增量，工具输出不断增长，Markdown 代码块可能尚未闭合，用户仍需要输入和滚动。
-
-`pi-tui` 使用差分渲染思想，只更新发生变化的区域，而不是每次重画整个屏幕。这能减少闪烁，也让长对话和实时状态更稳定。
-
-TUI 组件不只显示聊天气泡。模型选择器、会话恢复、树形导航、设置、确认框、自定义状态栏和扩展 UI 都需要键盘焦点、布局、颜色主题与生命周期管理。
-
-把 TUI 独立出来的另一个好处是复用。扩展可以创建自定义终端组件，而不必绕过主应用直接操作 ANSI 控制符。Coding Agent 核心也可以在没有 TUI 的 RPC 或 SDK 模式中运行。
-
-因此 Pi 的终端体验不是核心循环的附属打印语句，而是一个可替换的 Adapter。Agent 状态通过事件流向界面，界面把用户输入和选择送回 Session，两者之间保持清楚边界。
-
-### 差分渲染具体解决什么
-
-每次收到一个文本增量就清空终端并重画全部内容，会产生闪烁、滚动跳动和大量无效输出。工具日志越长，问题越明显。
-
-差分渲染会根据终端宽度让组件生成当前帧的行，再和上一帧比较，只更新发生变化的区域。模型选择器、Markdown、编辑器和工具结果都遵循同一组件接口，因此主界面不需要知道每种内容的内部绘制方式。
-
-自定义工具还可以提供 `renderCall` 和 `renderResult`。运行逻辑返回结构化数据，TUI 插件决定怎样显示；在 RPC 或无界面模式中，同一个工具仍能执行，只是跳过终端组件。
-
-## 十二、会话不是聊天数组，而是一棵追加式树
-
-Pi 默认把会话保存为 JSONL 文件。每一行是一个带类型的条目，Header 记录版本、会话 ID、时间和工作目录，后续条目记录消息、模型变化、思考等级、压缩摘要与扩展状态。
-
-![Pi 会话树：保留分支，同时把旧上下文压缩成结构化摘要](/images/blog/pi-agent/pi-agent-session-tree.webp)
-
-关键设计是每个条目都有稳定的 `id` 与 `parentId`。它们不是只能线性增长的数组，而是形成一棵树。当前 `leafId` 表示用户正位于哪条分支的末端。
-
-当用户回到较早消息并选择另一种方案，新消息可以指向那个历史节点，不需要删除后来内容。旧方案仍在文件中，新方案形成另一条分支。
-
-追加式结构适合调试和恢复。程序崩溃时，不必重写一个巨大 JSON；外部客户端也可以把最后看到的条目 ID 当成游标，只获取之后新增的事件。
-
-它还为实验比较提供基础。同一问题可以从共同祖先分叉，分别尝试两种模型、提示或工具，然后保留两条证据链。线性聊天往往只能复制会话或覆盖历史。
-
-## 十三、上下文压缩到底压掉了什么
-
-模型上下文窗口有限，会话文件却可以无限增长。Pi 区分“完整持久历史”和“本轮发送给模型的活动上下文”。前者保存在 JSONL 树中，后者需要控制在模型窗口之内。
-
-自动压缩的基本触发条件是当前上下文 Token 超过窗口减去预留 Token。官方默认预留较大的输出空间，避免模型刚开始处理工具调用就撞到上下文上限。
-
-压缩时，系统从最近消息向前寻找切点，保留一定数量的近期 Token，把更早的对话整理成结构化摘要。摘要不仅描述讨论内容，还会累计已经读取和修改过的文件信息。
-
-之后模型收到的是压缩摘要加近期原始消息，而不是全部历史。完整旧消息仍存在于会话文件中，所以压缩是上下文视图变换，不是删除审计记录。
-
-压缩质量会直接影响长任务。摘要若漏掉约束，模型可能重复已失败方案；若只记录结论不记录原因，后续无法判断结论是否仍适用；若不跟踪文件，模型会浪费 Token 重新探索。
-
-用户可以通过 `/compact` 手动触发并给出关注指令。扩展也能监听压缩前事件，取消默认压缩或提供自定义策略。这使领域 Agent 可以保存比通用摘要更重要的状态。
-
-## 十四、分支摘要解决的是另一种遗忘
-
-自动压缩处理“同一条路径太长”，分支摘要处理“从一条路径切换到另一条路径”。两者都生成摘要，但触发原因和信息范围不同。
-
-假设从节点 A 出发，分支一经过 B、C、D 做了大量实验；之后用户回到 A，选择分支二的 E、F。简单切换会让 B、C、D 的发现完全离开活动上下文。
-
-Pi 在树形导航时可以找到旧路径与目标路径的共同祖先，把即将离开的路径整理为 Branch Summary，并在新的位置保存相关信息。
-
-这样做的目标不是让两个分支混在一起，而是保留有迁移价值的发现。例如方案一失败是因为某个 API 限制，方案二仍然应该知道这个限制，但不必携带方案一的全部工具输出。
-
-分支摘要也提醒我们，会话树不是 Git。它记录的是 Agent 的认知与交互历史，不替代文件版本控制。真正的代码状态仍应通过 Git Diff、提交或外部 Checkpoint 管理。
-
-## 十五、扩展系统为什么是 Pi 的核心竞争力
-
-如果 Pi 只有一个简洁 Agent Loop，它适合教学，却未必适合复杂团队。真正让极简核心进入生产场景的是 Extensions。
-
-![Pi 扩展生态：围绕小核心连接工具、技能、提示、界面和包](/images/blog/pi-agent/pi-agent-extensions.webp)
-
-扩展是 TypeScript 模块，可以注册模型可调用的工具、Slash Command、快捷键和自定义 UI，也可以订阅 Session、Model 与 Tool 的生命周期事件。
-
-事件拦截带来很强的控制力。扩展可以在 Bash 调用前检查命令，发现危险模式后阻止；可以在工具完成后追加结构化详情；也可以在压缩前改变摘要方式。
-
-扩展还能保存状态。通过追加自定义条目，审批记录、任务元数据或领域状态可以跟随 Session 持久化，并在恢复与分支时重新构建。
-
-这套机制本质上是一个插件内核：核心提供稳定事件和上下文，上层策略通过 Hook 注入。它比修改 Fork 中的核心代码更容易升级，也便于团队把内部能力封装成可安装包。
-
-但扩展不是安全脚本。它作为 TypeScript 代码在本地进程中执行，拥有与 Pi 相同的系统权限。安装第三方扩展前必须像审查普通依赖一样审查来源与代码。
-
-## 十六、Pi 怎样实现不同插件即插即用
-
-“支持插件”很容易写在功能列表里，真正困难的是让一个插件在不修改 Core 的情况下被发现、加载、注册、启用、重载和卸载。Pi 用 Resource Loader、Extension API、运行时注册表与 Package 约定组成这条链路。
-
-### 1. 三种插件进入方式
-
-开发中的单文件扩展可以直接放进 `~/.pi/agent/extensions/`，对当前用户的所有项目生效；也可以放进项目的 `.pi/extensions/`，只随该仓库共享。
-
-临时试验可以使用 `pi -e ./my-extension.ts`，或把 npm、Git 来源传给 `-e`。它只为当前运行加载，不必先写入长期设置，适合测试第三方插件和本地开发版本。
-
-准备长期使用和分发时，可以执行 `pi install npm:<package>` 或 `pi install git:<repository>`。安装来源被记录到全局或项目设置，下一次启动由 Resource Loader 自动解析。
-
-这三种方式对应开发生命周期：目录直放适合快速编辑，`-e` 适合一次性验证，Package 适合版本化分发。底层最后都会被转换成一组待加载资源，而不是进入三套不同插件系统。
-
-### 2. Resource Loader 怎样发现资源
-
-启动时，Loader 汇总全局目录、项目目录、设置中声明的 Package 与命令行附加路径。Package 可以在 `package.json` 的 `pi` 字段显式声明资源，也可以使用 `extensions/`、`skills/`、`prompts/` 和 `themes/` 等约定目录。
-
-项目来源需要先经过 Project Trust。未信任仓库中的 Extension 与 Package 不会直接执行，防止用户刚进入一个陌生目录就加载任意 TypeScript 代码。
-
-同一个 Package 同时出现在全局和项目设置时，项目配置优先。用户还可以按资源类型筛选，例如加载某包的 Extension 与 Prompt，却禁用它的 Skill；也能通过包含与排除模式选择具体文件。
-
-因此“自动发现”不是盲目扫描整台机器，而是在明确作用域、来源、信任和过滤规则下构造本次 Session 的资源集合。
-
-### 3. TypeScript 模块怎样变成运行时能力
-
-Extension 文件默认导出一个工厂函数。Pi 使用运行时 TypeScript Loader 加载模块，所以普通 `.ts` 插件不需要用户先手工编译。
-
-工厂函数收到统一的 `ExtensionAPI`。插件在初始化阶段调用 `registerTool`、`registerCommand`、`registerShortcut`、`registerProvider` 或 `on`，把能力注册进对应运行时表。
-
-这是一种控制反转。Core 不需要 import 每个插件，也不需要知道 GitHub、数据库或部署工具。Core 只提供稳定注册接口，插件主动声明“我提供哪些工具”“我监听哪些事件”。
-
-注册完成后，自定义 Tool 会进入工具表，Command 进入命令表，事件处理器进入 Event Bus。Agent 下一次构造请求时就能看到已激活的工具 Schema，TUI 也能发现新的命令与自定义渲染器。
-
-### 4. 为什么新增工具不一定需要重启
-
-当前 Extension API 允许插件在启动后调用 `registerTool()`。新工具会立刻进入 `getAllTools()`，通过 `setActiveTools()` 启用后，可以在同一个 Session 的下一次模型请求中使用。
-
-Pi 还支持动态工具加载。插件可以先注册大量候选工具，但只激活一个很小的搜索入口。模型需要某种能力时，搜索工具选择并激活相关工具，避免每一轮都把全部 Schema 塞进上下文。
-
-对支持原生延迟工具加载的模型，新增定义可以保持稳定 Prompt 前缀；其他模型则走兼容回退。这个机制让“即插即用”不仅是程序能调用，也考虑了上下文大小和 Prompt Cache。
-
-### 5. `/reload` 到底重新加载了什么
-
-放在自动发现目录中的 Extension 可以通过 `/reload` 热重载。这个流程不只是重新读取一个文件，它会关闭当前扩展运行时，重新加载 Extension、Skill、Prompt、Theme 和 Context File，再建立新的运行时注册表。
-
-Reload 会先向旧扩展发出 `session_shutdown`，让数据库连接、Watcher 等长期资源释放；随后重新发现资源，并以 `reason: "reload"` 触发新的 Session Start 与 Resource Discover 生命周期。
-
-未来的命令、事件和工具调用会进入新版本插件。正在执行 `/reload` 的旧命令调用栈仍属于旧版本，所以官方建议 `await ctx.reload()` 后立即返回，不再使用旧的内存状态。
-
-这也是热更新最容易被忽略的边界：代码可以重载，闭包里的内存不会自动迁移。需要跨重载保存的状态，应写入 Session 自定义条目、配置文件或外部存储，并在新的 Session Start 中重建。
-
-### 6. Package 为什么比单个插件更完整
-
-现实工作流通常不只需要一个工具。例如部署插件可能同时需要 Tool 执行发布、Command 打开配置、Skill 规定检查顺序、Prompt 提供发布模板、Theme 显示状态颜色。
-
-Pi Package 把这些资源放在同一个版本化单元里。安装器负责从 npm、Git 或本地路径取得包并安装依赖，Resource Loader 再按 Manifest 与过滤规则加载资源。
-
-团队因此可以把“部署能力”作为整体安装，而不是让每位成员分别复制五个目录。项目设置还能固定 Git Tag 或 npm 版本，确保不同开发者使用同一套行为。
-
-### 7. 即插即用不等于无风险
-
-插件与 Pi 进程拥有相同权限，Package 安装还可能带入第三方依赖。即时加载解决的是集成成本，不是安全审计。
-
-可靠团队应固定版本、审查 Manifest 和 Extension 源码，限制项目信任，只开启需要的资源，并把真正的文件、网络和进程限制放在容器或操作系统边界。
-
-因此 Pi 的即插即用可以概括为：标准资源布局解决发现，Resource Loader 解决作用域与装配，Extension API 解决注册，运行时工具表解决即时生效，Lifecycle 与 `/reload` 解决更新，Package 解决分发，而外部沙箱负责不可绕过的安全边界。
-
-## 十七、Skills、Prompts、Themes 与 Packages 的分工
-
-Pi 的定制资源不只有 Extensions。四种机制解决不同层次的问题，混用会让系统难以维护。
-
-Prompt Template 是可复用的用户任务模板。它适合“按固定维度做代码审查”这类输入结构，不负责注册工具或监听事件。
-
-Skill 是按需加载的能力说明，通常以 `SKILL.md` 组织。它告诉 Agent 在特定任务中遵循什么步骤、使用哪些资源。Skill 主要改变工作方法，而不是直接改变运行时权限。
-
-Theme 改变终端配色和视觉呈现，不应承载业务逻辑。Extensions 则是运行时代码，适合工具、审批、事件处理和交互组件。
-
-Pi Package 是分发容器，可以把 Extensions、Skills、Prompts 和 Themes 组合起来，通过 npm、Git 或本地路径安装。项目级配置可以把包固定在某个版本，并让团队共享相同资源。
-
-合理分层的判断标准很简单：纯文字任务模板放 Prompt；按需方法论放 Skill；需要执行代码和接入事件放 Extension；需要跨项目分发时再封装 Package。
-
-### 用一个发布流程看清四者怎样协作
-
-假设团队要把视频从原始素材发布到多个平台。Skill 可以规定先检查素材，再生成字幕、渲染、上传、写博客，最后验证链接的固定顺序。
-
-Prompt Template 可以提供“生成本期标题与简介”的可复用输入格式。Extension 可以注册读取剪辑工程、调用渲染器和上传平台的真实工具，也能在正式发布前弹出确认。
-
-Theme 只负责让渲染中、等待审批、成功与失败在终端中容易区分。Package 则把这些资源与版本一起分发给整个团队。
-
-如果把全部逻辑塞进一个超长 Prompt，模型每次都要重新解释步骤，真实上传也只能绕回 Bash。如果把全部内容写成 Extension，工作流文字又会和运行时代码混在一起。四种资源分工后，流程更容易审查和替换。
-
-## 十八、一个最小扩展是怎样工作的
-
-下面的示例在 Bash 工具执行前检查明显危险的删除命令。它不是完整安全系统，只展示扩展如何介入 Tool Call。
+在 [`models.ts`](https://github.com/earendil-works/pi/blob/853a80d26c90a14c1886f0ebb8ffaae133ca2185/packages/ai/src/models.ts#L690) 中，`streamSimple()` 做三件事：找到 Provider、应用认证、调用 Provider 的同名流接口。
 
 ```ts
-import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
+return lazyStream(model, async () => {
+  const provider = this.requireProvider(model)
+  const { requestModel, requestOptions } = await this.applyAuth(model, options)
+  return provider.streamSimple(requestModel, context, requestOptions)
+})
+```
 
-export default function guard(pi: ExtensionAPI) {
-  pi.on('tool_call', async (event, ctx) => {
-    if (event.toolName !== 'bash') return
+这不是“把所有 API 请求参数做成完全一样”。真正统一的是 Agent 所看到的输入输出边界：模型、上下文、选项和标准化流事件。
 
-    const command = String(event.input.command ?? '')
-    if (!command.includes('rm -rf')) return
+供应商仍可以保留自己的认证、模型能力、Thinking 表达和请求格式。统一层负责把这些差异转换成 Loop 能消费的消息与事件。
 
-    const allowed = await ctx.ui.confirm('危险命令', `是否允许执行：${command}`)
+Pi 还允许扩展注册 Provider。`ModelRuntime` 保存运行时 Provider，`ExtensionRunner` 把扩展注册动作接到模型注册表。这说明 Provider 不是写死的枚举，而是可扩展能力。
 
-    if (!allowed) {
-      return { block: true, reason: '用户拒绝危险删除命令' }
-    }
-  })
+但要注意一条边界：Provider 可扩展，不代表它应该直接修改 Session。它负责模型 I/O；消息落盘、分支和恢复属于上层会话语义。
+
+## 五、Session 为什么不是普通聊天数组
+
+Pi 的 [`SessionManager`](https://github.com/earendil-works/pi/blob/853a80d26c90a14c1886f0ebb8ffaae133ca2185/packages/coding-agent/src/core/session-manager.ts#L856) 同时维护文件条目、ID 索引和当前叶子指针。
+
+每次 `appendMessage()` 都生成带 `id`、`parentId` 和时间戳的条目，然后把叶子推进到新条目。
+
+```ts
+const entry = {
+  type: 'message',
+  id: generateId(this.byId),
+  parentId: this.leafId,
+  timestamp: new Date().toISOString(),
+  message
 }
 ```
 
-把文件放到全局 `~/.pi/agent/extensions/`，或项目 `.pi/extensions/` 后，Pi 可以自动发现。项目本地扩展需要经过 Project Trust，防止一个刚下载的仓库在启动时静默执行代码。
+这已经不是简单的 `messages.push()`，而是一棵以父指针连接的追加式会话树。
 
-真正用于生产时，规则不能只靠字符串包含。Shell 有引号、变量、子命令、管道和别名，危险效果也可能来自 Python、Node 或项目脚本。更可靠的边界仍应放在操作系统或容器层。
+### 5.1 Branch 的本质是移动叶子
 
-扩展适合做用户体验和策略控制，沙箱适合做不可绕过的能力限制。把两者区分开，是使用 Pi 时最重要的安全原则之一。
-
-## 十九、模型与 Provider 为什么可以运行时切换
-
-Pi 支持通过 `/model` 或快捷键选择模型，并可以配置候选模型循环。Session 会记录模型变化，因此恢复会话时能够知道不同阶段用了什么模型。
-
-运行时切换并不保证上下文完全等价。模型供应商对 System Prompt、Thinking Block、Tool Schema 和缓存的处理不同。一个在模型 A 上形成的长会话，切到模型 B 后可能出现行为变化。
-
-正确做法是把模型看成 Agent 系统中的可替换执行器，而不是透明 CPU。切换后应重新检查关键约束、工具可用性和上下文长度，重要任务最好保留一组小型回归测试。
-
-多模型能力最有价值的场景不只是“哪个便宜用哪个”。可以用强推理模型做架构诊断，用快速模型处理机械修改；也可以在同一 Session 树上分支，比较两个模型对相同证据的决策。
-
-成本统计也属于消息状态的一部分。Provider 返回的输入、输出、缓存读写和价格可以被记录，团队能够把任务效果与真实消耗连接起来，而不是只看单次调用价格。
-
-## 二十、Interactive、Print、JSON、RPC 与 SDK
-
-Pi 不只提供人类操作的交互终端。不同运行模式对应不同集成深度。
-
-默认 Interactive Mode 适合开发者实时协作。用户可以观察工具调用、中途纠正、选择模型、浏览会话树，并使用扩展提供的 UI。
-
-Print Mode 使用 `-p`，接收一次提示后输出结果并退出，适合 Shell 管道和简单自动化。标准输入还可以与初始提示合并，用来总结命令输出或文件内容。
-
-JSON Mode 把事件作为 JSON Lines 输出，方便非 TypeScript 程序消费流式消息。RPC Mode 则通过标准输入输出接受命令，可以由 IDE、桌面程序或其他进程长期控制。
-
-如果应用本身就是 Node.js 或 TypeScript，官方更建议直接使用 SDK 的 `createAgentSession()`。这样能订阅事件、替换工具、控制 SessionManager，而不必管理子进程协议。
-
-这组接口形成一条渐进路线：先在终端验证工作流，再用 Print 接入脚本，用 RPC 接入异构系统，最后用 SDK 构建深度定制产品。
-
-## 二十一、从 Pi 到 oh-my-pi、DSH 与 Python pi-agent-py
-
-理解原始 Pi 后，再看 oh-my-pi、DeepSeek Harness 与 pi-agent-py，会发现它们并不是“谁功能更多”的简单竞争。四者从相近的 Agent 问题出发，却选择了不同的产品边界。
-
-### 1. 原始 Pi：先把最小闭环做清楚
-
-Pi 的长处是薄。`pi-ai` 统一模型，`pi-agent-core` 执行循环，`pi-coding-agent` 提供代码工具与会话，`pi-tui` 消费事件。每层都能单独理解和替换。
-
-它更像一块透明底板：提供足够完整的 Agent Loop、Session 与 Extension，却不试图把 IDE、调试器、后台管理和远程服务全部纳入核心。
-
-这使 Pi 很适合学习、嵌入和二次开发。代价是团队若要得到完整产品，仍需自行补齐隔离、审批、统计、部署和更丰富的工程工具。
-
-### 2. oh-my-pi：把 Pi 推向完整 Coding Agent
-
-[oh-my-pi](https://github.com/can1357/oh-my-pi)（命令名 `omp`）沿着 Pi 的路线继续产品化。它的定位不是通用插件微内核，而是把 IDE、运行时和协作能力直接接入 Coding Agent。
-
-它采用 TypeScript、Bun 与 Rust 原生模块组合。仓库当前提供文件与 Shell、持久 Python/Bun Eval、LSP、DAP、浏览器、桌面操作、代码审查、子 Agent、Agent Hub 与 MCP 等能力。
-
-这里最值得关注的不是工具数量，而是工具共享同一套 Session、事件、权限和输出协议。模型不用在多个独立应用之间切换，UI 也能把读文件、调试、子任务和审查串成连续时间线。
-
-oh-my-pi 还使用 Hashline 一类带内容锚点的编辑方式。编辑目标不只依赖脆弱的行号；文件变化后，运行时可以更早识别上下文不再匹配，降低把补丁写到错误位置的概率。
-
-仓库把基础循环与产品层分开：`packages/agent` 负责 Agent Loop、追加式上下文、Compaction、Replay 与 Telemetry；`packages/coding-agent` 负责工具、命令、扩展、会话和交互。
+[`branch()`](https://github.com/earendil-works/pi/blob/853a80d26c90a14c1886f0ebb8ffaae133ca2185/packages/coding-agent/src/core/session-manager.ts#L1355) 不复制旧历史，也不删除失败路径。它把 `leafId` 移到旧条目，下一次追加自然形成新分支。
 
 ```text
-packages/agent
-  Loop · Context · Compaction · Replay
-             ↓
-packages/coding-agent
-  Tools · Extensions · Commands · Sessions
-             ↓
-omp product
-  TUI · LSP · DAP · Browser · Subagents · Native Runtime
+A → B → C → D
+        └→ E → F
 ```
 
-### 3. oh-my-pi 的插件注册比原始 Pi 多了什么
+当叶子从 `D` 移回 `B`，新消息 `E` 的 `parentId` 指向 `B`。旧的 `C → D` 仍留在文件中，因此可以审计、导出或再次导航。
 
-oh-my-pi 的扩展仍是 TypeScript/JavaScript 工厂，但 `ExtensionAPI` 面向的是完整 Coding Agent。插件可以注册 Tool、Command、Shortcut、Flag、Provider 与 Renderer，也可以监听 Session、Turn、Message、Tool、Compaction 和 Retry 事件。
+![Pi Session 追加式会话树](/images/blog/pi-agent/pi-agent-session-tree.webp)
 
-```ts
-export default function (pi: ExtensionAPI) {
-  pi.on('tool_call', async (event) => {
-    if (event.toolName === 'bash' && isDenied(event.input)) {
-      return { block: true, reason: 'policy denied' }
-    }
-  })
+### 5.2 Compaction 改变模型看到的表面，不抹掉原始事实
 
-  pi.registerTool(myDomainTool)
-  pi.registerCommand('domain-status', statusCommand)
-}
-```
+长对话会超过上下文窗口。Pi 的压缩逻辑为旧路径生成摘要，让后续模型请求读取“摘要 + 较新消息”。
 
-注册阶段与运行阶段被分开。扩展加载时声明能力，运行时初始化后才取得 Session 和 UI 上下文。受管定时器会随 Session 关闭而清理，单个扩展失败也会进入独立错误通道。
+正确理解不是“把历史删短”，而是“从完整历史投影出一个较短的模型表面”。原始条目仍留在 Session 文件里。
 
-扩展可来自项目 `.omp/extensions/`、用户目录、已安装包或显式路径。加载器负责路径规范化、去重和错误诊断。但扩展仍在宿主进程内执行，因此它是受信任代码，不等于沙箱内的普通 Tool Call。
+这也解释了为什么 Branch Summary 和 Compaction Summary 是独立条目，而不是伪装成普通用户消息。它们描述的是会话结构变化，不只是聊天内容。
 
-### 4. DSH：把插件机制继续下沉为运行底座
+## 六、ResourceLoader 与 Extension 到底负责什么
 
-[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（DSH）关注的不是“如何把 Coding 工具做得更多”，而是“如何让整个 Agent 产品都可以组合”。它以 Cordis 管理 Context、Service、Event 与可逆 Effect。
+[`ResourceLoader` 接口](https://github.com/earendil-works/pi/blob/853a80d26c90a14c1886f0ebb8ffaae133ca2185/packages/coding-agent/src/core/resource-loader.ts#L40) 同时暴露 Extension、Skill、Prompt、Theme、上下文文件和系统 Prompt。
 
-在 DSH 中，模型适配器、工具注册表、Session Log 和 Agent Loop 都可以是插件。Profile、Bundle 与 Patch 决定一个具体产品装入哪些能力；插件卸载时，相关工具、监听器与服务会随生命周期撤销。
+`DefaultResourceLoader.reload()` 会重新加载设置、解析 Package 来源、筛选启用资源并记录诊断信息。项目级扩展还会经过信任判断。
 
-这比 Pi/oh-my-pi 的 Extension API 更接近通用微内核。它带来更强的替换性、依赖声明与热重载语义，但概念和配置成本也更高。只做一个轻量 Agent 时，DSH 可能显得过重。
+这说明 Pi 的“扩展”至少有两类：
 
-DSH 的另一项核心是事件溯源 Session。Turn、Step、模型块、Tool Call、Tool Result 与请求上下文都写入追加式事件流，Replay、Resume、Fork、Compaction 和 UI 时间线从同一事实源派生。
+- 代码能力：Provider、工具、命令、事件处理器；
+- 内容资源：Skill、Prompt、Theme、AGENTS.md 等上下文文件。
 
-### 5. Python pi-agent-py：把重点放在独立后端服务
+两者都可被发现和重载，但风险完全不同。读取一份 Prompt 与执行一个本地 TypeScript 扩展，不应该共享相同信任等级。
 
-[pi-agent-py](https://github.com/qiyaxiong/pi-agent-py) 是本文作者正在实现的 Python-first Agent 后端。它不是 Pi 或 DSH 的 Python 移植，而是借鉴两者边界后，面向 Web、Live2D、多 Channel 和后台管理重新组装。
+### 6.1 注册为什么必须可撤销
 
-主体划分为 `pi_ai`、`pi_agent_core`、`pi_agent_runtime` 与 `pi_agent_server`。Core 只维护 Agent、Run、Turn、Tool 与 Event；Runtime 负责 Extension、Capability、Hook、Resource Loader 和 Session；Server 提供 FastAPI、SSE、SQLite 统计与运维接口。
+热重载最常见的错误不是“新代码没加载”，而是旧监听器仍在。结果是同一个事件执行两次、同名工具冲突，或者旧 Provider 继续占用资源。
+
+因此注册行为必须绑定 Extension 生命周期：
 
 ```text
-pi_agent_server   API · SSE · SQLite · Admin
-        ↓
-pi_agent_runtime  Extensions · Hooks · Session · Loader
-        ↓
-pi_agent_core     Agent · Run · Turn · Tool · Event
-        ↓
-pi_ai             Model · Message · Provider · Stream
+mount extension
+  → register tool / event / provider
+  → 保存对应 disposer
+
+dispose extension
+  → 撤销注册
+  → 释放资源
 ```
 
-它放弃把 TUI 作为主体，原因是目标本来就是可供博客、Live2D 和其他 Channel 共用的服务。JSONL 保存可恢复的会话事实，SQLite 保存统计与管理投影，两类存储承担不同职责。
+Pi 当前提供了丰富的 Extension API，但它仍更接近“Coding Agent 的扩展宿主”。它没有把所有运行时能力都统一建模为 Context Service。
 
-相较 DSH，它的 Core 边界更固定，Python 类型与后端部署更直接；相较 oh-my-pi，它没有追求庞大的本地 Coding 工具面。当前最值得继续补强的是插件注册所有权与可逆 Effect，让 Tool、Hook、订阅和后台任务都能随 Extension Scope 一次性撤销。
+## 七、把 oh-my-pi、DSH 与 qi-pi 放回源码坐标系
 
-### 6. 四条路线放在一起看
+项目对比不能只列功能勾选。更有意义的问题是：它们在原始调用链的哪个位置加深了设计？
 
-| 项目 | 核心定位 | 主要技术 | 扩展中心 | Session / 运行形态 | 更适合 |
-|---|---|---|---|---|---|
-| 原始 Pi | 极简、透明的 Agent Harness | TypeScript / Node | Agent Extension API | JSONL、TUI、Print、RPC、SDK | 学习 Loop、嵌入、自定义终端 Agent |
-| oh-my-pi | 产品化 Coding Agent | TypeScript / Bun + Rust | Coding Agent ExtensionAPI | TUI、ACP、丰富本地工具与子 Agent | 直接完成复杂软件工程任务 |
-| DSH | 可组合 Agent 运行底座 | TypeScript + Cordis | Service、Event、Effect、Profile | Web、Headless、Python SDK、事件溯源 | 构建可替换、可回放的 Agent 产品族 |
-| pi-agent-py | Python-first 独立后端 | Python + FastAPI + SQLite | Capability、Hook、ExtensionHost | API、SSE、JSONL Session、管理后台 | 博客、Live2D、多 Channel 与服务化集成 |
+### 7.1 oh-my-pi：沿 Pi 主链向产品工程扩张
 
-不能把这张表理解成成熟度排名。原始 Pi 有意保持薄；oh-my-pi 把 Coding 工作面做深；DSH 把“Everything is a Plugin”推进到运行时；pi-agent-py 则选择稳定 Python Core 与独立控制面。
+oh-my-pi 仍能看到 `ai`、`agent`、`coding-agent` 和 `tui`，但仓库已扩展出更多专用包：
 
-如果要继续扩展 pi-agent-py，合理做法不是复制 oh-my-pi 的 TUI，也不是完整重写 Cordis，而是分别吸收三者最强的部分：Pi 的清晰分层、oh-my-pi 的统一扩展体验、DSH 的依赖与可逆生命周期。
+| 包              | 从源码描述看解决的问题                    |
+| --------------- | ----------------------------------------- |
+| `hashline`      | 带行锚点的紧凑 Patch 语言与应用器         |
+| `mnemopi`       | 本地 SQLite Memory Engine                 |
+| `snapcompact`   | 面向视觉模型的位图帧上下文压缩            |
+| `natives`       | PDF、音频、PTY、grep、图像等原生能力      |
+| `stats`         | 本地模型用量观察面板                      |
+| `browser-relay` | 驱动用户现有 Chrome 标签页                |
+| `metaharness`   | 评测运行、存储、REST/SSE 与 Web Dashboard |
 
-## 二十二、Pi 明确没有内置沙箱
+这些判断来自各包的 [`package.json`](https://github.com/can1357/oh-my-pi/tree/33cc6b9a043a74e00a157e72ca909272796d8461/packages)，不是根据项目名字猜测。
 
-这是整篇文章最需要强调的事实。Pi 官方安全文档明确说明：它是本地 Coding Agent，默认继承启动它的用户账户权限，没有内置文件系统、进程、网络或凭证隔离。
+oh-my-pi 的 Agent Loop 也明显更大，加入暂停、重试、运行收集和更复杂的工具调度。它不是另一套完全无关的 Agent，而是沿 Pi 的执行骨架做深度产品化。
 
-![Pi 安全边界：直接继承用户权限，与容器化后的受控执行对比](/images/blog/pi-agent/pi-agent-security.webp)
+### 7.2 DSH：把共享 Context 和插件生命周期放到中心
 
-Project Trust 只决定是否加载项目中的 `.pi` 配置、扩展、技能、提示和包。它不是运行时沙箱，也不会限制模型启动后的工具行为。
+DSH 的重点不是把 Pi Loop 再写一遍，而是把 Agent、Session、Tool、Provider、Sandbox 等能力都挂到共享 Context。
 
-这意味着 Bash 可以访问当前用户能访问的文件和网络，扩展也可以执行任意 TypeScript 代码。如果机器中保存了云凭证、SSH Key 和生产配置，Agent 进程理论上拥有同样的可见范围。
+其 [Cordis Primer](https://github.com/deepseek-ai/deepseek-harness/blob/cd5ef8148158c3a752a658978873241fdf8e2bbc/docs/cordis-primer.md) 给出两条核心语义：插件实现 Service；`inject` 声明依赖，缺少服务时插件等待激活。
 
-提示确认是一种交互护栏，但不是不可绕过的安全边界。模型可能通过另一条命令达到相同效果，第三方扩展也不必经过模型工具协议。
+这里必须区分两个概念：
 
-对于不可信仓库、无人值守运行或高权限自动化，应该把整个 Pi 放进容器、虚拟机、MicroVM 或策略沙箱，只挂载必要目录，只注入短期凭证，并限制不需要的网络。
-
-Pi 的立场并不是“安全不重要”，而是承认局部进程内限制很容易制造错误安全感。真正隔离需要操作系统和虚拟化边界。这种诚实值得肯定，但用户必须把责任落实到部署设计中。
-
-## 二十三、三种典型隔离方式
-
-第一种方式是把整个 Pi 放进 Docker。模型认证、会话、工具和项目都位于容器中，配置直观，适合 CI、临时任务和不可信仓库。
-
-容器只应挂载任务需要的工作区。若把整个 Home 目录和 Docker Socket 直接映射进去，容器形式存在，权限边界却几乎消失。
-
-第二种方式是宿主机运行 Pi，把内置工具和 Shell 路由进 MicroVM。这样模型登录与 TUI 留在本机，实际文件和命令执行进入更强隔离环境。
-
-第三种方式是使用具有策略控制的 Sandbox，根据命令、路径和网络目标执行允许规则。它适合需要细粒度审计的团队，但策略维护成本更高。
-
-不论选择哪种方式，都应遵循最小权限：只挂载一个工作区，默认不暴露宿主凭证，网络按需开放，变更复制回可信环境前检查 Diff，并为长任务设置资源上限。
-
-## 二十四、安装与第一次运行
-
-按照当前官方文档，npm 安装命令是：
-
-```bash
-npm install -g --ignore-scripts @earendil-works/pi-coding-agent
+```text
+ctx.provide(service)  → 服务此刻真实存在
+plugin.inject         → 插件需要哪些服务才能激活
 ```
 
-`--ignore-scripts` 用于避免依赖安装生命周期脚本。Pi 正常安装不依赖这些脚本，官方也在供应链加固中强调锁定直接依赖与发布产物。
+`inject` 不创造服务，也不应让 Loader 推导一张静态 Service Graph。Service Truth 来自 Context 当前真实注册状态。
 
-macOS 或 Linux 也可以使用官方安装脚本，但任何 `curl | sh` 都应该先查看脚本来源和内容。团队环境更适合固定版本、校验产物，并通过内部镜像分发。
+DSH 还把工具生命周期拆成可观察流水线。官方 [工具执行文档](https://github.com/deepseek-ai/deepseek-harness/blob/cd5ef8148158c3a752a658978873241fdf8e2bbc/docs/tool-execution-pipeline.md) 明确列出 pre-execute、Guard、execute、post-execute 和最终结果阶段。
 
-安装后在项目目录运行：
+因此，DSH 的优势不是“插件数量多”，而是注册副作用、依赖激活、工具策略和 UI 观察都有明确生命周期边界。
 
-```bash
-pi
+### 7.3 qi-pi：不是 TypeScript 项目的逐行 Python 翻译
+
+qi-pi 借鉴 Context-first 语义，但代码已经形成自己的 Python 运行时。最小内核位于 `qi_runtime`，包括 Context、Service、Event、Plugin Activation 与 Effect Ownership。
+
+Loader 位于运行时基础设施层，但不是不可再缩小的内核原语。源码开头直接写明：Loader 不得根据 `inject` 或 `provide` 元数据推导 Service Graph，依赖协调由 Context Registry 负责。
+
+[`PluginLoader.reload()`](https://github.com/qiyaxiong/pi-agent-py/blob/4d8f9b4c80db1b70b6fa01a1ae0d73d3debf7bcd/packages/qi_runtime/src/qi_runtime/loader/loader.py#L201) 执行的是受影响节点事务：
+
+```text
+预解析并校验 Candidate
+  → 计算增量 Cutover
+  → 卸载受影响旧节点
+  → 挂载受影响新节点
+  → 等待 Context 生命周期稳定
+  → 检查产品后置条件
+  → Commit；失败则恢复旧节点
 ```
 
-可以使用 `/login` 选择支持订阅认证的 Provider，也可以设置对应 API Key。随后用 `/model` 选择模型，用 `/settings` 调整常用配置。
+它不是先构造一套完整候选 Runtime 再整体交换。这种增量 Reconciliation 能保留未受影响的 Context 子树，也要求回滚逻辑更严谨。
 
-第一次任务不要直接让它重构整个仓库。更好的验证是要求它读取一个小模块、解释调用关系、修改一个可测行为并运行目标测试。这样可以同时确认模型、工具、上下文和项目命令是否正常。
+## 八、qi-pi 如何把事件日志变成恢复基础
 
-## 二十五、全局配置与项目配置怎样分工
+Pi 的 Session 是追加式会话树。qi-pi 进一步把 Session Event Log 定义为消息历史、恢复、UI 和审计的共同事实来源。
 
-全局设置位于 `~/.pi/agent/settings.json`，适合个人的模型列表、主题、通用扩展和默认行为。项目设置位于 `.pi/settings.json`，覆盖全局值，适合团队共享的包与资源。
+[`Session`](https://github.com/qiyaxiong/pi-agent-py/blob/4d8f9b4c80db1b70b6fa01a1ae0d73d3debf7bcd/packages/qi_session/src/qi_session/session.py#L335) 的注释很直接：内存中是 append-only log，消息历史始终从事件投影。
 
-项目内还可以放置 `.pi/extensions/`、`.pi/skills/`、`.pi/prompts/` 和 `.pi/themes/`。它们应像源代码一样进入审查，因为这些资源会改变 Agent 行为。
+每个事件都有递增 `seq`，还可以携带 `turn` 与 `step`。这让错误可以定位到“哪个 Session、哪个 Turn、哪个 Step、哪次工具之后”。
 
-个人 API Key 不应写进项目配置。认证属于用户或运行环境，仓库只应声明需要什么 Provider、工具和包，不应携带真实秘密。
+```python
+event = SessionEvent(
+    seq=self.next_seq,
+    session_id=self.id,
+    type=event_type,
+    data=payload,
+)
+```
 
-配置也要避免复制所有默认值。只记录需要改变的部分，升级时更容易继承合理的新默认。对关键项目，可以固定 Pi Package 版本，先在测试仓库验证后再更新。
+`SessionService.read_after()` 允许按 sequence 读取增量。这正是多 Channel 断线续传的基础：客户端记住最后消费的序号，重连后只补后续事件。
 
-一个好的团队配置会回答：Agent 可以访问哪些工具，必须运行哪些验证，危险动作由谁批准，会话保存在哪里，第三方扩展如何审计，以及无人值守任务运行在哪个隔离环境。
+```text
+Web 收到 seq=827
+  → 断线
+  → after_sequence=827
+  → 补 828、829、830……
+```
 
-## 二十六、怎样用 Pi 组装自己的 Agent
+### 8.1 Agent Driver 不维护第二份消息真相
 
-构建领域 Agent 时，不要一开始复制整个 Coding Agent。先画出最小闭环：用户提供什么目标，模型需要哪些证据，可以执行哪些动作，结果怎样验证，失败后怎样恢复。
+[`ReactAgentDriver`](https://github.com/qiyaxiong/pi-agent-py/blob/4d8f9b4c80db1b70b6fa01a1ae0d73d3debf7bcd/packages/qi_agent_loop/src/qi_agent_loop/driver.py#L195) 每次请求都从 Session Surface 重建上下文。
 
-如果任务不是改代码，默认文件和 Bash 工具可能过宽。可以基于 Agent Core 注册更窄的领域工具，例如“查询订单”“创建报价草稿”“运行只读 SQL”，让参数和结果直接表达业务语义。
+它在执行前持久化具有外部意义的边界。进程重启后，Driver 读取事件并归约执行状态，再判断继续、协调工具结果，还是要求人工处理。
 
-接着定义状态。哪些信息应该进入模型消息，哪些只用于 UI，哪些必须持久化但不能占用上下文？Pi 的 Custom Entry 与 Custom Message 提供了不同选择。
+这与“把内存里的 messages 定期保存一下”不同。前者从持久事实恢复状态机；后者仍依赖崩溃前那份内存状态是完整的。
 
-然后定义事件策略。Tool Call 前是否审批，失败后是否重试，压缩时哪些领域事实必须保留，Session 关闭时是否写审计记录。这些策略适合通过 Extension Hook 实现。
+### 8.2 Tool Operation Ledger 解决最危险的崩溃窗口
 
-最后才选择界面。内部工具可以沿用 TUI，面向业务用户可以用 SDK 构建 Web UI，跨语言产品可以通过 RPC 控制。先稳定 Agent 语义，再做漂亮界面，返工会少得多。
+假设工具已经向外部系统付款，但进程在保存 `tool/result` 前崩溃。重启后如果直接重跑工具，可能重复付款；如果直接标记成功，又没有证据。
 
-## 二十七、Pi 与 Claude Code、Codex 的差异应该怎样看
+qi-pi 在工具执行前写入 `tool/operation/prepared` 和 `tool/operation/dispatched`。非只读工具在真正调用前强制 flush。
 
-比较 Coding Agent 时，最容易犯的错误是列功能表，然后用勾选数量决定优劣。不同项目的产品目标并不相同。
+工具若能返回外部回执，还可记录 `tool/operation/external-result-recorded`。恢复时再由工具的 `reconcile()` 判断已成功、失败或结果未知。
 
-Claude Code 和 Codex 更像完成度较高的开发者产品：它们在模型、权限、沙箱、界面、云端任务或平台集成上提供更强的整体体验，并由厂商围绕自家模型持续优化。
+```text
+prepared → flush
+dispatched → external side effect
+external-result-recorded → committed
+```
 
-Pi 更像透明、可组合的 Agent Harness。它允许更自由地切换 Provider、替换界面、注册运行时事件和重新设计工作流，代价是许多安全与团队能力不会自动替你完成。
+这个 Ledger 是 qi-pi 的增强，不应描述成 Pi 或 DSH 原样提供的能力。
 
-Aider 以 Git 和代码编辑工作流见长，很多行为围绕仓库变更组织。Pi 的抽象面更宽，不只关注某种编辑算法，也更强调 Session、扩展和嵌入能力。
+### 8.3 对外协议与内核不是一回事
 
-OpenCode 等开源 Coding Agent 也提供多模型与终端体验。选择时应实际比较核心接口稳定性、扩展模型、会话可迁移性、安全边界、维护活跃度和你要修改的层，而不是只比较首次 Demo。
+qi-pi 面向 Blog、Web、Live2D 和管理后台等多 Channel，因此外部采用 HTTP Command、SSE Session Stream 与 DSH WebSocket。
 
-如果目标是今天就用一个成熟工具完成工作，产品化 Agent 可能更省事；如果目标是研究 Agent Loop、做内部工具或控制每个运行层，Pi 的透明度更有价值。
+JSON-RPC 更适合跨进程的双向控制边界，例如 Direct Codex Provider、Peer Runtime、MCP、LSP 或外部 Subagent Provider。
 
-## 二十八、Pi 最强的地方
+所以无需把整个系统改成 JSON-RPC。更清楚的分层是：
 
-第一是结构清楚。AI Provider、Agent Core、Coding 能力和 TUI 被拆开，源码阅读有明确入口，开发者不用先穿过一整套业务平台。
+```text
+Channel
+  → HTTP / SSE / WebSocket Gateway
+  → Runtime Protocol（必要时 JSON-RPC）
+  → Agent Runtime
+  → append-only Event Store
+```
 
-第二是扩展深度足够。扩展不只是加一个 Prompt，而是可以注册工具、拦截事件、改变压缩、控制 UI、保存状态和注册 Provider。
+协议解决“如何跨边界调用”；Context、Agent Loop 和 Event Log 解决“运行时如何成立”。两者不能混成同一层。
 
-第三是会话模型成熟。追加式 JSONL、稳定 ID、树形分支、压缩与分支摘要共同解决了长任务的历史保存和活动上下文管理。
+## 九、四个项目真正的差异
 
-第四是多模型不是表面功能。Provider 适配位于专门层，上层 Agent 可以相对独立地运行，用户也能在 Session 中记录模型变化。
+| 维度     | Pi                           | oh-my-pi                    | DSH                        | qi-pi                             |
+| -------- | ---------------------------- | --------------------------- | -------------------------- | --------------------------------- |
+| 主语言   | TypeScript                   | TypeScript + Native         | TypeScript                 | Python                            |
+| 核心关注 | 小而清晰的 Coding Agent 主链 | 沿 Pi 做产品级增强          | Context-first 插件 Harness | 多 Channel Agent Service Kernel   |
+| 状态基础 | 追加式 Session Tree          | 强化后的 Session 与本地能力 | Session 事件与插件服务     | Session Event Log 唯一事实源      |
+| 扩展中心 | Coding Agent Extension API   | 更丰富的产品扩展            | Context / Service / inject | Python Context / Service / Effect |
+| 恢复重点 | 会话恢复、分支、压缩         | 产品运行与复杂工具链        | Turn/Step/Event 生命周期   | 状态机恢复与工具副作用协调        |
+| 外部入口 | CLI/TUI，另有协议包          | CLI/TUI/Browser/Stats       | API、Web、插件 UI          | HTTP/SSE/WS，多 Channel           |
 
-第五是适合学习。你可以从几百行关键路径理解一个现代 Tool-using Agent，而不是只能通过 UI 猜测后台发生了什么。
+这张表不是成熟度排名。四者选择了不同的“深模块”：Pi 深在精简主链；oh-my-pi 深在终端产品；DSH 深在插件运行时；qi-pi 深在 Python 服务化与恢复语义。
 
-## 二十九、Pi 最容易被误解和滥用的地方
+## 十、如何继续读源码，而不是继续读结论
 
-第一个误解是“开源等于安全”。开源让代码可审计，不会自动限制运行权限。Pi 默认没有内置沙箱，第三方扩展还能运行任意本地代码。
+如果想验证本文，不必一次读完整个 Monorepo。按以下顺序走一遍即可：
 
-第二个误解是“极简等于无需配置”。默认体验可以很快启动，但企业审批、隔离、审计、秘密管理和模型治理仍需要额外建设。
+1. 从 `createAgentSession()` 看对象如何装配；
+2. 从 `Agent.prompt()` 跟到 `runAgentLoop()`；
+3. 在 `executeToolCalls()` 观察工具结果怎样回到消息历史；
+4. 在 `ModelRuntime.streamSimple()` 看 Provider 如何被选择；
+5. 在 `SessionManager.appendMessage()` 和 `branch()` 看追加式会话树；
+6. 在 `ResourceLoader.reload()` 看资源来源与信任边界；
+7. 最后才对照 oh-my-pi、DSH 与 qi-pi 的加深方向。
 
-第三个误解是“支持多模型等于模型行为一致”。工具调用质量、上下文利用、缓存和成本都可能不同，工作流必须在目标模型上验证。
+读每个模块时都问五个问题：输入是什么、输出是什么、状态写到哪里、失败留下什么、重启后靠什么恢复。
 
-第四个误解是“有压缩就不会遗忘”。压缩是有损过程。关键约束若没有进入结构化摘要，长任务仍会发生方向漂移。
+这五个问题比“它支持多少 Agent 模式”更能判断一个 Harness 是否真正可靠。
 
-第五个误解是“扩展能解决所有问题”。扩展适合行为与集成，真正的权限隔离、资源上限和网络边界必须由外部系统提供。
+## 结语
 
-## 三十、推荐的源码阅读路线
-
-第一步先读仓库根 README 和 Coding Agent README，确认包结构、默认工具、运行模式和设计原则。不要从某个随机工具实现开始，否则难以判断它属于哪一层。
-
-第二步进入 `packages/agent`，找到 Agent 状态、消息类型和主循环。关注一条用户消息怎样触发流式模型调用，Tool Call 怎样变成 Tool Result，再怎样继续下一轮。
-
-第三步阅读 `packages/ai` 的类型与 Provider 适配。选择两家差异较大的供应商，对比消息转换、流式事件和工具调用解析，而不是试图一次读完全部模型。
-
-第四步进入 Coding Agent 的 `agent-session` 与 `session-manager`。画出 Session、Agent、Resource Loader 和工具之间的关系，再跟踪 JSONL 条目如何追加。
-
-第五步专门阅读 Compaction 和 Branch Summarization。用一个小会话手工模拟切点、摘要、近期消息保留和树形导航，理解“文件历史”与“模型上下文”之间的区别。
-
-第六步选择一个官方 Extension Example，从注册工具跟到事件回调和 UI。然后写一个最小扩展，验证热加载、状态保存与错误处理。
-
-最后再读 TUI 与 RPC。到这一步，你已经知道界面展示的事件从哪里来，也能判断自己的产品应该复用 TUI、SDK 还是进程协议。
-
-## 三十一、哪些场景特别适合 Pi
-
-第一类是 Agent 教学与研究。Pi 的层次足够完整，又没有过多业务壳，适合观察工具循环、上下文压缩、会话分支和模型差异。
-
-第二类是企业内部开发工具原型。团队可以沿用成熟的 Coding Session，只增加内部代码搜索、部署、审批和审计扩展，快速验证工作流价值。
-
-第三类是多模型实验台。统一 Provider 层与可记录的模型切换，让同一任务更容易做分支对照，并统计成本和失败类型。
-
-第四类是自定义终端工作流。重度 CLI 用户可以把现有脚本、tmux、容器和项目命令接入，而不必迁移到封闭 IDE。
-
-第五类是 Agent 产品底座。SDK 和 RPC 允许在 Pi 之上构建 Web、桌面、移动端或自动化服务，同时保留会话与工具能力。
-
-不太适合的场景也很明确：团队没有能力维护扩展和隔离，却期待开箱即用的企业权限系统；任务涉及高价值生产凭证，却准备直接在宿主机无人值守运行；或者只需要一次简单问答，并不需要工具循环与会话持久化。
-
-## 三十二、一个可靠的 Pi 落地清单
-
-使用前先确认仓库是否可信，检查项目级 `.pi` 和 `.agents/skills`，不要在未知项目中盲目批准资源加载。
-
-列出 Agent 真正需要的文件、命令、网络和凭证。能只读就不要读写，能使用短期 Token 就不要挂载长期密钥。
-
-为扩展建立来源与版本清单。第三方 Pi Package 等同于本地代码依赖，安装前审查，升级前看 Diff，生产环境固定版本。
-
-定义验证协议。模型说“完成”不是完成，必须运行测试、类型检查、Lint 或领域校验，并在最终回复中保存结果。
-
-定义会话与数据策略。Session 可能包含源码、终端输出和秘密，应该明确保存位置、保留期限、备份和分享边界。
-
-长任务需要检查压缩后的摘要。关键架构决策、未完成事项、失败方案和文件状态是否仍被保留，不能完全依赖默认摘要。
-
-无人值守任务必须进入容器或更强沙箱，限制资源与网络。任务结束后检查 Diff 和日志，再把产物合并回可信环境。
-
-最后建立小型回归任务。每次更新 Pi、模型或扩展后，用固定任务检查读取、编辑、测试、审批、压缩和恢复是否仍符合预期。
-
-## 三十三、Pi 给 Agent 工程最重要的启示
-
-Pi 最值得学习的不是某个命令，而是一种架构判断：把模型当作会提出行动的推理组件，把工具当作可观察、可执行的环境接口，把 Session 当作可恢复的状态机，把界面当作事件消费者。
-
-当这些边界清楚时，更换模型不会迫使你重写全部工具，更换界面不会改变 Agent Loop，增加审批不会侵入每个 Provider，会话压缩也能独立演进。
-
-它还提醒我们，不要用功能数量掩盖抽象问题。一个系统内置十种计划器，不一定比一个允许你清楚实现计划器的核心更强。真正重要的是机制是否稳定、策略是否可替换、失败是否可解释。
-
-另一方面，极简不能成为逃避安全和产品责任的借口。越是把能力交给 Bash、扩展和外部环境，越要明确权限边界、供应链与审计方式。
-
-因此 Pi 既不是所有 Coding Agent 的终点，也不只是一个玩具。它更像一块透明底板：足以直接工作，又允许开发者拆开每一层，观察现代 Agent 怎样调用模型、使用工具、延续记忆并进入真实软件环境。
-
-如果你的目标只是找一个今天能完成任务的编码助手，可以直接比较模型效果和产品体验。如果你的目标是理解 Agent 为什么这样工作，或准备做一个属于自己的 Agent，Pi 是目前非常值得精读的一套公开实现。
-
-## 参考资料
-
-- [Pi 官方仓库](https://github.com/earendil-works/pi)
-- [Pi 官方文档](https://pi.dev/docs/latest)
-- [B 站中配：PI 架构详解 Agent 循环、工具与 TUI](https://www.bilibili.com/video/BV1fZ7p6CEQH/)
-- [原作者 Alejandro AO 的视频配套文章](https://alejandro-ao.com/pi-architecture/)
-- [Coding Agent 使用说明](https://pi.dev/docs/latest/usage)
-- [SDK 与 Agent Session](https://pi.dev/docs/latest/sdk)
-- [Extensions 扩展系统](https://pi.dev/docs/latest/extensions)
-- [Pi Packages 与插件分发](https://pi.dev/docs/latest/packages)
-- [Session JSONL 与树形结构](https://pi.dev/docs/latest/session-format)
-- [Compaction 与 Branch Summarization](https://pi.dev/docs/latest/compaction)
-- [Pi 安全边界](https://pi.dev/docs/latest/security)
-- [容器化与隔离建议](https://pi.dev/docs/latest/containerization)
-- [oh-my-pi 官方仓库](https://github.com/can1357/oh-my-pi)
-- [oh-my-pi 扩展文档](https://github.com/can1357/oh-my-pi/blob/main/docs/extensions.md)
-- [oh-my-pi 扩展加载规则](https://github.com/can1357/oh-my-pi/blob/main/docs/extension-loading.md)
-- [DeepSeek Harness 官方仓库](https://github.com/deepseek-ai/deepseek-harness)
-- [DeepSeek Harness 架构文档](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/architecture.md)
-- [DeepSeek Harness Cordis Primer](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/cordis-primer.md)
-- [pi-agent-py 官方仓库](https://github.com/qiyaxiong/pi-agent-py)
+Pi 最值得学习的不是某个命令，而是它把模型流、Agent Loop、工具执行、资源加载和 Session 拆成可沿调用链理解的边界。
+
+oh-my-pi 证明这条主链可以继续产品化；DSH 把插件与 Context 生命周期提升为运行时核心；qi-pi 则把这些语义重新组织成 Python、多 Channel、事件驱动且可恢复的 Agent Service Kernel。
+
+真正有效的项目分析，也应该采用同样原则：先找到事实源，再建立投影；先解释调用路径，再谈架构理念。
+
+## 源码索引
+
+- [Pi：SDK 会话装配](https://github.com/earendil-works/pi/blob/853a80d26c90a14c1886f0ebb8ffaae133ca2185/packages/coding-agent/src/core/sdk.ts#L173)
+- [Pi：Agent.prompt](https://github.com/earendil-works/pi/blob/853a80d26c90a14c1886f0ebb8ffaae133ca2185/packages/agent/src/agent.ts#L347)
+- [Pi：Agent Loop](https://github.com/earendil-works/pi/blob/853a80d26c90a14c1886f0ebb8ffaae133ca2185/packages/agent/src/agent-loop.ts#L96)
+- [Pi：Provider Runtime](https://github.com/earendil-works/pi/blob/853a80d26c90a14c1886f0ebb8ffaae133ca2185/packages/ai/src/models.ts#L667)
+- [Pi：ResourceLoader](https://github.com/earendil-works/pi/blob/853a80d26c90a14c1886f0ebb8ffaae133ca2185/packages/coding-agent/src/core/resource-loader.ts#L40)
+- [Pi：SessionManager](https://github.com/earendil-works/pi/blob/853a80d26c90a14c1886f0ebb8ffaae133ca2185/packages/coding-agent/src/core/session-manager.ts#L856)
+- [oh-my-pi：Packages](https://github.com/can1357/oh-my-pi/tree/33cc6b9a043a74e00a157e72ca909272796d8461/packages)
+- [DSH：Architecture](https://github.com/deepseek-ai/deepseek-harness/blob/cd5ef8148158c3a752a658978873241fdf8e2bbc/docs/architecture.md)
+- [DSH：Cordis Primer](https://github.com/deepseek-ai/deepseek-harness/blob/cd5ef8148158c3a752a658978873241fdf8e2bbc/docs/cordis-primer.md)
+- [qi-pi：Plugin Loader](https://github.com/qiyaxiong/pi-agent-py/blob/4d8f9b4c80db1b70b6fa01a1ae0d73d3debf7bcd/packages/qi_runtime/src/qi_runtime/loader/loader.py#L137)
+- [qi-pi：Session Event Log](https://github.com/qiyaxiong/pi-agent-py/blob/4d8f9b4c80db1b70b6fa01a1ae0d73d3debf7bcd/packages/qi_session/src/qi_session/session.py#L335)
+- [qi-pi：ReactAgentDriver](https://github.com/qiyaxiong/pi-agent-py/blob/4d8f9b4c80db1b70b6fa01a1ae0d73d3debf7bcd/packages/qi_agent_loop/src/qi_agent_loop/driver.py#L195)
