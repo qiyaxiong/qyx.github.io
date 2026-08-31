@@ -69,17 +69,17 @@ try {
 
   if (expectBff) {
     const ownershipStatus = await page.evaluate(() =>
-      fetch('/agent-api/api/v1/live2d/sessions/not-owned/snapshot').then(
+      fetch('/agent-api/api/v2/live2d/sessions/not-owned/snapshot').then(
         (response) => response.status
       )
     )
     if (ownershipStatus !== 403) throw new Error('Guest BFF did not enforce Session ownership')
     const oversizedStatus = await page.evaluate(
       (activeSession) =>
-        fetch('/agent-api/api/v1/runs', {
+        fetch('/agent-api/api/v2/channels/web/messages', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ session_id: activeSession, prompt: 'x'.repeat(2_001) })
+          body: JSON.stringify({ session_id: activeSession, text: 'x'.repeat(2_001) })
         }).then((response) => response.status),
       sessionId
     )

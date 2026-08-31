@@ -20,8 +20,8 @@ function errorResponse(status: number, code: string, message: string): Response 
 }
 
 function matchRoute(method: string, path: string): RouteMatch | undefined {
-  if (method === 'GET' && path === 'api/v1/live2d/model') return { kind: 'model' }
-  if (method === 'GET' && path === 'api/v1/live2d/performance-profile')
+  if (method === 'GET' && path === 'api/v2/live2d/model') return { kind: 'model' }
+  if (method === 'GET' && path === 'api/v2/live2d/performance-profile')
     return { kind: 'profile' }
   if (method === 'GET' && /^api\/v1\/live2d\/assets\/.+$/.test(path)) return { kind: 'asset' }
   if (
@@ -31,10 +31,10 @@ function matchRoute(method: string, path: string): RouteMatch | undefined {
     )
   )
     return { kind: 'stage' }
-  if (method === 'POST' && path === 'api/v1/sessions') return { kind: 'session-create' }
-  if (method === 'POST' && path === 'api/v1/channels/web/messages')
+  if (method === 'POST' && path === 'api/v2/sessions') return { kind: 'session-create' }
+  if (method === 'POST' && path === 'api/v2/channels/web/messages')
     return { kind: 'channel-message' }
-  if (method === 'POST' && path === 'api/v1/speech/synthesize') return { kind: 'speech' }
+  if (method === 'POST' && path === 'api/v2/speech/synthesize') return { kind: 'speech' }
   const session = /^api\/v1\/sessions\/([^/]+)$/.exec(path)
   if (method === 'GET' && session) {
     return { kind: 'session-read', sessionId: session[1] }

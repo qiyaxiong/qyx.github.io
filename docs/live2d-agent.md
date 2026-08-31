@@ -15,7 +15,7 @@ OBS Browser Source 使用透明页面：
 https://blog.example/live2d-stage?session=<session-id>&token=<stage-token>&captions=1
 ```
 
-Stage Token 由认证后的 `POST /api/v1/live2d/stage-token` 签发，只允许读取指定 Session 的
+Stage Token 由认证后的 `POST /api/v2/live2d/stage-token` 签发，只允许读取指定 Session 的
 模型、事件和语音，不允许发送消息、调用工具或访问管理 API。
 
 Live2D 的正式 UI 是全站 `BaseLayout` 中的浮动组件，不是独立页面。模型、Session、LLM 和统计仍
@@ -78,14 +78,14 @@ Session，只返回当前访客的 Session ID，固定 Provider/Model，移除�
 并限制 Prompt 为 2000 字符、请求体为 16 KiB、每分钟/每天 Run 数量。BFF 只转发下列方法；可从
 服务端 `PI_AGENT_ADMIN_TOKEN` 注入管理 Bearer Token，但绝不把 Token 或任意管理面能力交给访客：
 
-- `GET /api/v1/live2d/model`
-- `GET /api/v1/live2d/assets/*`
-- `POST /api/v1/sessions`
-- `GET /api/v1/sessions/{id}`
-- `POST /api/v1/runs`
-- `POST /api/v1/speech/synthesize`
-- `GET /api/v1/live2d/sessions/{id}/snapshot`
-- `GET /api/v1/live2d/sessions/{id}/events`
+- `GET /api/v2/live2d/model`
+- `GET /api/v2/live2d/assets/*`
+- `POST /api/v2/sessions`
+- `GET /api/v2/sessions/{id}`
+- `POST /api/v2/channels/web/messages`
+- `POST /api/v2/speech/synthesize`
+- `GET /api/v2/live2d/sessions/{id}/snapshot`
+- `GET /api/v2/live2d/sessions/{id}/events`
 
 语音接口返回 `audio/pcm` 分块流，并通过响应头声明 24 kHz、单声道、signed 16-bit
 little-endian（s16le）格式。浏览器先积累 180 ms 启动水位，随后按 120 ms 音频批次通过

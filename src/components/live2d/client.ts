@@ -205,15 +205,15 @@ export class BlogAgentApi {
   }
 
   async model(): Promise<Live2DModelInfo> {
-    return this.request('/api/v1/live2d/model')
+    return this.request('/api/v2/live2d/model')
   }
 
-  async performanceProfile<T>(path = '/api/v1/live2d/performance-profile'): Promise<T> {
+  async performanceProfile<T>(path = '/api/v2/live2d/performance-profile'): Promise<T> {
     return this.request<T>(path)
   }
 
   async snapshot(sessionId: string): Promise<Live2DSnapshot> {
-    return this.request(`/api/v1/live2d/sessions/${encodeURIComponent(sessionId)}/snapshot`)
+    return this.request(`/api/v2/live2d/sessions/${encodeURIComponent(sessionId)}/snapshot`)
   }
 
   async ensureSession(storage: Storage): Promise<AgentSession> {
@@ -230,7 +230,7 @@ export class BlogAgentApi {
     if (existing) {
       try {
         const session = await this.request<AgentSessionDetail>(
-          `/api/v1/sessions/${encodeURIComponent(existing)}`
+          `/api/v2/sessions/${encodeURIComponent(existing)}`
         )
         return normalizeSession(session)
       } catch (error) {
@@ -239,7 +239,7 @@ export class BlogAgentApi {
         storage.removeItem(storageKey)
       }
     }
-    const session = normalizeSession(await this.request<AgentSessionDetail>('/api/v1/sessions', {
+    const session = normalizeSession(await this.request<AgentSessionDetail>('/api/v2/sessions', {
       method: 'POST',
       body: JSON.stringify({ metadata: { client: 'astro-blog-live2d' } })
     }))
@@ -259,7 +259,7 @@ export class BlogAgentApi {
     input_id: string
     duplicate: boolean
   }> {
-    return this.request('/api/v1/channels/web/messages', {
+    return this.request('/api/v2/channels/web/messages', {
       method: 'POST',
       headers: { 'Idempotency-Key': crypto.randomUUID() },
       body: JSON.stringify({
@@ -277,7 +277,7 @@ export class BlogAgentApi {
     signal?: AbortSignal,
     turnId?: string
   ): Promise<Response> {
-    const response = await fetch(this.url('/api/v1/speech/synthesize'), {
+    const response = await fetch(this.url('/api/v2/speech/synthesize'), {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
@@ -298,24 +298,24 @@ export class BlogAgentApi {
   }
 
   events(sessionId: string, cursor: number): EventSource {
-    const path = `/api/v1/live2d/sessions/${encodeURIComponent(sessionId)}/events?cursor=${cursor}`
+    const path = `/api/v2/live2d/sessions/${encodeURIComponent(sessionId)}/events?cursor=${cursor}`
     return new EventSource(this.url(path), { withCredentials: true })
   }
 
   stageEvents(sessionId: string, cursor: number, token: string): EventSource {
-    const path = `/api/v1/live2d/stage/${encodeURIComponent(sessionId)}/events?cursor=${cursor}&token=${encodeURIComponent(token)}`
+    const path = `/api/v2/live2d/stage/${encodeURIComponent(sessionId)}/events?cursor=${cursor}&token=${encodeURIComponent(token)}`
     return new EventSource(this.url(path))
   }
 
   async stageSnapshot(sessionId: string, token: string): Promise<Live2DSnapshot> {
     return this.request(
-      `/api/v1/live2d/stage/${encodeURIComponent(sessionId)}/snapshot?token=${encodeURIComponent(token)}`
+      `/api/v2/live2d/stage/${encodeURIComponent(sessionId)}/snapshot?token=${encodeURIComponent(token)}`
     )
   }
 
   async stageModel(sessionId: string, token: string): Promise<Live2DModelInfo> {
     return this.request(
-      `/api/v1/live2d/stage/${encodeURIComponent(sessionId)}/${encodeURIComponent(token)}/model`
+      `/api/v2/live2d/stage/${encodeURIComponent(sessionId)}/${encodeURIComponent(token)}/model`
     )
   }
 
@@ -327,7 +327,7 @@ export class BlogAgentApi {
   ): Promise<Response> {
     const response = await fetch(
       this.url(
-        `/api/v1/live2d/stage/${encodeURIComponent(sessionId)}/speech?token=${encodeURIComponent(token)}`
+        `/api/v2/live2d/stage/${encodeURIComponent(sessionId)}/speech?token=${encodeURIComponent(token)}`
       ),
       {
         method: 'POST',
