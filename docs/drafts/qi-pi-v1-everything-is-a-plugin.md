@@ -1,403 +1,417 @@
 ---
-title: "qi-pi v1：当一切皆插件，Agent 就不再是一段 Loop"
-publishDate: "2026-08-22"
-description: "从 Context-first 微内核、动态 Service Truth、可逆 Activation 到增量热重载，拆解 qi-pi v1 如何用插件装配一套可恢复、可观测的 Python Agent。"
+title: "qi-pi 2.0：从 Agent Kernel 到可恢复 Runtime Plane"
+publishDate: "2026-09-05"
+description: "基于 qi-pi 2.0 当前 Python 源码，沿 Submission、Worker、Session Actor、Turn、Tool Ledger 与 SQLite Event Log，拆解一个多 Channel Agent 服务如何可靠运行。"
 category: ai
 language: zh
 tags:
   - agent
   - Python
+  - Runtime Plane
   - Plugin Architecture
   - qi-pi
 ---
 
-# qi-pi v1：当一切皆插件，Agent 就不再是一段 Loop
+# qi-pi 2.0：从 Agent Kernel 到可恢复 Runtime Plane
 
-> 这篇文章基于 qi-pi v1 当前 Python 实现，讨论它为什么把 Session、Provider、Tool、Agent Loop、持久化、HTTP、Live2D 和 Voice 全部做成插件，以及这种设计真正解决了什么问题。
+> 本文固定到 qi-pi 2.0 提交 `5fc1efe672a87767a842a5a1e7afad91922e22cf`，不从设计愿景反推代码，而是沿一次真实请求的调用路径阅读实现。
 
-![qi-pi v1 一切皆插件总架构](/images/blog/pi-agent/qi-pi-v1-architecture.svg)
+qi-pi 最初要解决的问题很直接：同一套 Python Agent 后端既能接入 Web、Blog 和 Live2D，也能继续扩展 CLI、App、MCP、LSP 与外部 Subagent。
 
-很多 Agent 项目最初都长得很像：准备一组消息，调用模型，发现工具调用就执行工具，再把结果交回模型。这个循环并不复杂，几十行代码就能跑起来。
+到了 2.0，仅有一个 Agent Loop 已经不够。请求可能在进程退出前只执行了一半；网页可能断线重连；审批可能跨越重启；同一 Session 还可能同时收到输入、Steer 与 Interrupt。
 
-真正困难的部分，往往在它开始成为产品以后才出现：
+因此 2.0 的核心变化不是“插件更多了”，而是把系统明确拆成三层：Agent Kernel、单机 Runtime Plane 和 Host。
 
-- 同一个 Agent 要同时服务 CLI、Web、Blog 和 Live2D；
-- 不同场景需要不同 Provider、工具、记忆与权限；
-- 插件更新时，已经运行的请求不能被半路换掉；
-- 工具已经对外产生副作用，进程却在结果写入前崩溃；
-- UI、模型历史、统计后台与恢复逻辑不能各自维护一份“真相”；
-- 一个插件被卸载后，它注册的工具、监听器和后台任务必须一起消失。
+![qi-pi 2.0 Agent Kernel、Runtime Plane 与 Host 分层](/images/blog/pi-agent/qi-pi-v2-runtime-plane.svg)
 
-这时，问题已经不再是“如何写好 Agent Loop”，而是：**如何构造一个可以持续装配、卸载、恢复和观察 Agent 的运行底座。**
+## 一、为什么 1.x 的直接调用模型不够
 
-qi-pi v1 的答案是：把运行时缩到足够小，其余一切都作为插件提供。
+一个最小 Agent 通常长这样：收到 Prompt，调用模型，执行工具，再把结果交给模型。只要进程始终在线、请求来源只有一个，这种结构完全可以工作。
 
-## 一、“一切皆插件”到底是什么意思
+问题出现在它成为长期服务以后。
 
-“一切皆插件”并不表示系统里一行固定代码都没有。如果连插件生命周期本身也是插件，就会陷入“由谁加载第一个插件”的递归。
+- HTTP 返回时，Turn 可能还没结束；
+- 浏览器断线后，需要从准确位置继续消费事件；
+- 同一个 Session 不能同时启动两个 Turn；
+- Interrupt 必须能越过正在等待的模型或审批；
+- 修改型工具崩溃后，不能因为没看到结果就盲目重试；
+- Host 不能绕过运行时，直接读取 Driver 私有状态。
 
-qi-pi 保留的最小核心只有几类运行时原语：
+这些问题都不属于“模型怎么回答”，而属于“命令怎样被可靠接纳、调度、恢复和观察”。这正是 Runtime Plane 存在的原因。
 
-- `Context Graph`：保存父子作用域与隔离关系；
-- `Service Reflect`：维护当前真实存在的 Service；
-- `Event Dispatch`：分发类型化事件；
-- `PluginHandle / Activation`：维护插件身份与激活状态；
-- `Effect Ownership`：记录副作用及其撤销方式。
+qi-pi 2.0 的定位可以压缩成一句话：
 
-这个核心不知道什么是大模型，不知道什么是工具，也不知道 FastAPI、SQLite、Live2D 或语音合成。
+> 它是本地优先的 Agent Kernel 加单机 Runtime Plane；Context Graph 管进程内能力，Session Event Log 管持久事实。
 
-Session 是插件，Provider Registry 是插件，Tool 与 Approval 是插件，Sandbox 是插件，Agent Loop 也是插件。HTTP、SSE、Trace UI、Memory、MCP、LSP、Subagent、Live2D 和 Voice 仍然是普通插件。
+## 二、先看源码地图：十个 Kernel/Runtime 包，外围全部插件化
 
-Loader 位于 `qi_runtime.loader`，但在架构语义上属于外围启动基础设施。它负责 Catalog、配置解析、Tree diff、增量事务与回滚，不属于不可再缩小的 Context 原语。
+根包 `qi-agent==2.0.0` 是纯元包，不保存一份新的业务实现。它负责把 Kernel、Runtime Plane、Host、本地基础设施和标准插件组合成默认发行版。
 
-CLI 也不是普通能力插件。它位于 Bootstrap 边界，负责加载配置、创建 Root Context 并启动插件挂载。HTTP、SSE、Host Routes 和 Trace UI 才是可以按产品组合挂载的插件。
+源码主要分为以下几组：
 
-Sandbox 插件默认提供 `PassThroughSandbox`。系统保留进程 Sandbox 的 Service seam 和可选实现，但默认 Profile 不代表所有工具都会被强制放入隔离进程。
+| 层 | 包 | 责任 |
+| --- | --- | --- |
+| 最小运行时 | `qi_runtime` | Context、Service、Event、PluginHandle、Activation、Effect |
+| 模型协议 | `qi_llm` | Message、Model、Provider 与标准流事件 |
+| 会话领域 | `qi_session` | Session Event、事务、Surface 与派生消息 |
+| 工具领域 | `qi_tools` | Tool Registry、Policy、Approval、执行管线与恢复契约 |
+| Agent 端口 | `qi_agent` | AgentDriver、RequestDraft、Input 与控制接口 |
+| 默认执行器 | `qi_agent_loop` | Session Actor、Turn/Step 循环与恢复 reducer |
+| 公共协议 | `qi_protocol` | Submission、Capability、JSON-RPC 与 Wire DTO |
+| 运行平面 | `qi_runtime_plane` | Command、Query、Worker、Lease、Outbox 与 Stream |
+| 启动装配 | `qi_boot` | Catalog、Profile、Bundle、兼容性指纹与组合根 |
+| 传输宿主 | `qi_host` | FastAPI、鉴权、REST、SSE、WebSocket 与 UI 适配 |
 
-因此，一个“Agent”不是某个巨大类的实例，而是下面这些能力装配完成后的结果：
+依赖方向由契约测试约束：Kernel 不能导入 Runtime Plane 或 Host；Runtime Plane 不能依赖 FastAPI、Starlette、Uvicorn 或 WebSocket 框架；Host 也不能直接拿到 Session Store 或 Driver 私有状态。
+
+对应测试见 [`test_package_boundaries.py`](https://github.com/qiyaxiong/pi-agent-py/blob/5fc1efe672a87767a842a5a1e7afad91922e22cf/tests/contract/test_package_boundaries.py)。
+
+这个边界很重要。否则 REST 路由很快就会直接调用 Agent Loop，兼容协议再实现一套审批，Live2D 又维护一份自己的状态，最终每个 Channel 都拥有不同的执行语义。
+
+## 三、系统有两种“真相”，但它们不竞争
+
+qi-pi 2.0 同时存在 Context Graph 和 Session Event Log。它们不是两份重复状态，而是回答不同问题。
+
+### 3.1 Context Graph：现在进程里有哪些能力
+
+Context 保存当前可见的 Service、插件拓扑、事件监听器、Isolation 与 Effect 所有权。`ctx.provide()` 成功后，Service 才真实存在。
+
+它是进程内事实。进程退出后，无需把整棵 Context 和 Python 对象原样序列化。
+
+### 3.2 Session Event Log：这个 Session 已经发生了什么
+
+Session Event Log 保存输入、消息、Turn、Step、请求快照、工具、审批、恢复与 Context Window 操作。
+
+它是持久事实。模型上下文、UI 时间线、Session 快照、Submission 状态和管理统计都可以从它派生。
+
+![qi-pi 2.0 Context Graph 与 Session Event Log 的事实边界](/images/blog/pi-agent/qi-pi-v2-two-truths.svg)
+
+这意味着 SQLite 中可以有很多表，但只有 `session_events` 承担领域事实源。`submissions`、`event_outbox`、`session_snapshots` 和查询视图都是投影，不应创造另一套 Agent 语义。
+
+## 四、一次请求的第一步不是运行模型，而是持久接纳
+
+外部 Channel 不直接调用 `driver.run()`。REST、WebSocket 与兼容协议都会先构造同一种 `SubmissionOp`。
+
+```json
+{
+  "operationId": "client-op-1",
+  "sessionId": "session-1",
+  "kind": "user-input",
+  "payload": {
+    "model": {
+      "id": "qwen3.7-max-2026-06-08",
+      "provider": "dashscope",
+      "display_name": "Qwen3.7 Max"
+    },
+    "content": [{"type": "text", "text": "分析这篇文章"}]
+  },
+  "source": {"transport": "rest"}
+}
+```
+
+[`LocalRuntimeCommandService.submit()`](https://github.com/qiyaxiong/pi-agent-py/blob/5fc1efe672a87767a842a5a1e7afad91922e22cf/packages/qi_runtime_plane/src/qi_runtime_plane/application.py#L115) 依次处理幂等 operation、队列上限、Session 存在性和附件准入。
+
+然后它在同一 Session 事务中追加 `submission/accepted`。SQLite Adapter 会在同一数据库事务中写入：
 
 ```text
-Session + Provider + Tool + Agent Loop + Capability + Product Adapter
-                              ↓
-                       可运行的 Agent
+session_events
++ submissions projection
++ event_outbox
 ```
 
-这带来一个重要变化：系统不再先假设 Agent 必须有哪些组成部分。它只要求产品 Profile 装配结束时，所需的 Service 已经存在。
+只有事务提交成功，接口才返回 `202 Accepted` 和 durable receipt。
 
-## 二、Profile 决定这一台 Agent 是什么
+![qi-pi 2.0 从 Submission 接纳到 Session Actor 的写路径](/images/blog/pi-agent/qi-pi-v2-submission-path.svg)
 
-同一套后端可以有多种产品形态。一个无界面的 Headless Agent 和一个 Blog Live2D 助手，可能共用 Session、Provider 与工具流水线，却拥有完全不同的入口、模型资产和语音能力。
+这里最容易误解的是：`202` 不等于“Agent 回答完成”，甚至不等于“Worker 已经开始执行”。它只证明命令已经持久接纳，重启后不会凭空消失。
 
-qi-pi 用 Profile、Bundle、Overlay 和 Context Tree 表达这种差异。
+`submission/completed` 也不等于 `turn/end`。普通用户输入被 Actor 接纳后，Worker 就可以完成这条命令；Turn 仍可能继续进行模型调用、工具调用和审批等待。
 
-![qi-pi Profile、Context Tree 与原子装配](/images/blog/pi-agent/qi-pi-profile-composition.svg)
+客户端判断回答是否结束，应该观察 `turn/end` 及其 reason，而不是把 HTTP Receipt 或 Submission 终态当作 Assistant 完成态。
 
-Profile 不是一份平铺的插件名称列表，而是一棵待装配的 Context Tree：
+## 五、Worker 为什么不能直接执行 Turn
 
-- `PluginNode` 表示一个插件实例；
-- `GroupNode` 创建派生 Context；
-- `children` 表示插件或分组的包含关系；
-- `isolate` 显式隔离某些 Service；
-- Patch 可以修改节点的启用状态与配置；
-- Overlay 可以在不同部署环境中叠加差异。
+Runtime Worker 从持久 Submission Queue claim 命令，并为目标 Session 获取 Lease。Lease 带 generation，后续 Session 写入使用它作为 fencing token。
 
-下面是一段简化后的配置：
+如果旧 Worker 暂停过久、Lease 已被新 Worker 接管，旧 generation 的写入会被拒绝。这防止“已经失去所有权的旧执行者”在恢复后继续污染 Session。
 
-```yaml
-- name: session-persistence-jsonl
-  config:
-    root: .pi-agent-py/sessions
+Worker 只负责把命令分派给 Kernel 的 Session Actor。它不等待整个 Turn，因此 Active Turn 运行期间，后续 Interrupt、Steer 和 Approval 仍能被领取并送进同一个 Actor。
 
-- name: session
-- name: providers
-- name: approvals
-- name: sandbox
-- name: tools
-- name: command-inbox
-- name: compaction
-- name: react-agent-loop
+[`LocalRuntimeWorker`](https://github.com/qiyaxiong/pi-agent-py/blob/5fc1efe672a87767a842a5a1e7afad91922e22cf/packages/qi_runtime_plane/src/qi_runtime_plane/worker.py) 还维护 Lease 续期、Session 级分派锁和最大并发，但这些都没有进入 Agent Loop。
 
-- name: live2d
-  config:
-    model_path: ./assets/avatar/model3.json
+这条边界为未来替换 Queue、Lease 或多机 Scheduler 留出了位置：新增 Adapter 即可，Kernel 的 Turn、Tool 和 Session 语义不需要跟着重写。
 
-- name: voice
-  config:
-    provider: dashscope
-    voice: my_voice_id
-```
+## 六、Session Actor：同一会话串行，跨会话并行
 
-这段配置不是让 Bootstrap 根据 `inject / provide` 建立静态 Service Graph。Bootstrap 与 Loader 只解析配置树、导入插件并执行增量 reconciliation。
+每个活跃 Session 对应一个 `_SessionSubmissionActor`。Actor 内部只有一个命令接收循环、一条 Pending Turn FIFO，以及最多一个 Active Turn Task。
 
-一次 reload 的正常路径是：
+![qi-pi 2.0 Session Actor 如何排序输入、Steer、Interrupt 与 Approval](/images/blog/pi-agent/qi-pi-v2-session-actor.svg)
 
-1. Preflight 受影响节点的候选插件；
-2. 保留 identity 未变化的节点；
-3. Dispose 发生变化的旧子树；
-4. Mount 受影响的新子树；
-5. 等待 Context 生命周期进入 quiescence；
-6. 执行产品 postcondition，确认关键 Service 已存在；
-7. 提交新的活动树。
+Actor 接收的不只是 Prompt：
 
-事务范围是受影响节点集合，不是创建一套完整候选 Runtime 再做整体指针交换。失败时，Loader 释放已创建节点，并重新挂载 previous tree 恢复旧状态。
+- User Input：通常创建下一个 Turn；
+- Steer：进入当前 Turn 的下一 Step；
+- Interrupt：终止 Active Turn 并完成持久结算；
+- Approval Resolve：唤醒等待中的 Tool；
+- Recover：从持久边界重建未完成执行；
+- Maintenance：在统一顺序中执行维护动作。
 
-所以热重载不会把运行时暴露在“新旧插件各装了一半”的状态里。
+Actor 等待命令和 Active Turn 两类任务。当二者同时完成时，它优先处理已经进入队列的控制命令，让 Steering 与 Interrupt 的归属由 Submission 顺序决定。
 
-## 三、Context 是运行时唯一真相
+同一 Session 因而不会并行执行两个 Turn；不同 Session 则由不同 Actor 并行。这比一个全局锁更精确，也比允许每个 HTTP 请求随意启动协程更容易恢复。
 
-传统插件系统经常同时维护多个注册表：工具一个、Provider 一个、事件监听器一个、路由一个，最后再由某个全局容器把它们拼起来。这样做的风险是，不同注册表的生命周期很容易漂移。
+Actor 的内存队列不是事实源。空闲 Actor 会回收，Session 投影从内存卸载；下次访问时，运行时从 SQLite Event Log 冷恢复。
 
-qi-pi 的规则更简单：**插件只能通过 Context 贡献能力。**
+## 七、Turn 与 Step：一次用户目标可能调用模型很多次
 
-一个最小工具插件可以这样写：
+Turn 是一次用户目标的完整执行边界，Step 是其中一轮模型请求。
 
-```python
-from typing import Any
-
-from qi_runtime import Context, ServiceKey
-from qi_tools import TOOLS, ToolDefinition
-
-
-class GreetPlugin:
-    id = "greet"
-    inject: tuple[ServiceKey[Any], ...] = (TOOLS,)
-
-    async def apply(self, ctx: Context) -> None:
-        tool = ToolDefinition(
-            name="greet",
-            description="Greet someone by name.",
-            parameters={
-                "type": "object",
-                "properties": {"name": {"type": "string"}},
-                "required": ["name"],
-            },
-            execute=lambda args, _ctx: f"Hello, {args['name']}!",
-            output_schema={"type": "string"},
-        )
-        ctx.require(TOOLS).register(tool)
-```
-
-这里有两个容易混淆的概念：
-
-- `inject = (TOOLS,)` 只表示插件生命周期依赖 ToolService；
-- `ctx.require(TOOLS)` 才是在运行时获取真实服务。
-
-Loader 不会读取一堆静态 `provide` 元数据，提前猜测完整服务图。Service 是否存在，最终以 Context 中的实际状态为准。
-
-最关键的动态链路是：
+正常路径大致如下：
 
 ```text
-ctx.provide(LLM)
-→ Context Service Truth 改变
-→ Registry 标记依赖 LLM 的 PluginHandle
-→ 重算受影响 inject
-→ PENDING 插件进入 Activation
+turn/start
+→ input/entered + user/message
+→ step/start
+→ request/header + request/context
+→ transient model delta*
+→ assistant/message
+→ [tool/call → tool/result]*
+→ step/end
+→ 有 Tool Call：进入下一 Step
+→ 无 Tool Call：turn/end
 ```
 
-`inject` 决定插件生命周期，不能代替 Service Truth。即使插件元数据声称自己会提供某个 Service，只要 `ctx.provide()` 尚未成功执行，这个 Service 就不存在。
+模型上下文不是从 Driver 自己维护的 `messages` 数组读取，而是由 `session.derive_messages()` 从事件 Surface 重建。
 
-这种设计让 Context 同时承担了三件事：
+每个 Step 先创建 `RequestDraft`，再经过 `agent/request` waterfall。System Prompt、Memory、Skill、附件和工具可见性都可以在这里组合，但最终请求必须写入 `request/header` 与 `request/context`。
 
-1. **依赖边界**：插件只能看到当前 Context 及其父级允许继承的服务；
-2. **生命周期边界**：插件何时可以激活，取决于所需 Service 是否可用；
-3. **资源所有权边界**：插件注册的服务、事件、任务和外部资源都归属当前 Activation。
+Token delta 属于临时低延迟流，不保证断线重放。最终 `assistant/message` 才是持久事实；客户端丢失 delta 后，应从最后消息收敛 UI，而不是把碎片当作历史。
 
-## 四、注册必须是可逆副作用
+当前代码还有一个应明确记录的限制：`RequestDraft` 虽然暴露 `model` 字段，但插件替换它还不能完整切换 Provider。Driver 的模型选择和持久请求头仍使用 `_drive()` 原始 model 参数。
 
-插件系统最容易被低估的问题，不是“怎么加载”，而是“怎么卸载干净”。
+这不是宣传中的“可扩展性”，而是源码中真实存在的边界。插件作者目前不应依赖 Request Waterfall 动态换模型。
 
-假设一个插件注册了同名工具、订阅了 Session 事件，还启动了一个后台任务。如果热重载只重新执行一遍代码，就会出现：
+## 八、Tool 不只是函数调用，而是可恢复操作
 
-- 同名工具重复；
-- 监听器叠加，一次事件处理多遍；
-- 旧后台任务继续运行；
-- Socket、文件和模型客户端没有关闭；
-- 新旧插件同时修改状态。
+[`ToolService.run_batch()`](https://github.com/qiyaxiong/pi-agent-py/blob/5fc1efe672a87767a842a5a1e7afad91922e22cf/packages/qi_tools/src/qi_tools/runtime.py#L718) 把模型返回的 Tool Call 分为准备、执行、后处理和提交几个阶段。
 
-qi-pi 用 Activation ownership 解决这个问题。
-
-![qi-pi Context、Activation 与可逆副作用](/images/blog/pi-agent/qi-pi-context-ownership.svg)
-
-`ctx.provide()`、`ctx.on()`、`ctx.plugin()`、Tool 注册和 Route 注册，都会自动归属当前 Activation。外部连接则通过 `ctx.effect()` 注册，并返回对应的 disposer。
-
-卸载时，运行时按照严格的 LIFO 顺序释放：
+当前准确顺序是：
 
 ```text
-最后创建的资源
-    ↓
-最后注册的监听器
-    ↓
-后台任务
-    ↓
-服务与子插件
-    ↓
-最早建立的外部连接
-```
-
-这和函数调用栈的退出顺序一致：后创建的资源往往依赖先创建的资源，因此必须先关闭。
-
-`PluginHandle` 与 `Activation` 也不是同一个东西。Handle 是稳定身份；Provider 发生变化或插件执行 `retry()` 时，只替换内部 Activation。只有最终 `handle.dispose()`，才会关闭插件 Context 和全部子插件。
-
-## 五、一次 Turn 是多个插件协作的结果
-
-在 qi-pi 中，Agent Loop 仍然重要，但它不再拥有整个世界。
-
-它负责推进状态机：开始 Turn、准备 Step、发起模型请求、处理工具调用、决定进入下一 Step 或结束 Turn。消息保存、Provider 调用、工具审批、能力执行和 UI 通知分别由其他插件完成。
-
-![qi-pi 一次 Turn 的插件协作时序](/images/blog/pi-agent/qi-pi-turn-collaboration.svg)
-
-一次典型 Turn 会产生下面的事实：
-
-```text
-input/enqueued → turn/start → input/entered → user/message
-→ step/start → request/header + request/context
-→ assistant/chunk* → assistant/message
-→ [tool/call → policy → approval? → execute → tool/result → next step]*
-→ step/end → turn/end
-```
-
-这里需要区分 Turn 与 Step：
-
-- **Turn** 是用户发起的一次完整交互；
-- **Step** 是其中的一轮模型调用；
-- 模型调用工具后，工具结果会进入上下文，再启动下一 Step；
-- 模型不再请求工具时，Turn 才结束。
-
-这也是为什么错误定位不能只有 `session_id`、`run_id` 或 `message_id`。只有明确的 Turn、Step 和 Tool Call 边界，UI 才能回答：失败发生在第几轮模型请求、哪次工具调用之后，以及恢复时应该从哪里继续。
-
-## 六、Tool 不是一个回调，而是一条受控流水线
-
-直接把 Python 函数暴露给模型很容易，但这不足以运行真实产品。qi-pi 的 ToolService 把一次调用拆成受控阶段：
-
-```text
-schema validation
-→ pre-execute
-→ monotonic policy
-→ approval?
-→ execution wrappers / sandbox
-→ tool body
-→ output validation
-→ finalize_content
-→ freeze
-→ realtime tool/result
+冻结参数与生成 operation_id
+→ destructive 默认提升为 require_approval
+→ pre-execute waterfall
+→ deny 检查
+→ approval
+→ monotonic guards
+→ ledger prepared
+→ ledger dispatched
+→ execute wrappers / tool body
+→ schema materialize
+→ post-execute
+→ result finalize + freeze
 → persistent tool/result
+→ ledger committed + flush
 ```
 
-策略是单调的：
+Guard 位于审批之后，只能拒绝或弃权，不能把已经更严格的决定降级。Pre-execute 异常和 Guard 异常都会失败关闭，不会继续执行工具主体。
 
-```text
-abstain < require_approval < deny
-```
+相邻的 Parallel Tool 可以让“执行主体”重叠，但准备、后处理和结果提交仍按照模型给出的顺序完成。Exclusive Tool 会在前后形成屏障。
 
-多个 Gate 同时参与时，只能把决定变得更严格，后面的插件不能把已经判定为 `deny` 的操作重新放行。Gate 抛错时也默认阻止执行。
+![qi-pi 2.0 Tool 执行、Ledger 与崩溃恢复](/images/blog/pi-agent/qi-pi-v2-tool-ledger.svg)
 
-对于可能产生外部副作用的工具，系统还记录一条 Tool Ledger：
+### 8.1 为什么需要 Tool Operation Ledger
+
+对只读工具，失败后再次调用通常问题不大。对“发送通知”“创建订单”“写入第三方系统”这类工具，进程在请求发出后崩溃，就会出现未知结果。
+
+qi-pi 为此记录四个边界：
 
 ```text
 prepared
 → dispatched
-→ external-result-recorded
+→ external-result-recorded（可选）
 → committed
 ```
 
-如果进程在 `dispatched` 之后崩溃，系统不会简单地再执行一次。只读或幂等工具可以使用相同 idempotency key 恢复；结果不明确的非幂等工具则进入人工确认，避免重复扣款、重复发送或重复写入。
+恢复时，Driver 先检查是否已经保存外部 canonical value，再尝试 `reconcile()`。只有 READ_ONLY、IDEMPOTENT，或能够证明 `not_found` 等于“没有副作用”的工具，才允许使用原 idempotency key 重试。
 
-## 七、Session Event Log 是唯一持久事实
+无法证明结果的修改型工具进入 `attention_required`。系统宁愿要求人工确认，也不会假装“没有 tool/result 就等于没有执行”。
 
-很多 Agent 实现同时保存三份状态：模型消息数组、数据库中的会话记录、UI 自己拼出的时间线。它们在正常路径上看起来一致，一旦发生流式中断、工具失败或 Compaction，很容易相互漂移。
+这正是 Tool Call 与可靠外部操作的分界。
 
-qi-pi 只承认一份持久事实：Session Event Log。
+## 九、SQLite WAL：事实、投影和 Outbox 在一个提交边界里
 
-![qi-pi Session Event Log 与可重建投影](/images/blog/pi-agent/qi-pi-session-facts.svg)
+默认 Runtime Store 是 SQLite，启动时启用：
 
-每个事件使用稳定外壳：
-
-```json
-{
-  "seq": 42,
-  "time": 1787328000000,
-  "type": "tool/result",
-  "data": {
-    "turn": 3,
-    "step": 2,
-    "callId": "call_abc"
-  }
-}
+```text
+journal_mode = WAL
+synchronous = FULL
+foreign_keys = ON
+busy_timeout = configured value
 ```
 
-模型下一次请求所需的消息，不从第二份 `Agent.messages` 获取，而是通过：
+每个 Session 的 `seq` 连续递增。写入时会检查 expected sequence；持有 Lease 时还会检查 fencing generation。
 
-```python
-messages = session.derive_messages()
+[`_insert_event()`](https://github.com/qiyaxiong/pi-agent-py/blob/5fc1efe672a87767a842a5a1e7afad91922e22cf/plugins/infrastructure/qi_runtime_sqlite/src/qi_runtime_sqlite/store.py#L531) 在同一事务里写入事件、Outbox，并更新可重建投影。
+
+因此外部 Listener 只会看到已经提交的事件，不会先收到 SSE，随后才发现数据库事务失败。
+
+### 9.1 Durable Stream 与 Transient Stream 必须分开
+
+Session Event、Approval、Turn 和最终 Message 走 durable cursor，可在重连时从 `afterCursor` 继续读取。
+
+模型 delta 和部分运行状态属于 transient stream。慢消费者可以丢失这些帧，必要时收到 `runtime/overflow` 后断开，再用持久事件恢复最终画面。
+
+这种区分避免为了保存每个 Token 而放大数据库，同时又保证 UI 最终能收敛到正确状态。
+
+## 十、Agent Protocol v3：多个 Channel 共用一种命令语义
+
+HTTP 负责清晰的命令和查询边界，SSE 负责单向 Session 重放，WebSocket JSON-RPC 负责需要双向交互的长连接。
+
+WebSocket 初始化后，客户端可以调用 `session.create`、`session.history`、`submission.submit` 和 `approval.resolve`。服务端也能反向发出 `approval/request` 与 `userInput/request`。
+
+这两类 Server Request 都有持久 ID。客户端断线不会自动批准，也不会自动回答；重连后，运行时会再次暴露尚未解决的问题。
+
+Capability Token 把权限拆成 `session:read`、`session:write` 与 `approval:resolve`，并可限制到指定 Session。同一 Token 同时适用于 REST、SSE 和 WebSocket。
+
+所以 Blog、App、Live2D 与管理后台不需要各自发明 Agent API。它们只是在不同 Transport 上产生同一种 Submission，并消费同一条 Session Event Stream。
+
+## 十一、“一切皆插件”在 2.0 中仍然成立，但 Kernel 更清楚了
+
+2.0 没有放弃 Context-first 插件模型。真正不可插件化的仍然只有最小运行时原语：
+
+- Context Graph 与 Service Reflect；
+- 类型化 Event Dispatch；
+- PluginHandle 与 Activation；
+- Effect Ownership；
+- 启动时创建 Root Context 所需的 Bootstrap 边界。
+
+Session、LLM、Tool、Agent Loop、Runtime Store、Sandbox、Provider、Memory、Blog、Live2D、Voice 和 Host Route 都通过插件贡献。
+
+![qi-pi 2.0 插件 Distribution、Profile 与 Context 生命周期](/images/blog/pi-agent/qi-pi-v2-plugin-composition.svg)
+
+`inject` 只决定插件何时激活；Service Truth 仍由 `ctx.provide()` 决定。Provider identity 变化时，依赖它的 Consumer 会重新激活。
+
+插件注册的 Service、Listener、Tool、Route、Task 和外部连接都归属于当前 Activation。卸载时按照严格串行 LIFO 回收，一个 disposer 失败也不会阻止其他资源清理。
+
+Loader 负责配置树、Tree diff、Preflight、受影响子树替换、Quiescence 和回滚，但它不维护第二套 Service Registry，也不会根据 Manifest 猜测运行时 Service 是否存在。
+
+### 11.1 安装能力不等于启用能力
+
+标准插件拆成五个 Distribution：
+
+| Distribution | 能力范围 |
+| --- | --- |
+| `qi-agent-standard` | Attachment、Title、System Prompt、Context Window、Notes、History |
+| `qi-agent-workflow` | Plan、Goal、Todo、Schedule、Skill |
+| `qi-agent-coding` | Filesystem、Shell、Terminal、Jobs、MCP、LSP、Web Search |
+| `qi-agent-collaboration` | Channel、Subagent、ACP、Claude、Codex 与 Peer Adapter |
+| `qi-agent-persona` | Soul、Emotion 与 Local Refiner |
+
+安装 Distribution 只让 Catalog 能发现它。真正启用哪些 PluginSpec，由 Profile、Bundle 和 `cordis.yml` 中的 Context Tree 决定。
+
+Memory、媒体与 Blog 则通过 extras 安装：
+
+```bash
+pip install 'qi-agent[memory]'
+pip install 'qi-agent[media]'
+pip install 'qi-agent[blog]'
+pip install 'qi-agent[full]'
 ```
 
-从事件 surface 派生。
+## 十二、Host 是适配器，不是隐藏的第二个 Agent
 
-SQLite 中的 Session、Run、Usage、Error 与 Trace 数据都只是可重建投影。它们可以为了查询效率建立索引、汇总小时与天级统计，但不能反过来成为模型历史真相。
+`qi_host` 负责鉴权、Origin、CSRF、请求体限制、DTO 映射和响应编码。它只能调用 Runtime Command/Query/Stream Service。
 
-这种设计有三个直接收益：
+例如 REST Submission Route 只做 Session 范围检查，把 body 交给 `commands.submit()`，并返回 Receipt。它不能直接修改 Driver 的 Pending Turn，也不能绕过 Event Log 写 UI 状态。
 
-1. **恢复明确**：从事件与 checkpoint 重新进入，不序列化协程栈；
-2. **观察一致**：UI、模型和统计看到的是同一条事实流；
-3. **故障隔离**：Telemetry 投影失败不会阻塞 Agent Run。
+这让多 Channel 真正共享后端语义：增加一个新的入口，主要工作是 Wire Adapter，而不是复制 Agent Loop。
 
-## 八、与 DSH 对齐的语义，以及 qi-pi 自己的增强
+CLI 也位于 Bootstrap 边界。它负责选择配置、创建 Root Context 和启动 Host，不应被描述成普通能力插件。
 
-qi-pi 的 Context-first 插件语义已经与 DSH 的核心模型基本对齐，但它不是简单的 Python 逐行翻译。
+## 十三、安全边界：Approval、Context 与 Sandbox 不能混为一谈
 
-已经对齐的部分包括：
+Approval 回答“这次操作是否得到允许”；Context Isolation 回答“插件能看到哪些 Service”；Sandbox 回答“进程实际上能访问哪些系统资源”。
 
-- 插件挂在共享 Context，而不是挂在 Agent 或 FastAPI 上；
-- Service 只有在 `ctx.provide()` 成功后才真实存在；
-- `inject` 决定插件生命周期，不决定 Service Truth；
-- Service、Event、Tool、Route 与 Effect 绑定到 Activation；
-- 卸载插件会自动撤销注册并释放资源；
-- Agent Loop、Session、Tools、Provider 与 Sandbox 都由插件提供；
-- Session Event Log 是模型历史、恢复、UI 与审计的共同事实源；
-- Conversation 与 Trajectory UI 可以直接消费统一协议。
+三者互补，但不能互相替代。
 
-qi-pi 在这些语义之上增加了更偏恢复、产品化与 Python 运行环境的能力：
+默认 `base-runtime` 启用的是 `PassThroughSandbox`。它不会创建隔离进程，也不会增加操作系统级文件或网络限制。
 
-- Tool Operation Ledger；
-- 非幂等工具的未知结果保护；
-- 持久 Inbox；
-- Subagent descriptor v2；
-- owned-child continuation graph；
-- 自动 settlement notice；
-- Agent Preset fingerprint；
-- JSONL/Zstd 强制 flush 与撕裂尾恢复；
-- SQLite 可重建管理投影；
-- 独立 Trace 管理后台。
+可选 Process Sandbox 只包装显式声明进程能力的工具，控制环境、工作目录与基础资源。它不是容器，也不等同于内核级隔离。
 
-因此更准确的定位是：qi-pi 继承 Context-first、Everything is a Plugin 的运行时思想，再用 Python 重建并补强工具恢复、持久会话、Subagent continuation 和本地产品接入。
+因此，“工具经过审批”不能写成“工具已经被沙箱隔离”；“插件运行在子 Context”也不意味着它可以安全执行不可信代码。
 
-## 九、Live2D 为什么应该是普通插件
+## 十四、崩溃恢复不是恢复 Python 协程，而是从事实边界重新决策
 
-Live2D 很适合验证这套架构是否真的做到了产品无关。
+进程启动后，Runtime Plane 会先启动 Worker，领取 pending 或 Lease 过期的 Submission，再扫描 Active Turn 和尚未形成 `turn/start` 的 next-turn 输入。
 
-如果把 Avatar、TTS、嘴型、动作与 Blog 跳转直接写入 Agent Loop，那么这套 Agent 很快就只能服务一个网页。qi-pi 把它们拆成独立能力：
+需要恢复的 Session 会获得一条幂等 Recover Submission。它仍经过持久 Queue 和同一个 Actor，不存在一条隐藏的恢复旁路。
 
-- Blog 插件提供文章检索与安全导航动作；
-- Live2D 插件提供模型资产、Snapshot、Command 与动作事件；
-- Voice 插件提供流式 PCM 语音合成；
-- HTTP Route 插件暴露对应接口；
-- Agent Loop 只看见稳定的 Service 与 Tool；
-- 前端消费 Control Stream，驱动嘴型、表情和身体动作。
+恢复 reducer 根据 Event Log 判断：
 
-于是相同 Session 与 Agent 能力可以被多个 Channel 使用：Blog 浮窗、独立桌面角色、游戏 NPC 或其他网站都只需要换产品插件与前端适配器。
+- 模型流中断：从新 Step 重新请求；
+- 审批未完成：回到 `approval_waiting`；
+- 外部结果已持久化：直接渲染并提交；
+- 可对账工具：调用 reconcile；
+- 只读或幂等工具：使用原 idempotency key 重试；
+- 修改型工具结果未知：进入 `attention_required`。
 
-这才是“一套统一 Agent 后端”的真正含义：不是让所有产品共用同一个页面，而是让它们共享同一套事实、权限、工具和恢复语义。
+系统恢复的是领域状态机，不是序列化一条正在运行的协程栈。这让恢复逻辑可以测试、审计，也可以在升级时做兼容性判断。
 
-## 十、这套设计的代价
+## 十五、1.x 到 2.0 不是原地兼容升级
 
-一切皆插件并不免费。
+1.x 使用 JSONL/Zstd Session 文件；2.0 默认使用 `<data-dir>/runtime.sqlite3`。新 Host 不保留旧 JSONL 在线读取器。
 
-首先，调试成本会上升。一个 Service 为什么不存在，可能是插件未加载、`inject` 未满足、Context 隔离错误、配置表达式失败或 Activation 回滚。为此必须提供清楚的生命周期诊断和 Context Reflect。
+迁移必须在 Host 停止时离线执行：
 
-其次，插件粒度需要克制。不是每个小函数都值得成为插件。适合插件化的通常是具有独立生命周期、外部资源、替换需求或产品边界的能力。
+```bash
+qi-agent migrate runtime-v2 --data-dir /path/to/data
+```
 
-再次，热重载不能假装所有代码都能无损替换。已经安装的 Python Package 如果代码版本变化，往往仍需要重启；真正安全的热重载主要针对配置、本地插件与可控 Activation。
+迁移成功后才切换新数据库，旧目录保留为只读备份。发现旧数据但没有新数据库时，Host 会拒绝启动并提示迁移，而不是静默丢失或混合读取。
 
-最后，恢复兼容性必须严格。Session Header 会记录 Profile、插件版本和 recovery fingerprint。配置或工具恢复语义发生变化时，系统应该要求显式迁移，而不是勉强读取旧状态。
+这是一条刻意的兼容性边界：恢复语义变化时，显式迁移比“尽量读出来”更可靠。
 
-## 十一、从“写一个 Agent”到“构造 Agent 产品”
+## 十六、当前实现的边界与下一步
 
-qi-pi v1 最重要的变化，不是多支持了几个 Provider 或工具，而是把问题换了一个层次。
+qi-pi 2.0 已经具备完整的单机 Runtime Plane，但没有假装自己已经是 Cloud Control Plane。
 
-过去的问题是：
+仓库当前不实现 Tenant、Billing、跨机 Scheduler、PostgreSQL、Redis、NATS 或云端 Plugin Registry。本地 SQLite、Lease 与 Stream 都是接口实现，未来可以增加远程 Adapter。
 
-> Agent Loop 里还缺什么能力？
+当前还有几项值得继续拆深：
 
-现在的问题是：
+1. `driver.py` 同时包含 Actor、Turn 执行与恢复，公开替换边界仍是整个 AgentDriver；
+2. `qi_tools/runtime.py` 同时承担 Registry、Policy、执行管线和 Ledger；
+3. RequestDraft 的动态 model 替换尚未贯穿 Provider 选择；
+4. Process Sandbox 是基础实现，不应被当成强隔离环境；
+5. Cloud 调度必须保持 Kernel Protocol，不应把租户和计费语义写回 Agent Loop。
 
-> 当前 Profile 应该装配哪些插件？它们提供什么 Service？副作用归谁所有？哪些事实必须持久化？失败后如何恢复？
+把这些限制写进文章，比把所有组件都描述成“已经完成”更重要。架构分析的价值不是堆名词，而是说明真实边界在哪里。
 
-前一个问题容易产生越来越大的 Agent 类；后一个问题则把 Agent 变成可组合、可替换、可观察的产品运行时。
+## 十七、最后总结：2.0 真正新增的是可靠执行平面
 
-最终，qi-pi 的核心可以浓缩成三句话：
+qi-pi 2.0 仍然坚持“一切能力皆插件”，但它已经不只是插件化 Agent Loop。
 
-1. **Context Graph 是唯一运行时真相。**
-2. **Session Event Log 是唯一持久事实。**
-3. **除最小运行时与启动装配外，一切能力皆插件。**
+它形成了四条清晰主线：
 
-当这三条约束成立以后，Live2D、Voice、Memory、MCP、Subagent 或未来的新 Channel 都不需要侵入 Agent Core。它们只是在同一套生命周期与事实协议上，装配出不同的 Agent 产品。
+1. Context Graph 管理当前进程中的能力与生命周期；
+2. Runtime Plane 持久接纳命令，并用 Worker、Lease 和 Actor 排序执行；
+3. Session Event Log 保存唯一持久事实，Outbox 与投影跟随同一提交边界；
+4. Host 用 REST、SSE 与双向 JSON-RPC 把同一语义暴露给多个 Channel。
+
+所以更准确的项目定义是：
+
+> qi-pi 是一个面向 Python 与多 Channel 产品集成的 Agent Service Kernel。它把插件生命周期、命令接纳、会话执行、工具副作用和断线恢复放在同一套可验证边界中。
+
+当 Blog、Live2D、Voice、Memory 或新的 App 接入时，它们不需要拥有另一套 Agent。它们只需要贡献能力、提交命令，并消费已经发生的事实。
+
+## 源码与文档索引
+
+- [qi-pi 2.0 README](https://github.com/qiyaxiong/pi-agent-py/blob/5fc1efe672a87767a842a5a1e7afad91922e22cf/README.md)
+- [Runtime Plane 架构](https://github.com/qiyaxiong/pi-agent-py/blob/5fc1efe672a87767a842a5a1e7afad91922e22cf/docs/architecture/runtime-plane.md)
+- [Agent Protocol v3](https://github.com/qiyaxiong/pi-agent-py/blob/5fc1efe672a87767a842a5a1e7afad91922e22cf/docs/protocols/agent-protocol-v3.md)
+- [Session Store Schema 3](https://github.com/qiyaxiong/pi-agent-py/blob/5fc1efe672a87767a842a5a1e7afad91922e22cf/docs/protocols/session-format.md)
+- [Context-first Plugin Runtime](https://github.com/qiyaxiong/pi-agent-py/blob/5fc1efe672a87767a842a5a1e7afad91922e22cf/docs/protocols/plugin-runtime.md)
+- [ReactAgentDriver](https://github.com/qiyaxiong/pi-agent-py/blob/5fc1efe672a87767a842a5a1e7afad91922e22cf/packages/qi_agent_loop/src/qi_agent_loop/driver.py)
+- [ToolService](https://github.com/qiyaxiong/pi-agent-py/blob/5fc1efe672a87767a842a5a1e7afad91922e22cf/packages/qi_tools/src/qi_tools/runtime.py)
+- [SQLite Runtime Store](https://github.com/qiyaxiong/pi-agent-py/blob/5fc1efe672a87767a842a5a1e7afad91922e22cf/plugins/infrastructure/qi_runtime_sqlite/src/qi_runtime_sqlite/store.py)
