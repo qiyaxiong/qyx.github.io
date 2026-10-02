@@ -1,0 +1,183 @@
+/* Opt-in article layout. Directory pages and specialised readers keep their layout. */
+.reader-layout[data-reader-layout] {
+  display: block;
+}
+
+.reader-layout > article,
+.reader-bottom > :first-child {
+  width: 100%;
+  max-width: 55rem;
+  min-width: 0;
+  margin-inline: auto;
+}
+
+.reader-bottom.reader-bottom {
+  display: block;
+}
+
+.reader-bottom > :last-child:empty {
+  display: none;
+}
+
+.reader-layout > article {
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;
+}
+
+.reader-layout #content-header {
+  max-width: 45rem;
+  margin: 1.5rem auto 0;
+}
+
+.reader-layout #content-header > div {
+  justify-content: center;
+  font-size: 0.75rem;
+  line-height: 1.75;
+}
+
+.reader-layout #content-header h1 {
+  margin-top: 1.5rem;
+  font-size: 1.5rem;
+  font-weight: 650;
+  line-height: 1.35;
+  letter-spacing: -0.025em;
+  text-align: center;
+  text-wrap: balance;
+}
+
+.reader-layout #content {
+  min-width: 0;
+  margin-top: 2.5rem;
+  font-size: 1rem;
+  line-height: 1.75;
+  color: hsl(var(--foreground) / 0.88);
+}
+
+.reader-layout
+  #content
+  > :where(p, h1, h2, h3, h4, h5, h6, ul, ol, dl, blockquote, hr, .reader-course-guide) {
+  max-width: 45rem;
+  margin-inline: auto;
+}
+
+.reader-layout #content > p:has(> img) {
+  max-width: 55rem;
+  margin-block: 2rem;
+}
+
+.reader-layout #content :where(h2, h3, h4):not(:where(.not-prose, .not-prose *)) {
+  font-weight: 600;
+  text-wrap: balance;
+  scroll-margin-top: 6rem;
+}
+
+.reader-layout #content :where(h2):not(:where(.not-prose, .not-prose *)) {
+  margin-top: 3rem;
+  margin-bottom: 1rem;
+  font-size: 1.5rem;
+  line-height: 1.4;
+}
+
+.reader-layout #content :where(h3):not(:where(.not-prose, .not-prose *)) {
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+  font-size: 1.25rem;
+  line-height: 1.5;
+}
+
+.reader-layout #content pre {
+  max-width: 100%;
+  overflow-x: auto;
+  font-size: 0.875rem;
+  line-height: 1.7;
+}
+
+.reader-layout #content table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.reader-navigation {
+  position: sticky;
+  top: 5.25rem;
+  z-index: 40;
+  width: max-content;
+  margin: 0 0 1.5rem auto;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.reader-navigation > summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 0.875rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: 999px;
+  background: hsl(var(--background) / 0.96);
+  color: hsl(var(--muted-foreground));
+  cursor: pointer;
+  list-style: none;
+}
+
+.reader-navigation > summary::-webkit-details-marker {
+  display: none;
+}
+
+.reader-navigation > summary:hover,
+.reader-navigation[open] > summary {
+  color: hsl(var(--foreground));
+  border-color: hsl(var(--primary) / 0.45);
+}
+
+.reader-navigation > summary:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 3px;
+}
+
+.reader-navigation-panel {
+  position: absolute;
+  top: calc(100% + 0.75rem);
+  right: 0;
+  width: 20rem;
+  max-width: calc(100vw - 2rem);
+  max-height: calc(100dvh - 10rem);
+  padding: 1.25rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid hsl(var(--border));
+  border-radius: 1rem;
+  background: hsl(var(--background));
+  box-shadow: 0 12px 40px hsl(var(--foreground) / 0.12);
+}
+
+@media (min-width: 768px) {
+  .reader-layout #content-header {
+    margin-top: 2.5rem;
+  }
+
+  .reader-layout #content-header h1 {
+    font-size: 2.5rem;
+    line-height: 1.25;
+  }
+
+  .reader-layout #content {
+    margin-top: 3.5rem;
+    font-size: 1.125rem;
+    line-height: 1.6667;
+  }
+
+  .reader-layout #content :where(h2):not(:where(.not-prose, .not-prose *)) {
+    margin-top: 3.5rem;
+    font-size: 2rem;
+    line-height: 1.25;
+  }
+
+  .reader-layout #content :where(h3):not(:where(.not-prose, .not-prose *)) {
+    font-size: 1.5rem;
+    line-height: 1.3333;
+  }
+}

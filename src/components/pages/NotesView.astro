@@ -1,15 +1,16 @@
 ---
 import type { MarkdownHeading } from 'astro'
 
-import { MediumZoom } from '@/components/advanced'
 import ContentLayout from '@/layouts/ContentLayout.astro'
+import { MediumZoom } from '@/components/advanced'
 import { TOC } from '@/components/pages'
 import Cs229BilingualReader from '@/components/pages/Cs229BilingualReader.astro'
 import Cs229CourseOverview from '@/components/pages/Cs229CourseOverview.astro'
 import Cs229SessionGuide from '@/components/pages/Cs229SessionGuide.astro'
+import NotesTree from '@/components/pages/NotesTree.astro'
+import ProgrammingThoughtsChapterNavigation from '@/components/pages/ProgrammingThoughtsChapterNavigation.astro'
 import ProgrammingThoughtsCourseOverview from '@/components/pages/ProgrammingThoughtsCourseOverview.astro'
 import ProgrammingThoughtsSessionGuide from '@/components/pages/ProgrammingThoughtsSessionGuide.astro'
-import NotesTree from '@/components/pages/NotesTree.astro'
 import { Icon } from '@/components/user'
 import { getCs229ReaderConfig } from '@/utils/cs229-reader'
 import { getCs229Session } from '@/utils/cs229-sessions'
@@ -54,6 +55,10 @@ const cs229Session = getCs229Session(currentPath)
 const isCs229CourseIndex = currentPath === 'cs229/course'
 const programmingThoughtsChapter = getProgrammingThoughtsChapter(currentPath)
 const isProgrammingThoughtsCourseIndex = currentPath === 'programming-thoughts/course'
+const readingLayout = Boolean(html) && childNodes.length === 0 && !cs229ReaderConfig
+const displayTitle =
+  readingLayout && programmingThoughtsChapter ? title.replace(/^P\d+[–-]P\d+：\s*/, '') : title
+const visibleBreadcrumbs = readingLayout ? breadcrumbs.slice(0, -1) : breadcrumbs
 
 const copy =
   language === 'zh'
@@ -89,9 +94,10 @@ function countDescendants(node: NoteTreeNode): number {
 }
 ---
 
-<ContentLayout meta={{ title, description }} back={basePath}>
+<ContentLayout meta={{ title, description }} back={basePath} {readingLayout}>
   <Fragment slot='sidebar'>
     <div class='space-y-8'>
+      {readingLayout && !!headings.length && <TOC {headings} />}
       <section>
         <h2 class='text-xs font-semibold tracking-[0.22em] text-muted-foreground'>{rootTitle}</h2>
         {
@@ -111,17 +117,17 @@ function countDescendants(node: NoteTreeNode): number {
         }
       </section>
 
-      {!!headings.length && <TOC {headings} />}
+      {!readingLayout && !!headings.length && <TOC {headings} />}
     </div>
   </Fragment>
 
   <Fragment slot='header'>
     <div class='flex flex-wrap items-center gap-2 text-sm text-muted-foreground'>
       {
-        breadcrumbs.map((item, index) => (
+        visibleBreadcrumbs.map((item, index) => (
           <>
             {index > 0 && <Icon name='chevron-down' class='size-4 -rotate-90' />}
-            {index === breadcrumbs.length - 1 ? (
+            {!readingLayout && index === visibleBreadcrumbs.length - 1 ? (
               <span>{item.title}</span>
             ) : (
               <a href={item.href} class='transition-colors hover:text-foreground'>
@@ -132,8 +138,8 @@ function countDescendants(node: NoteTreeNode): number {
         ))
       }
     </div>
-    <h1 class='mt-4 text-2xl font-medium sm:text-3xl'>{title}</h1>
-    <p class='mt-3 text-sm text-muted-foreground sm:text-base'>{description}</p>
+    <h1 class='mt-4 text-2xl font-medium sm:text-3xl'>{displayTitle}</h1>
+    {!readingLayout && <p class='mt-3 text-sm text-muted-foreground sm:text-base'>{description}</p>}
   </Fragment>
 
   {
@@ -159,6 +165,12 @@ function countDescendants(node: NoteTreeNode): number {
       ) : (
         <Fragment set:html={html} />
       ))
+  }
+
+  {
+    programmingThoughtsChapter && (
+      <ProgrammingThoughtsChapterNavigation chapter={programmingThoughtsChapter} />
+    )
   }
 
   {isCs229CourseIndex && <Cs229CourseOverview />}
@@ -212,8 +224,4 @@ function countDescendants(node: NoteTreeNode): number {
   }
 </ContentLayout>
 
-{
-  integ.mediumZoom.enable && (
-    <MediumZoom selector='#content img:not(.no-lightbox)' />
-  )
-}
+{integ.mediumZoom.enable && <MediumZoom selector='#content img:not(.no-lightbox)' />}

@@ -1,0 +1,63 @@
+---
+import {
+  programmingThoughtsChapters,
+  type ProgrammingThoughtsChapter
+} from '@/utils/programming-thoughts-sessions'
+
+interface Props {
+  chapter: ProgrammingThoughtsChapter
+}
+const { chapter } = Astro.props
+const index = programmingThoughtsChapters.findIndex((item) => item.slug === chapter.slug)
+const previous = programmingThoughtsChapters[index - 1]
+const next = programmingThoughtsChapters[index + 1]
+---
+
+<nav
+  class='not-prose mt-12 grid gap-3 border-t border-border pt-8 sm:grid-cols-2'
+  aria-label='编程思想课程前后章节'
+  data-chapter-navigation
+>
+  {
+    previous ? (
+      <a
+        href={`/notes/programming-thoughts/course/${previous.slug}`}
+        class='rounded-xl border border-border bg-card p-4 transition-colors hover:bg-muted/60'
+      >
+        <span class='text-xs text-muted-foreground'>
+          ← 上一章 · P{previous.startPage}–P{previous.endPage}
+        </span>
+        <strong class='mt-1 block text-sm text-foreground'>{previous.shortTitle}</strong>
+      </a>
+    ) : (
+      <a
+        href='/notes/programming-thoughts/course'
+        class='rounded-xl border border-border bg-card p-4'
+      >
+        <span class='text-xs text-muted-foreground'>← 返回</span>
+        <strong class='mt-1 block text-sm text-foreground'>课程目录</strong>
+      </a>
+    )
+  }
+  {
+    next ? (
+      <a
+        href={`/notes/programming-thoughts/course/${next.slug}`}
+        class='rounded-xl border border-border bg-card p-4 text-right transition-colors hover:bg-muted/60'
+      >
+        <span class='text-xs text-muted-foreground'>
+          下一章 · P{next.startPage}–P{next.endPage} →
+        </span>
+        <strong class='mt-1 block text-sm text-foreground'>{next.shortTitle}</strong>
+      </a>
+    ) : (
+      <a
+        href='/notes/programming-thoughts/course'
+        class='rounded-xl border border-border bg-card p-4 text-right'
+      >
+        <span class='text-xs text-muted-foreground'>已完成 →</span>
+        <strong class='mt-1 block text-sm text-foreground'>回到目录复盘</strong>
+      </a>
+    )
+  }
+</nav>
