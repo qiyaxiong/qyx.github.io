@@ -35,7 +35,7 @@ node scripts/manga-stage-pages.mjs \
   --strict=true
 ```
 
-Pages 项目使用 **Direct Upload**，不能选 Git 集成。`qiqi-manga-assets` 已在 Cloudflare 控制台创建；用只包含 Pages 写入及账户读取的 Wrangler OAuth 权限登录，然后上传暂存目录：
+Pages 项目使用 **Direct Upload**，不能选 Git 集成。`qiqi-manga-assets` 已在 Cloudflare 控制台创建并完成首次部署；Wrangler 登录只需 Pages 写入及账户读取权限。后续更新图片时，重新上传暂存目录：
 
 ```bash
 pnpm dlx wrangler login --scopes pages:write account:read user:read --use-keyring
@@ -43,7 +43,7 @@ pnpm dlx wrangler pages deploy /Users/qiluo/program/manga-pages-deploy \
   --project-name=qiqi-manga-assets --branch=main
 ```
 
-部署后打开 `https://qiqi-manga-assets.pages.dev/oregairu/001/001.webp` 验证图片。博客默认使用这个 Pages 域名；如果实际域名不同，再用 `PUBLIC_MANGA_ASSET_BASE_URL` 覆盖并重新构建博客。该变量只含公开域名，不含密钥。后续图片变化时，使用新的空暂存目录再次运行暂存脚本并重新部署。
+首次部署已上传 3988 张图片和一个首页文件。`https://qiqi-manga-assets.pages.dev/oregairu/001/001.webp` 可公开访问；抽查第 1 话和第 122 话的首尾图片均返回 `image/webp`，SHA-256 与本地归档一致。博客默认使用这个 Pages 域名；如需改用自定义域名，可用 `PUBLIC_MANGA_ASSET_BASE_URL` 覆盖并重新构建博客。该变量只含公开域名，不含密钥。后续图片变化时，使用新的空暂存目录再次运行暂存脚本并重新部署。
 
 参考：[Pages Direct Upload](https://developers.cloudflare.com/pages/get-started/direct-upload/)、[Pages 限额](https://developers.cloudflare.com/pages/platform/limits/)、[静态资源计费](https://developers.cloudflare.com/pages/functions/pricing/)。
 
