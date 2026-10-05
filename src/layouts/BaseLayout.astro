@@ -13,11 +13,15 @@ import '@/assets/styles/app.css'
 interface Props {
   meta: SiteMeta
   highlightColor?: string
+  showLive2D?: boolean
+  workspace?: boolean
 }
 
 const {
   meta: { articleDate, description = config.description, ogImage, title },
-  highlightColor
+  highlightColor,
+  showLive2D = true,
+  workspace = false
 } = Astro.props
 
 const currentLocale = Astro.currentLocale || 'zh'
@@ -41,7 +45,10 @@ const langAttr = currentLocale === 'en' ? 'en' : 'zh'
     </script>
   </head>
 
-  <body class='flex justify-center bg-background'>
+  <body
+    class:list={['bg-background', { 'flex justify-center': !workspace }]}
+    data-workspace={workspace ? 'true' : undefined}
+  >
     <!-- <div
       id='gradient-background'
       class='pointer-events-none fixed h-screen w-screen blur-2xl transition-opacity duration-1000'
@@ -89,12 +96,18 @@ const langAttr = currentLocale === 'en' ? 'en' : 'zh'
         />
       )
     }
-    <div class='w-full max-w-[70rem] px-4 sm:px-7 lg:px-10'>
-      <Header />
-      <slot />
-      <Footer />
-    </div>
-    <Live2DAgent />
+    {
+      workspace ? (
+        <slot />
+      ) : (
+        <div class='w-full max-w-[70rem] px-4 sm:px-7 lg:px-10'>
+          <Header />
+          <slot />
+          <Footer />
+        </div>
+      )
+    }
+    {showLive2D && <Live2DAgent />}
 
     {/* Set highlight color */}
     <style define:vars={{ highlightColor }}>
@@ -324,10 +337,12 @@ const langAttr = currentLocale === 'en' ? 'en' : 'zh'
     <script>
       import { initializeWebGL } from '@/utils/webgl/index'
 
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initializeWebGL)
-      } else {
-        initializeWebGL()
+      if (document.body.dataset.workspace !== 'true') {
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', initializeWebGL)
+        } else {
+          initializeWebGL()
+        }
       }
     </script>
   </body>

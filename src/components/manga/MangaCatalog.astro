@@ -1,0 +1,354 @@
+---
+import {
+  mangaAssetBase,
+  mangaCatalog,
+  mangaChapterPath,
+  mangaPages,
+  mangaPageUrl
+} from '@/lib/manga'
+
+interface Props {
+  english?: boolean
+}
+
+const { english = false } = Astro.props
+const chapters = mangaCatalog.chapters
+const readyCount = chapters.filter(
+  (chapter) => mangaPages[String(chapter.id)]?.length && mangaAssetBase
+).length
+const firstReady = chapters.find(
+  (chapter) => mangaPages[String(chapter.id)]?.length && mangaAssetBase
+)
+const coverFile = firstReady ? mangaPages[String(firstReady.id)]?.[0] : undefined
+---
+
+<main class='manga-home mt-6 pb-20 lg:mt-10'>
+  <nav class='mb-7 text-sm text-muted-foreground' aria-label='Breadcrumb'>
+    <a class='hover:text-primary' href={english ? '/en/blog' : '/blog'}>Blog</a>
+    <span class='mx-2'>/</span>
+    <span>{english ? 'Manga' : '漫画资源'}</span>
+  </nav>
+
+  <section class='manga-hero'>
+    <div class='relative z-10 max-w-[42rem]'>
+      <p class='mb-5 text-xs font-semibold uppercase tracking-[0.24em] text-violet-200'>
+        MANGA LIBRARY
+      </p>
+      <h1 class='mb-5 text-4xl font-semibold leading-tight text-white sm:text-5xl'>
+        {english ? 'A place to read.' : '漫画，慢慢读。'}
+      </h1>
+      <p class='max-w-[34rem] text-base leading-8 text-slate-200 sm:text-lg'>
+        {
+          english
+            ? 'Find a chapter, pick up where you left off, and read without distractions.'
+            : '按章节找到想看的故事，记住阅读进度，打开后就专心往下读。'
+        }
+      </p>
+    </div>
+    <div class='manga-hero-mark' aria-hidden='true'>漫</div>
+    {
+      firstReady && coverFile && (
+        <div class='manga-hero-cover' aria-hidden='true'>
+          <img src={mangaPageUrl(firstReady.id, coverFile)} alt='' loading='eager' />
+        </div>
+      )
+    }
+  </section>
+
+  <section
+    class='mt-10 grid gap-8 lg:grid-cols-[minmax(0,1fr)_16rem]'
+    aria-labelledby='series-title'
+  >
+    <div>
+      <div class='mb-7 flex flex-wrap items-start justify-between gap-4'>
+        <div>
+          <p class='mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground'>
+            01 / SERIES
+          </p>
+          <h2 id='series-title' class='text-2xl font-semibold leading-snug sm:text-3xl'>
+            {mangaCatalog.title}
+          </h2>
+        </div>
+        <span class='rounded-full border border-border px-3 py-1 text-sm text-muted-foreground'>
+          {chapters.length}
+          {english ? 'chapters' : '话'}
+        </span>
+      </div>
+      <p class='max-w-[46rem] text-base leading-8 text-muted-foreground'>
+        {mangaCatalog.description}
+      </p>
+      <dl class='mt-7 flex flex-wrap gap-x-8 gap-y-3 border-y border-border py-5 text-sm'>
+        <div class='flex gap-3'>
+          <dt class='text-muted-foreground'>{english ? 'Original' : '原作'}</dt><dd>
+            {mangaCatalog.originalAuthor}
+          </dd>
+        </div>
+        <div class='flex gap-3'>
+          <dt class='text-muted-foreground'>{english ? 'Art' : '作画'}</dt><dd>
+            {mangaCatalog.artist}
+          </dd>
+        </div>
+        <div class='flex gap-3'>
+          <dt class='text-muted-foreground'>{english ? 'Catalog' : '目录'}</dt><dd>
+            {chapters.length}
+            {english ? 'chapters' : '话'}
+          </dd>
+        </div>
+      </dl>
+    </div>
+
+    <aside class='manga-aside'>
+      <p class='text-sm text-muted-foreground'>{english ? 'Ready to read' : '已可阅读'}</p>
+      <p class='mt-2 text-4xl font-semibold'>
+        {readyCount}<span class='ml-2 text-base font-normal text-muted-foreground'
+          >/ {chapters.length}</span
+        >
+      </p>
+      {
+        firstReady ? (
+          <a class='manga-start' href={mangaChapterPath(firstReady.id, english)}>
+            {english ? 'Start reading' : '开始阅读'} <span aria-hidden='true'>↗</span>
+          </a>
+        ) : (
+          <p class='mt-5 text-sm leading-6 text-muted-foreground'>
+            {english
+              ? 'Chapter images are being prepared.'
+              : '章节图片正在整理，稍后开放站内阅读。'}
+          </p>
+        )
+      }
+      <a id='manga-continue' class='mt-3 hidden text-sm text-primary hover:underline' href='#'>
+        {english ? 'Continue reading →' : '继续上次阅读 →'}
+      </a>
+    </aside>
+  </section>
+
+  <section class='mt-14' aria-labelledby='chapter-heading'>
+    <div class='mb-5 flex flex-wrap items-end justify-between gap-4'>
+      <div>
+        <p class='mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground'>
+          CHAPTERS
+        </p>
+        <h2 id='chapter-heading' class='text-2xl font-semibold'>
+          {english ? 'Chapter list' : '章节目录'}
+        </h2>
+      </div>
+      <label class='manga-search'>
+        <span class='sr-only'>{english ? 'Search chapters' : '搜索章节'}</span>
+        <svg
+          viewBox='0 0 24 24'
+          fill='none'
+          stroke='currentColor'
+          stroke-width='1.8'
+          aria-hidden='true'
+          ><circle cx='11' cy='11' r='7'></circle><path d='m16 16 5 5'></path></svg
+        >
+        <input
+          id='manga-search-input'
+          type='search'
+          autocomplete='off'
+          placeholder={english ? 'Search chapters' : '搜索章节'}
+        />
+      </label>
+    </div>
+    <ol id='manga-chapter-list' class='manga-chapters'>
+      {
+        chapters.map((chapter) => {
+          const ready = Boolean(mangaAssetBase && mangaPages[String(chapter.id)]?.length)
+          return (
+            <li data-search={`${chapter.id} ${chapter.title}`.toLowerCase()}>
+              {ready ? (
+                <a class='manga-chapter' href={mangaChapterPath(chapter.id, english)}>
+                  <span class='manga-chapter-number'>{String(chapter.id).padStart(3, '0')}</span>
+                  <span class='min-w-0 flex-1 truncate'>{chapter.title}</span>
+                  <span class='manga-chapter-arrow' aria-hidden='true'>
+                    ↗
+                  </span>
+                </a>
+              ) : (
+                <div class='manga-chapter manga-chapter-pending'>
+                  <span class='manga-chapter-number'>{String(chapter.id).padStart(3, '0')}</span>
+                  <span class='min-w-0 flex-1 truncate'>{chapter.title}</span>
+                  <span class='whitespace-nowrap text-xs text-muted-foreground'>
+                    {english ? 'Preparing' : '整理中'}
+                  </span>
+                </div>
+              )}
+            </li>
+          )
+        })
+      }
+    </ol>
+    <p id='manga-no-results' class='hidden py-10 text-center text-muted-foreground'>
+      {english ? 'No matching chapters.' : '没有找到对应章节。'}
+    </p>
+  </section>
+</main>
+
+<script>
+  const input = document.querySelector<HTMLInputElement>('#manga-search-input')
+  const entries = Array.from(document.querySelectorAll<HTMLLIElement>('#manga-chapter-list li'))
+  const noResults = document.querySelector<HTMLElement>('#manga-no-results')
+  input?.addEventListener('input', () => {
+    const query = input.value.trim().toLowerCase()
+    let visible = 0
+    for (const entry of entries) {
+      const match = entry.dataset.search?.includes(query) ?? false
+      entry.hidden = !match
+      if (match) visible++
+    }
+    noResults?.classList.toggle('hidden', visible > 0)
+  })
+
+  const continueLink = document.querySelector<HTMLAnchorElement>('#manga-continue')
+  const lastChapter = Number(localStorage.getItem('manga:oregairu:last-chapter'))
+  if (continueLink && Number.isInteger(lastChapter) && lastChapter > 0) {
+    const path = `${location.pathname.startsWith('/en/') ? '/en' : ''}/manga/oregairu/${lastChapter}`
+    if (document.querySelector(`#manga-chapter-list a[href="${path}"]`)) {
+      continueLink.href = `${path}?resume=1`
+      continueLink.classList.remove('hidden')
+    }
+  }
+</script>
+
+<style>
+  .manga-hero {
+    position: relative;
+    overflow: hidden;
+    min-height: 18rem;
+    padding: clamp(2rem, 5vw, 4rem);
+    border-radius: 1.75rem;
+    background:
+      radial-gradient(circle at 75% 18%, #6043a2 0, transparent 38%),
+      linear-gradient(125deg, #111522 0%, #242341 58%, #181526 100%);
+  }
+  .manga-hero-mark {
+    position: absolute;
+    right: 2%;
+    bottom: -25%;
+    color: rgba(255, 255, 255, 0.055);
+    font-size: clamp(15rem, 32vw, 28rem);
+    font-weight: 900;
+    line-height: 1;
+    transform: rotate(-13deg);
+    user-select: none;
+  }
+  .manga-hero-cover {
+    display: none;
+  }
+  @media (min-width: 950px) {
+    .manga-hero-cover {
+      position: absolute;
+      right: 5%;
+      top: 1.1rem;
+      display: block;
+      width: 12rem;
+      height: 18rem;
+      overflow: hidden;
+      border: 5px solid rgba(255, 255, 255, 0.9);
+      border-radius: 0.35rem;
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.42);
+      transform: rotate(7deg);
+    }
+    .manga-hero-cover img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: top;
+    }
+  }
+  .manga-aside {
+    padding: 1.5rem;
+    border: 1px solid hsl(var(--border));
+    border-radius: 1.25rem;
+    background: hsl(var(--muted) / 0.3);
+  }
+  .manga-start {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 1.5rem;
+    padding: 0.8rem 1rem;
+    border-radius: 0.8rem;
+    background: hsl(var(--foreground));
+    color: hsl(var(--background));
+    font-weight: 600;
+  }
+  .manga-start:hover {
+    opacity: 0.85;
+  }
+  .manga-search {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    width: min(100%, 17rem);
+    padding: 0.6rem 0.8rem;
+    border: 1px solid hsl(var(--border));
+    border-radius: 0.8rem;
+    color: hsl(var(--muted-foreground));
+  }
+  .manga-search:focus-within {
+    border-color: hsl(var(--primary));
+  }
+  .manga-search svg {
+    flex: none;
+    width: 1.1rem;
+    height: 1.1rem;
+  }
+  .manga-search input {
+    width: 100%;
+    background: transparent;
+    color: hsl(var(--foreground));
+    outline: none;
+  }
+  .manga-search input::placeholder {
+    color: hsl(var(--muted-foreground));
+  }
+  .manga-chapters {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.65rem;
+  }
+  .manga-chapters li[hidden] {
+    display: none;
+  }
+  .manga-chapter {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    min-height: 4.25rem;
+    padding: 0.8rem 1rem;
+    border: 1px solid hsl(var(--border));
+    border-radius: 0.85rem;
+    font-size: 0.9rem;
+    transition:
+      border-color 0.18s,
+      background 0.18s;
+  }
+  a.manga-chapter:hover {
+    border-color: hsl(var(--primary));
+    background: hsl(var(--muted) / 0.35);
+  }
+  .manga-chapter-number {
+    flex: none;
+    color: hsl(var(--muted-foreground));
+    font-size: 0.78rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .manga-chapter-arrow {
+    flex: none;
+    color: hsl(var(--muted-foreground));
+    font-size: 1.15rem;
+  }
+  .manga-chapter-pending {
+    opacity: 0.48;
+  }
+  @media (max-width: 640px) {
+    .manga-chapters {
+      grid-template-columns: 1fr;
+    }
+    .manga-search {
+      width: 100%;
+    }
+  }
+</style>

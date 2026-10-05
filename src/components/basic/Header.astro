@@ -52,7 +52,7 @@ function getLocalizedUrl(locale: string | undefined, path: string) {
           (config.header?.menu || []).map((item: any) => {
             const isBlogMenu = item.title === 'Blog' || item.link.startsWith('/blog')
             const itemPath = isBlogMenu ? blogLandingPath : item.link
-            if (isBlogMenu && categories.length > 0) {
+            if (isBlogMenu) {
               return (
                 <div
                   class='menu-item-with-dropdown relative w-full md:w-fit'
@@ -83,6 +83,12 @@ function getLocalizedUrl(locale: string | undefined, path: string) {
                           {category.name}
                         </a>
                       ))}
+                      <a
+                        href={getLocalizedUrl(Astro.currentLocale, '/manga')}
+                        class='category-link block border-t border-border px-4 py-2 text-sm transition-colors hover:bg-background/60 hover:text-primary dark:hover:bg-muted/60'
+                      >
+                        {isEnglish ? 'Manga' : '漫画资源'}
+                      </a>
                     </div>
                   </div>
                 </div>

@@ -1,0 +1,13 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro'
+import MangaCatalog from '@/components/manga/MangaCatalog.astro'
+
+export const prerender = true
+---
+
+<BaseLayout
+  meta={{ title: 'Manga', description: 'Read manga chapters on Qi Qi’s blog.' }}
+  showLive2D={false}
+>
+  <MangaCatalog english />
+</BaseLayout>
