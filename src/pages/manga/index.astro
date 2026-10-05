@@ -1,0 +1,13 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro'
+import MangaCatalog from '@/components/manga/MangaCatalog.astro'
+
+export const prerender = true
+---
+
+<BaseLayout
+  meta={{ title: '漫画资源', description: '戚柒的漫画资源与站内阅读。' }}
+  showLive2D={false}
+>
+  <MangaCatalog />
+</BaseLayout>

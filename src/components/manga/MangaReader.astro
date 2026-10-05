@@ -1,0 +1,401 @@
+---
+import {
+  mangaAssetBase,
+  mangaCatalog,
+  mangaChapterPath,
+  mangaPages,
+  mangaPageUrl
+} from '@/lib/manga'
+
+import BaseLayout from '@/layouts/BaseLayout.astro'
+
+interface Props {
+  chapterId: number
+  english?: boolean
+}
+
+const { chapterId, english = false } = Astro.props
+const index = mangaCatalog.chapters.findIndex((item) => item.id === chapterId)
+if (index < 0) throw new Error(`Unknown manga chapter ${chapterId}`)
+const chapter = mangaCatalog.chapters[index]
+const files = mangaPages[String(chapterId)] || []
+const ready = Boolean(mangaAssetBase && files.length)
+const previous = mangaCatalog.chapters[index - 1]
+const next = mangaCatalog.chapters[index + 1]
+const previousReady = previous && mangaAssetBase && mangaPages[String(previous.id)]?.length
+const nextReady = next && mangaAssetBase && mangaPages[String(next.id)]?.length
+const chapterListUrl = english ? '/en/manga' : '/manga'
+const meta = {
+  title: `${chapter.title} · ${mangaCatalog.title}`,
+  description: `${mangaCatalog.title} ${chapter.title} — ${english ? 'read online' : '站内阅读'}`
+}
+---
+
+<BaseLayout {meta} workspace showLive2D={false}>
+  <main class='manga-reader' data-chapter={chapterId}>
+    <header class='reader-header'>
+      <a
+        class='reader-back'
+        href={chapterListUrl}
+        aria-label={english ? 'Back to chapters' : '返回章节目录'}
+      >
+        <span aria-hidden='true'>←</span>
+        <span class='hidden sm:inline'>{english ? 'Chapters' : '章节目录'}</span>
+      </a>
+      <div class='reader-heading'>
+        <a class='reader-series' href={chapterListUrl}>{mangaCatalog.title}</a>
+        <span class='reader-chapter-title'>{chapter.title}</span>
+      </div>
+      <span id='reader-progress' class='reader-progress'
+        >{ready ? `1 / ${files.length}` : `${chapterId} / ${mangaCatalog.chapters.length}`}</span
+      >
+    </header>
+
+    <div class='reader-tools'>
+      <label for='reader-chapter-select'>{english ? 'Chapter' : '当前章节'}</label>
+      <select id='reader-chapter-select' aria-label={english ? 'Choose chapter' : '选择章节'}>
+        {
+          mangaCatalog.chapters.map((item) => (
+            <option
+              value={mangaChapterPath(item.id, english)}
+              selected={item.id === chapterId}
+              disabled={!mangaAssetBase || !mangaPages[String(item.id)]?.length}
+            >
+              {item.title}
+            </option>
+          ))
+        }
+      </select>
+      <span class='reader-tools-count'
+        >{
+          ready ? `${files.length} ${english ? 'pages' : '页'}` : english ? 'Preparing' : '整理中'
+        }</span
+      >
+    </div>
+
+    {
+      ready ? (
+        <div class='reader-pages' aria-label={english ? 'Comic pages' : '漫画页面'}>
+          {files.map((file, pageIndex) => (
+            <figure class='reader-page' id={`page-${pageIndex + 1}`} data-page={pageIndex + 1}>
+              <img
+                src={mangaPageUrl(chapterId, file)}
+                alt={`${chapter.title} · ${english ? 'page' : '第'} ${pageIndex + 1}${english ? '' : ' 页'}`}
+                width='800'
+                height='1133'
+                loading={pageIndex < 2 ? 'eager' : 'lazy'}
+                decoding='async'
+                fetchpriority={pageIndex === 0 ? 'high' : 'auto'}
+              />
+              <figcaption class='image-error'>
+                {english
+                  ? 'This page could not be loaded. Please refresh and try again.'
+                  : '这一页暂时加载失败，请刷新重试。'}
+              </figcaption>
+            </figure>
+          ))}
+        </div>
+      ) : (
+        <section class='reader-pending'>
+          <p class='reader-pending-number'>{String(chapterId).padStart(3, '0')}</p>
+          <h1>{chapter.title}</h1>
+          <p>
+            {english
+              ? 'Images for this chapter are being prepared for the site.'
+              : '本话图片正在同步到站内，完成后即可在这里阅读。'}
+          </p>
+          <a href={chapterListUrl}>{english ? 'Back to chapter list' : '返回章节目录'} →</a>
+        </section>
+      )
+    }
+
+    <nav class='reader-end' aria-label={english ? 'Chapter navigation' : '章节导航'}>
+      {
+        previousReady ? (
+          <a href={mangaChapterPath(previous.id, english)}>
+            <>
+              <span>← {english ? 'Previous' : '上一话'}</span>
+              <strong>{previous.title}</strong>
+            </>
+          </a>
+        ) : (
+          <span class='reader-nav-disabled'>← {english ? 'Previous' : '上一话'}</span>
+        )
+      }
+      {
+        nextReady ? (
+          <a href={mangaChapterPath(next.id, english)}>
+            <>
+              <span>{english ? 'Next' : '下一话'} →</span>
+              <strong>{next.title}</strong>
+            </>
+          </a>
+        ) : (
+          <span class='reader-nav-disabled'>{english ? 'Next' : '下一话'} →</span>
+        )
+      }
+    </nav>
+    <footer class='reader-footer'>
+      <a href={chapterListUrl}>{english ? 'All chapters' : '全部章节'}</a>
+      <span>·</span>
+      <a href={english ? '/en/blog' : '/blog'}>Blog</a>
+    </footer>
+  </main>
+</BaseLayout>
+
+<script>
+  const reader = document.querySelector<HTMLElement>('.manga-reader')
+  const chapterId = Number(reader?.dataset.chapter)
+  const select = document.querySelector<HTMLSelectElement>('#reader-chapter-select')
+  select?.addEventListener('change', () => {
+    window.location.href = select.value
+  })
+
+  if (Number.isInteger(chapterId))
+    localStorage.setItem('manga:oregairu:last-chapter', String(chapterId))
+
+  const images = Array.from(document.querySelectorAll<HTMLImageElement>('.reader-page img'))
+  const progress = document.querySelector<HTMLElement>('#reader-progress')
+  const resumePage = new URLSearchParams(window.location.search).has('resume')
+    ? Number(localStorage.getItem(`manga:oregairu:${chapterId}:page`))
+    : 0
+  if (images.length && progress) {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)
+        const page = visible[0]?.target.closest<HTMLElement>('[data-page]')?.dataset.page
+        if (page) {
+          progress.textContent = `${page} / ${images.length}`
+          localStorage.setItem(`manga:oregairu:${chapterId}:page`, page)
+        }
+      },
+      { threshold: [0, 0.25, 0.5, 0.75] }
+    )
+    images.forEach((image) => {
+      observer.observe(image)
+      image.addEventListener('error', () => image.closest('.reader-page')?.classList.add('failed'))
+    })
+    if (resumePage > 1 && resumePage <= images.length) {
+      window.requestAnimationFrame(() => {
+        document.getElementById(`page-${resumePage}`)?.scrollIntoView({ block: 'start' })
+      })
+    }
+  }
+</script>
+
+<style>
+  :global(html) {
+    background: #0d0e12;
+  }
+  :global(body[data-workspace='true']) {
+    margin: 0;
+    background: #0d0e12;
+  }
+  .manga-reader {
+    min-height: 100vh;
+    background: #0d0e12;
+    color: #f4f4f5;
+    font-family: inherit;
+  }
+  .reader-header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: grid;
+    grid-template-columns: 8rem minmax(0, 1fr) 5rem;
+    align-items: center;
+    gap: 1rem;
+    min-height: 4.25rem;
+    padding: 0.65rem clamp(1rem, 3vw, 2.5rem);
+    border-bottom: 1px solid #2b2c32;
+    background: #121317f2;
+    backdrop-filter: blur(16px);
+  }
+  .reader-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.65rem;
+    color: #b7b8c2;
+    font-size: 0.9rem;
+  }
+  .reader-back:hover,
+  .reader-footer a:hover {
+    color: white;
+  }
+  .reader-back span:first-child {
+    font-size: 1.35rem;
+  }
+  .reader-heading {
+    min-width: 0;
+    display: flex;
+    align-items: baseline;
+    gap: 0.8rem;
+  }
+  .reader-series {
+    flex: none;
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+  .reader-chapter-title {
+    min-width: 0;
+    overflow: hidden;
+    color: #a9aab4;
+    font-size: 0.8rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .reader-progress {
+    color: #a9aab4;
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+  .reader-tools {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    max-width: 55rem;
+    margin: 0 auto;
+    padding: 1.4rem 1rem;
+    color: #a9aab4;
+    font-size: 0.8rem;
+  }
+  .reader-tools select {
+    flex: 1;
+    min-width: 0;
+    max-width: 29rem;
+    padding: 0.6rem 0.8rem;
+    border: 1px solid #33343b;
+    border-radius: 0.55rem;
+    background: #1b1c22;
+    color: white;
+    font-size: 0.85rem;
+  }
+  .reader-tools-count {
+    margin-left: auto;
+    white-space: nowrap;
+  }
+  .reader-pages {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0 0 2rem;
+  }
+  .reader-page {
+    width: min(100%, 55rem);
+    min-height: 10rem;
+    margin: 0;
+    background: #18191e;
+    scroll-margin-top: 4.75rem;
+  }
+  .reader-page img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  .image-error {
+    display: none;
+    padding: 2rem;
+    color: #f3a6a6;
+    text-align: center;
+  }
+  .reader-page.failed .image-error {
+    display: block;
+  }
+  .reader-pending {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+    padding: 3rem 1rem;
+    text-align: center;
+  }
+  .reader-pending-number {
+    margin-bottom: 1rem;
+    color: #a39cc5;
+    font-size: 1rem;
+    letter-spacing: 0.2em;
+  }
+  .reader-pending h1 {
+    max-width: 44rem;
+    font-size: clamp(1.5rem, 4vw, 2.5rem);
+    font-weight: 650;
+  }
+  .reader-pending p:not(.reader-pending-number) {
+    margin-top: 1rem;
+    color: #a9aab4;
+  }
+  .reader-pending a {
+    margin-top: 2rem;
+    color: #bba9ff;
+  }
+  .reader-end {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.8rem;
+    max-width: 55rem;
+    margin: 1.5rem auto 0;
+    padding: 0 1rem;
+  }
+  .reader-end a,
+  .reader-nav-disabled {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    min-height: 5.5rem;
+    padding: 1rem;
+    border: 1px solid #33343b;
+    border-radius: 0.8rem;
+    color: #c5c6ce;
+    font-size: 0.8rem;
+  }
+  .reader-end a:hover {
+    border-color: #bba9ff;
+    color: white;
+  }
+  .reader-end strong {
+    overflow: hidden;
+    color: white;
+    font-size: 0.9rem;
+    font-weight: 500;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .reader-nav-disabled {
+    opacity: 0.4;
+  }
+  .reader-footer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.8rem;
+    padding: 3rem 1rem;
+    color: #858690;
+    font-size: 0.8rem;
+  }
+  @media (max-width: 640px) {
+    .reader-header {
+      grid-template-columns: 2rem minmax(0, 1fr) 4rem;
+      gap: 0.65rem;
+    }
+    .reader-chapter-title {
+      display: none;
+    }
+    .reader-tools {
+      padding: 0.8rem;
+    }
+    .reader-tools label {
+      display: none;
+    }
+    .reader-pages {
+      gap: 0.25rem;
+    }
+    .reader-end {
+      gap: 0.4rem;
+    }
+  }
+</style>
