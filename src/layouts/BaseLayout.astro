@@ -3,7 +3,6 @@ import type { SiteMeta } from '@/types'
 
 import BaseHead from '@/components/BaseHead.astro'
 import { Footer, Header, ThemeProvider } from '@/components/basic'
-import Live2DAgent from '@/components/live2d/Live2DAgent.astro'
 import config from '@/site-config'
 
 // Import the global.css file here so that it is included on
@@ -20,7 +19,6 @@ interface Props {
 const {
   meta: { articleDate, description = config.description, ogImage, title },
   highlightColor,
-  showLive2D = true,
   workspace = false
 } = Astro.props
 
@@ -107,7 +105,6 @@ const langAttr = currentLocale === 'en' ? 'en' : 'zh'
         </div>
       )
     }
-    {showLive2D && <Live2DAgent />}
 
     {/* Set highlight color */}
     <style define:vars={{ highlightColor }}>
