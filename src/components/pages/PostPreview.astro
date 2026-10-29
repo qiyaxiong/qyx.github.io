@@ -69,7 +69,7 @@ const fallbackVisual = !heroImageProps
       style: getBlogVisualStyle(data.category)
     }
   : undefined
-const hasPreviewVisual = Boolean(heroImageProps || fallbackVisual)
+const hasPreviewVisual = Boolean(heroImageProps)
 const previewStyle = detailed
   ? data.heroImage?.color
     ? '--preview-highlight:color-mix(in srgb,' +
